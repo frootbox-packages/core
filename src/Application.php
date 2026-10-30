@@ -23,6 +23,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Symfony\Component\Console\Application as ConsoleApplication;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use UnexpectedValueException;
 
 /**
@@ -77,6 +80,17 @@ final readonly class Application
         $request = new ServerRequestCreator($factory, $factory, $factory, $factory)->fromGlobals();
 
         new ResponseEmitter()->emit($this->handle($request));
+    }
+
+    /**
+     * Runs a command of bin/frootbox and returns its exit code.
+     */
+    public function runConsole(?InputInterface $input = null, ?OutputInterface $output = null): int
+    {
+        $console = $this->service(ConsoleApplication::class, ConsoleApplication::class);
+        $console->setAutoExit(false);
+
+        return $console->run($input, $output);
     }
 
     /**

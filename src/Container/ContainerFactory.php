@@ -10,8 +10,14 @@ namespace Frootbox\Core\Container;
 
 use DI\Container;
 use DI\ContainerBuilder;
+use Doctrine\DBAL\Connection;
+use Doctrine\Migrations\DependencyFactory;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\Environment;
+use Frootbox\Core\Console\ConsoleFactory;
+use Frootbox\Core\Database\ConnectionFactory;
+use Frootbox\Core\Database\MigrationsFactory;
+use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Http\WelcomeHandler;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
@@ -22,6 +28,7 @@ use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\UploadedFileFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
+use Symfony\Component\Console\Application as ConsoleApplication;
 
 use function DI\factory;
 use function DI\get;
@@ -51,6 +58,10 @@ final class ContainerFactory
             UriFactoryInterface::class => get(Psr17Factory::class),
             UploadedFileFactoryInterface::class => get(Psr17Factory::class),
             Router::class => factory([self::class, 'createRouter']),
+            Connection::class => factory([ConnectionFactory::class, 'create']),
+            MigrationSources::class => factory([self::class, 'createMigrationSources']),
+            DependencyFactory::class => factory([MigrationsFactory::class, 'create']),
+            ConsoleApplication::class => factory([ConsoleFactory::class, 'create']),
         ]);
 
         $container = $builder->build();
@@ -73,5 +84,13 @@ final class ContainerFactory
         $router->get('/', WelcomeHandler::class, 'welcome');
 
         return $router;
+    }
+
+    /**
+     * Migrations of the core. Extensions will add their own (M1, extension system).
+     */
+    public static function createMigrationSources(): MigrationSources
+    {
+        return new MigrationSources()->add('Frootbox\\Core\\Migrations', \dirname(__DIR__, 2) . '/migrations');
     }
 }
