@@ -10,54 +10,88 @@ namespace Frootbox\Core\Console;
 
 use Doctrine\Migrations\DependencyFactory;
 use Doctrine\Migrations\Tools\Console\Command as Migrations;
+use Doctrine\Migrations\Tools\Console\Command\DoctrineCommand;
+use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Frootbox;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\Console\Application as ConsoleApplication;
-use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Command\LazyCommand;
 
 /**
- * Builds bin/frootbox with the commands of the core.
+ * Builds bin/frootbox with the commands of the core and the extensions.
  *
- * Frootbox commands load lazily from the container. The Doctrine commands
- * (migrations:*) are for details such as status, rollback or new migrations
- * and keep only their prefixed names.
+ * Every command is created only when it runs. So bin/frootbox also works
+ * without a database, e.g. for make:extension or a later install command.
+ * The Doctrine commands (migrations:*) are for details such as status,
+ * rollback or new migrations and keep only their prefixed names.
  */
 final class ConsoleFactory
 {
-    /**
-     * Command name => service id.
-     *
-     * @var array<string, class-string>
-     */
-    private const array COMMANDS = [
-        'about' => AboutCommand::class,
-        'migrate' => MigrateCommand::class,
+    /** @var list<class-string<DoctrineCommand>> */
+    private const array DOCTRINE_COMMANDS = [
+        Migrations\CurrentCommand::class,
+        Migrations\ExecuteCommand::class,
+        Migrations\GenerateCommand::class,
+        Migrations\LatestCommand::class,
+        Migrations\ListCommand::class,
+        Migrations\MigrateCommand::class,
+        Migrations\StatusCommand::class,
+        Migrations\SyncMetadataCommand::class,
+        Migrations\UpToDateCommand::class,
+        Migrations\VersionCommand::class,
     ];
 
-    public static function create(ContainerInterface $container, DependencyFactory $migrations): ConsoleApplication
+    public static function create(ContainerInterface $container, Registry $registry): ConsoleApplication
     {
         $console = new ConsoleApplication('Frootbox', Frootbox::VERSION);
-        $console->setCommandLoader(new ContainerCommandLoader($container, self::COMMANDS));
 
-        $doctrineCommands = [
-            new Migrations\CurrentCommand($migrations),
-            new Migrations\ExecuteCommand($migrations),
-            new Migrations\GenerateCommand($migrations),
-            new Migrations\LatestCommand($migrations),
-            new Migrations\ListCommand($migrations),
-            new Migrations\MigrateCommand($migrations),
-            new Migrations\StatusCommand($migrations),
-            new Migrations\SyncMetadataCommand($migrations),
-            new Migrations\UpToDateCommand($migrations),
-            new Migrations\VersionCommand($migrations),
-        ];
+        foreach ($registry->commands() as $class) {
+            $console->addCommand(self::lazy($class, static fn(): Command => self::fromContainer($container, $class)));
+        }
 
-        // Doctrine adds short aliases such as "migrate" or "status". They
-        // would shadow Frootbox commands, so only migrations:* stays.
-        foreach ($doctrineCommands as $command) {
-            $console->addCommand($command->setAliases([]));
+        foreach (self::DOCTRINE_COMMANDS as $class) {
+            $console->addCommand(self::lazy($class, static fn(): Command => new $class(self::migrations($container))));
         }
 
         return $console;
+    }
+
+    /**
+     * @param class-string<Command> $class
+     * @param \Closure(): Command   $factory
+     */
+    private static function lazy(string $class, \Closure $factory): LazyCommand
+    {
+        $info = CommandInfo::of($class);
+
+        // Aliases are left out on purpose: Doctrine would otherwise take
+        // short names such as "migrate" or "status".
+        return new LazyCommand($info->name, [], $info->description, $info->hidden, $factory);
+    }
+
+    /**
+     * @param class-string<Command> $class
+     */
+    private static function fromContainer(ContainerInterface $container, string $class): Command
+    {
+        $command = $container->get($class);
+
+        if (!$command instanceof Command) {
+            throw new \UnexpectedValueException(\sprintf('Service %s is not a console command.', $class));
+        }
+
+        return $command;
+    }
+
+    private static function migrations(ContainerInterface $container): DependencyFactory
+    {
+        $factory = $container->get(DependencyFactory::class);
+
+        if (!$factory instanceof DependencyFactory) {
+            throw new \UnexpectedValueException('The container returned no Doctrine DependencyFactory.');
+        }
+
+        return $factory;
     }
 }

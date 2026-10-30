@@ -12,6 +12,8 @@ use DI\Container;
 use Frootbox\Core\Config\ConfigLoader;
 use Frootbox\Core\Container\ContainerFactory;
 use Frootbox\Core\Error\ErrorMiddleware;
+use Frootbox\Core\Extension\ExtensionLoader;
+use Frootbox\Core\Extension\Source\ComposerSource;
 use Frootbox\Core\Http\MiddlewareDispatcher;
 use Frootbox\Core\Http\NotFoundHandler;
 use Frootbox\Core\Http\ResponseEmitter;
@@ -61,7 +63,10 @@ final readonly class Application
         $paths = new ProjectPaths($projectRoot);
         $config = ConfigLoader::load($paths, $serverEnvironment ?? getenv());
 
-        return new self(ContainerFactory::create($config, $paths));
+        $sources = [new ComposerSource($paths->root . '/vendor', $paths->root . '/extensions')];
+        $extensions = ExtensionLoader::discover($sources, $paths, useCache: !$config->environment->isDevelopment());
+
+        return new self(ContainerFactory::create($config, $paths, $extensions, ExtensionLoader::boot($extensions)));
     }
 
     public function container(): ContainerInterface

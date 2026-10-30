@@ -20,7 +20,9 @@ use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Event\EventDispatcher;
 use Frootbox\Core\Event\ListenerProvider;
-use Frootbox\Core\Http\WelcomeHandler;
+use Frootbox\Core\Extension\ExtensionLoader;
+use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
@@ -47,7 +49,7 @@ use function DI\get;
  */
 final class ContainerFactory
 {
-    public static function create(Config $config, ProjectPaths $paths): Container
+    public static function create(Config $config, ProjectPaths $paths, Extensions $extensions = new Extensions(), ?Registry $registry = null): Container
     {
         $builder = new ContainerBuilder();
         $builder->useAutowiring(true);
@@ -65,6 +67,7 @@ final class ContainerFactory
             UploadedFileFactoryInterface::class => get(Psr17Factory::class),
             LoggerInterface::class => factory([LoggerFactory::class, 'create']),
             EventDispatcherInterface::class => get(EventDispatcher::class),
+            ListenerProvider::class => factory([self::class, 'createListenerProvider']),
             ListenerProviderInterface::class => get(ListenerProvider::class),
             Router::class => factory([self::class, 'createRouter']),
             Connection::class => factory([ConnectionFactory::class, 'create']),
@@ -79,27 +82,31 @@ final class ContainerFactory
         $container->set(Config::class, $config);
         $container->set(Environment::class, $config->environment);
         $container->set(ProjectPaths::class, $paths);
+        $container->set(Extensions::class, $extensions);
+        $container->set(Registry::class, $registry ?? ExtensionLoader::boot($extensions));
         $container->set(ContainerInterface::class, $container);
 
         return $container;
     }
 
-    /**
-     * Fixed routes of the core. Extensions will add their own (M1, extension system).
-     */
-    public static function createRouter(): Router
+    public static function createRouter(Registry $registry): Router
     {
         $router = new Router();
-        $router->get('/', WelcomeHandler::class, 'welcome');
+        $registry->applyRoutes($router);
 
         return $router;
     }
 
-    /**
-     * Migrations of the core. Extensions will add their own (M1, extension system).
-     */
-    public static function createMigrationSources(): MigrationSources
+    public static function createMigrationSources(Registry $registry): MigrationSources
     {
-        return new MigrationSources()->add('Frootbox\\Core\\Migrations', \dirname(__DIR__, 2) . '/migrations');
+        return $registry->migrationSources();
+    }
+
+    public static function createListenerProvider(ContainerInterface $container, Registry $registry): ListenerProvider
+    {
+        $provider = new ListenerProvider($container);
+        $registry->applyListeners($provider);
+
+        return $provider;
     }
 }

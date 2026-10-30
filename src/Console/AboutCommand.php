@@ -11,8 +11,10 @@ namespace Frootbox\Core\Console;
 use Doctrine\DBAL\Connection;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Database\Migrator;
+use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Frootbox;
 use Frootbox\Core\ProjectPaths;
+use Psr\Container\ContainerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,8 +31,8 @@ final class AboutCommand extends Command
     public function __construct(
         private readonly Config $config,
         private readonly ProjectPaths $paths,
-        private readonly Connection $connection,
-        private readonly Migrator $migrator,
+        private readonly Extensions $extensions,
+        private readonly ContainerInterface $container,
     ) {
         parent::__construct();
     }
@@ -44,12 +46,22 @@ final class AboutCommand extends Command
             ['PHP', \PHP_VERSION],
             ['Environment', $this->config->environment->value],
             ['Project root', $this->paths->root],
-            ['Database driver', \is_string($driver = $this->connection->getParams()['driver'] ?? null) ? $driver : '-'],
+            ['Extensions', (string) \count($this->extensions)],
         ];
 
+        // The database is only touched here, so about also works without one.
         try {
-            $rows[] = ['Database', 'connected, server ' . $this->connection->getServerVersion()];
-            $rows[] = ['Pending migrations', (string) $this->migrator->pending()];
+            $connection = $this->container->get(Connection::class);
+            $migrator = $this->container->get(Migrator::class);
+
+            if (!$connection instanceof Connection || !$migrator instanceof Migrator) {
+                throw new \UnexpectedValueException('Database services are missing in the container.');
+            }
+
+            $driver = $connection->getParams()['driver'] ?? null;
+            $rows[] = ['Database driver', \is_string($driver) ? $driver : '-'];
+            $rows[] = ['Database', 'connected, server ' . $connection->getServerVersion()];
+            $rows[] = ['Pending migrations', (string) $migrator->pending()];
             $status = Command::SUCCESS;
         } catch (Throwable $exception) {
             $rows[] = ['Database', 'not reachable: ' . $exception->getMessage()];
