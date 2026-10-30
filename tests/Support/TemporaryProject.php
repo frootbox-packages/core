@@ -42,6 +42,16 @@ final readonly class TemporaryProject
         return new self($root);
     }
 
+    /**
+     * Contents of the log files of one environment, empty if there are none.
+     */
+    public function log(string $environment): string
+    {
+        $files = glob($this->root . '/var/log/' . $environment . '-*.log');
+
+        return implode('', array_map(static fn(string $file): string => (string) file_get_contents($file), false === $files ? [] : $files));
+    }
+
     public function remove(): void
     {
         if (!is_dir($this->root)) {

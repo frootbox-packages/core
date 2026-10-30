@@ -23,9 +23,15 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Application as ConsoleApplication;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\ExceptionInterface as ConsoleException;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\ConsoleOutput;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Throwable;
 use UnexpectedValueException;
 
 /**
@@ -84,13 +90,29 @@ final readonly class Application
 
     /**
      * Runs a command of bin/frootbox and returns its exit code.
+     *
+     * Failed commands are logged. Wrong input such as an unknown command or
+     * a missing argument is only shown, not logged.
      */
     public function runConsole(?InputInterface $input = null, ?OutputInterface $output = null): int
     {
         $console = $this->service(ConsoleApplication::class, ConsoleApplication::class);
         $console->setAutoExit(false);
+        $console->setCatchExceptions(false);
+        $output ??= new ConsoleOutput();
 
-        return $console->run($input, $output);
+        try {
+            return $console->run($input, $output);
+        } catch (Throwable $throwable) {
+            if (!$throwable instanceof ConsoleException) {
+                $this->service(LoggerInterface::class, LoggerInterface::class)
+                    ->error('Console command failed: {message}', ['message' => $throwable->getMessage(), 'exception' => $throwable]);
+            }
+
+            $console->renderThrowable($throwable, $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output);
+
+            return Command::FAILURE;
+        }
     }
 
     /**

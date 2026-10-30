@@ -20,6 +20,7 @@ use Frootbox\Core\Http\Exception\HttpException;
 use Frootbox\Core\Http\MiddlewareDispatcher;
 use Frootbox\Core\Http\NotFoundHandler;
 use Frootbox\Core\Http\WelcomeHandler;
+use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Route;
 use Frootbox\Core\Routing\RouteMatch;
@@ -51,6 +52,7 @@ use Psr\Http\Message\ResponseInterface;
 #[UsesClass(Route::class)]
 #[UsesClass(RouteMatch::class)]
 #[UsesClass(Router::class)]
+#[UsesClass(LoggerFactory::class)]
 final class ApplicationTest extends TestCase
 {
     private ?TemporaryProject $project = null;
@@ -114,6 +116,29 @@ final class ApplicationTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertStringNotContainsString(ThrowingHandler::MESSAGE, (string) $response->getBody());
         self::assertSame('no-store', $response->getHeaderLine('Cache-Control'));
+    }
+
+    public function testServerErrorsAreLogged(): void
+    {
+        $application = $this->application('prod');
+        $this->router($application)->get('/boom', ThrowingHandler::class);
+
+        $this->request($application, 'GET', '/boom');
+
+        self::assertNotNull($this->project);
+        $log = $this->project->log('prod');
+        self::assertStringContainsString('frootbox.ERROR: GET /boom failed with 500: ' . ThrowingHandler::MESSAGE, $log);
+        self::assertStringContainsString('[stacktrace]', $log);
+    }
+
+    public function testNotFoundIsOnlyLoggedAsDebug(): void
+    {
+        $application = $this->application('prod');
+
+        $this->request($application, 'GET', '/missing');
+
+        self::assertNotNull($this->project);
+        self::assertSame('', $this->project->log('prod'));
     }
 
     public function testProductionCompilesTheContainer(): void

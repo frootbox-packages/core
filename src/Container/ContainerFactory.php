@@ -18,16 +18,22 @@ use Frootbox\Core\Console\ConsoleFactory;
 use Frootbox\Core\Database\ConnectionFactory;
 use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\MigrationSources;
+use Frootbox\Core\Event\EventDispatcher;
+use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Http\WelcomeHandler;
+use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Container\ContainerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
+use Psr\EventDispatcher\ListenerProviderInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\UploadedFileFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Application as ConsoleApplication;
 
 use function DI\factory;
@@ -57,6 +63,9 @@ final class ContainerFactory
             ServerRequestFactoryInterface::class => get(Psr17Factory::class),
             UriFactoryInterface::class => get(Psr17Factory::class),
             UploadedFileFactoryInterface::class => get(Psr17Factory::class),
+            LoggerInterface::class => factory([LoggerFactory::class, 'create']),
+            EventDispatcherInterface::class => get(EventDispatcher::class),
+            ListenerProviderInterface::class => get(ListenerProvider::class),
             Router::class => factory([self::class, 'createRouter']),
             Connection::class => factory([ConnectionFactory::class, 'create']),
             MigrationSources::class => factory([self::class, 'createMigrationSources']),

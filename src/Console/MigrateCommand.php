@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Console;
 
 use Frootbox\Core\Database\Migrator;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -23,8 +24,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'migrate', description: 'Runs all pending migrations of the core and all extensions')]
 final class MigrateCommand extends Command
 {
-    public function __construct(private readonly Migrator $migrator)
-    {
+    public function __construct(
+        private readonly Migrator $migrator,
+        private readonly LoggerInterface $logger,
+    ) {
         parent::__construct();
     }
 
@@ -39,6 +42,7 @@ final class MigrateCommand extends Command
             return Command::SUCCESS;
         }
 
+        $this->logger->info('Ran {count} migration(s): {versions}', ['count' => \count($versions), 'versions' => implode(', ', $versions)]);
         $io->listing($versions);
         $io->success(\sprintf('Ran %d migration(s).', \count($versions)));
 

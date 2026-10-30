@@ -16,12 +16,14 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
  * Turns every exception into an error page.
  *
- * HttpException keeps its status, everything else becomes 500.
+ * HttpException keeps its status, everything else becomes 500. Server
+ * errors are logged as errors, client errors such as 404 only as debug.
  */
 final readonly class ErrorMiddleware implements MiddlewareInterface
 {
@@ -30,6 +32,7 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
         private ErrorPageRenderer $renderer,
         private ResponseFactoryInterface $responseFactory,
         private StreamFactoryInterface $streamFactory,
+        private LoggerInterface $logger,
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -37,17 +40,25 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
         try {
             return $handler->handle($request);
         } catch (Throwable $throwable) {
-            return $this->respond($throwable);
+            return $this->respond($request, $throwable);
         }
     }
 
-    private function respond(Throwable $throwable): ResponseInterface
+    private function respond(ServerRequestInterface $request, Throwable $throwable): ResponseInterface
     {
         $status = $throwable instanceof HttpException ? $throwable->status : 500;
+        $context = [
+            'status' => $status,
+            'method' => $request->getMethod(),
+            'path' => $request->getUri()->getPath(),
+            'message' => $throwable->getMessage(),
+            'exception' => $throwable,
+        ];
 
         if ($status >= 500) {
-            // Until logging exists (Monolog), server errors go to the PHP error log.
-            error_log((string) $throwable);
+            $this->logger->error('{method} {path} failed with {status}: {message}', $context);
+        } else {
+            $this->logger->debug('{method} {path} answered with {status}', $context);
         }
 
         $response = $this->responseFactory->createResponse($status)
