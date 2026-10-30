@@ -1,0 +1,25 @@
+{
+    "name": "frootbox/core",
+    "description": "Core of the Frootbox CMS",
+    "type": "library",
+    "license": "LGPL-3.0-only",
+    "keywords": ["cms", "frootbox"],
+    "require": {
+        "php": ">=8.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Frootbox\\Core\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Frootbox\\Core\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.1.x-dev"
+        }
+    }
+}
