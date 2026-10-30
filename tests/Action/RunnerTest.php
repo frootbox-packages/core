@@ -29,8 +29,7 @@ use Frootbox\Core\Action\Schema\SchemaFactory;
 use Frootbox\Core\Action\UnknownActionException;
 use Frootbox\Core\Auth\Actor;
 use Frootbox\Core\Auth\SystemPermissions;
-use Frootbox\Core\Database\Result;
-use Frootbox\Core\Database\TableWriter;
+use Frootbox\Core\Database\RecordingWriter;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Tests\Fixtures\Notes\CreateNote;
 use Frootbox\Core\Tests\Fixtures\Notes\CreateNotes;
@@ -40,6 +39,7 @@ use Frootbox\Core\Tests\Fixtures\Notes\Note;
 use Frootbox\Core\Tests\Fixtures\Notes\NoteStatus;
 use Frootbox\Core\Tests\Fixtures\Notes\WriteInQuery;
 use Frootbox\Core\Tests\Support\NotesTestCase;
+use Frootbox\Database\Result;
 use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use RuntimeException;
@@ -58,7 +58,7 @@ use RuntimeException;
 #[CoversClass(Context::class)]
 #[CoversClass(Actor::class)]
 #[CoversClass(SystemPermissions::class)]
-#[CoversClass(TableWriter::class)]
+#[CoversClass(RecordingWriter::class)]
 final class RunnerTest extends NotesTestCase
 {
     public function testRunsAnActionAndLogsIt(): void

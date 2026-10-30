@@ -18,8 +18,7 @@ use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Action\Undo\Undoer;
 use Frootbox\Core\Action\UndoException;
-use Frootbox\Core\Database\Rows;
-use Frootbox\Core\Database\TableWriter;
+use Frootbox\Core\Database\RecordingWriter;
 use Frootbox\Core\Database\WriteGuard\GuardedConnection;
 use Frootbox\Core\Database\WriteGuard\GuardedDriver;
 use Frootbox\Core\Database\WriteGuard\GuardedStatement;
@@ -33,6 +32,7 @@ use Frootbox\Core\Tests\Fixtures\Notes\Outbox;
 use Frootbox\Core\Tests\Fixtures\Notes\RenameNote;
 use Frootbox\Core\Tests\Fixtures\Notes\ShareNote;
 use Frootbox\Core\Tests\Support\NotesTestCase;
+use Frootbox\Database\Rows;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 #[CoversClass(Undoer::class)]
@@ -40,7 +40,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Compensations::class)]
 #[CoversClass(Journal::class)]
 #[CoversClass(ActionLog::class)]
-#[CoversClass(TableWriter::class)]
+#[CoversClass(RecordingWriter::class)]
 #[CoversClass(Rows::class)]
 #[CoversClass(WriteGuard::class)]
 #[CoversClass(GuardedDriver::class)]

@@ -36,7 +36,7 @@ final class MigrationsFactory
         $storage->setTableName(self::TABLE);
         $configuration->setMetadataStorageConfiguration($storage);
 
-        // New migrations extend Frootbox\Core\Database\Migration, which
+        // New migrations extend Frootbox\Database\Migration, which
         // also decides per database whether a transaction is used.
         $configuration->setCustomTemplate(self::TEMPLATE);
 

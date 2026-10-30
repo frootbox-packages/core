@@ -9,8 +9,8 @@ declare(strict_types=1);
 namespace Frootbox\Core\Migrations;
 
 use Doctrine\DBAL\Schema\Schema;
-use Frootbox\Core\Database\Migration;
-use Frootbox\Core\Database\Schema\Blueprint;
+use Frootbox\Database\Migration;
+use Frootbox\Database\Schema\Blueprint;
 
 /**
  * The action log and the recorded changes for undoing actions.

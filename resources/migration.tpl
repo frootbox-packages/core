@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace <namespace>;
 
 use Doctrine\DBAL\Schema\Schema;
-use Frootbox\Core\Database\Migration;
-use Frootbox\Core\Database\Schema\Blueprint;
+use Frootbox\Database\Migration;
+use Frootbox\Database\Schema\Blueprint;
 
 final class <className> extends Migration
 {

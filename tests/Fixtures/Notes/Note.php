@@ -9,7 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Tests\Fixtures\Notes;
 
 use DateTimeImmutable;
-use Frootbox\Core\Database\Entity;
+use Frootbox\Database\Entity;
 
 final readonly class Note extends Entity
 {

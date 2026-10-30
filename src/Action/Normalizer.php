@@ -10,7 +10,7 @@ namespace Frootbox\Core\Action;
 
 use BackedEnum;
 use DateTimeInterface;
-use Frootbox\Core\Database\Entity;
+use Frootbox\Database\Entity;
 use JsonSerializable;
 use Traversable;
 use UnitEnum;

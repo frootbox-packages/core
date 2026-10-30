@@ -10,8 +10,8 @@ namespace Frootbox\Core\Action;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
-use Frootbox\Core\Database\EntityMapper;
-use Frootbox\Core\Database\Values;
+use Frootbox\Database\EntityMapper;
+use Frootbox\Database\Values;
 use LogicException;
 use Throwable;
 

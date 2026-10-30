@@ -10,7 +10,7 @@ namespace Frootbox\Core\Tests\Fixtures\Notes;
 
 use Frootbox\Core\Action\AsQuery;
 use Frootbox\Core\Action\Query;
-use Frootbox\Core\Database\Result;
+use Frootbox\Database\Result;
 
 /**
  * @implements Query<Result<Note>>

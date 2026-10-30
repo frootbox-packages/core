@@ -9,7 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Action;
 
 use DateTimeImmutable;
-use Frootbox\Core\Database\Entity;
+use Frootbox\Database\Entity;
 
 /**
  * One run of an action: who, what, when, through which channel, and how

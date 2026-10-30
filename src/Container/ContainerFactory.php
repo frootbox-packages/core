@@ -21,6 +21,7 @@ use Frootbox\Core\Console\ConsoleFactory;
 use Frootbox\Core\Database\ConnectionFactory;
 use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\MigrationSources;
+use Frootbox\Core\Database\RecordingWriter;
 use Frootbox\Core\Event\EventDispatcher;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Extension\ExtensionLoader;
@@ -29,6 +30,7 @@ use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Database\Writer;
 use Invoker\InvokerInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Container\ContainerInterface;
@@ -75,6 +77,8 @@ final class ContainerFactory
             ListenerProviderInterface::class => get(ListenerProvider::class),
             Router::class => factory([self::class, 'createRouter']),
             Connection::class => factory([ConnectionFactory::class, 'create']),
+            // Repositories write only inside actions and record every change.
+            Writer::class => get(RecordingWriter::class),
             MigrationSources::class => factory([self::class, 'createMigrationSources']),
             DependencyFactory::class => factory([MigrationsFactory::class, 'create']),
             ConsoleApplication::class => factory([ConsoleFactory::class, 'create']),

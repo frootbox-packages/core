@@ -23,8 +23,8 @@ use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Action\Schema\InputMapper;
 use Frootbox\Core\Action\UndoException;
 use Frootbox\Core\Auth\Permissions;
-use Frootbox\Core\Database\Rows;
-use Frootbox\Core\Database\TableWriter;
+use Frootbox\Core\Database\RecordingWriter;
+use Frootbox\Database\Rows;
 use LogicException;
 
 /**
@@ -36,7 +36,7 @@ final readonly class Undoer
 {
     public function __construct(
         private ActionLog $log,
-        private TableWriter $writer,
+        private RecordingWriter $writer,
         private Journal $journal,
         private Catalog $catalog,
         private Runner $runner,

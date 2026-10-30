@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Action;
 
-use Frootbox\Core\Database\Entity;
+use Frootbox\Database\Entity;
 
 /**
  * A row an action changed, with its state before and after. For
