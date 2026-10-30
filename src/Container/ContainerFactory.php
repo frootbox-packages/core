@@ -12,6 +12,9 @@ use DI\Container;
 use DI\ContainerBuilder;
 use Doctrine\DBAL\Connection;
 use Doctrine\Migrations\DependencyFactory;
+use Frootbox\Core\Action\Catalog;
+use Frootbox\Core\Auth\Permissions;
+use Frootbox\Core\Auth\SystemPermissions;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Console\ConsoleFactory;
@@ -26,6 +29,7 @@ use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
+use Invoker\InvokerInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -74,6 +78,8 @@ final class ContainerFactory
             MigrationSources::class => factory([self::class, 'createMigrationSources']),
             DependencyFactory::class => factory([MigrationsFactory::class, 'create']),
             ConsoleApplication::class => factory([ConsoleFactory::class, 'create']),
+            Catalog::class => factory([self::class, 'createCatalog']),
+            Permissions::class => get(SystemPermissions::class),
         ]);
 
         $container = $builder->build();
@@ -85,6 +91,7 @@ final class ContainerFactory
         $container->set(Extensions::class, $extensions);
         $container->set(Registry::class, $registry ?? ExtensionLoader::boot($extensions));
         $container->set(ContainerInterface::class, $container);
+        $container->set(InvokerInterface::class, $container);
 
         return $container;
     }
@@ -100,6 +107,11 @@ final class ContainerFactory
     public static function createMigrationSources(Registry $registry): MigrationSources
     {
         return $registry->migrationSources();
+    }
+
+    public static function createCatalog(Registry $registry): Catalog
+    {
+        return $registry->catalog();
     }
 
     public static function createListenerProvider(ContainerInterface $container, Registry $registry): ListenerProvider

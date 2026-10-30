@@ -8,6 +8,10 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Extension;
 
+use Frootbox\Core\Action\Action;
+use Frootbox\Core\Action\Catalog;
+use Frootbox\Core\Action\DefinitionException;
+use Frootbox\Core\Action\Query;
 use Frootbox\Core\Console\CommandInfo;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Event\ListenerProvider;
@@ -21,6 +25,8 @@ use Symfony\Component\Console\Command\Command;
  *     $registry->get('/feed.xml', FeedHandler::class);
  *     $registry->listen(PagePublished::class, ClearFeed::class);
  *     $registry->command(ImportCommand::class);
+ *     $registry->action(PublishNews::class);
+ *     $registry->query(ListNews::class);
  *
  * Migrations in the folder migrations/ of an extension are found
  * automatically.
@@ -38,9 +44,12 @@ final class Registry
 
     private MigrationSources $migrations;
 
+    private Catalog $catalog;
+
     public function __construct()
     {
         $this->migrations = new MigrationSources();
+        $this->catalog = new Catalog();
     }
 
     /**
@@ -93,6 +102,30 @@ final class Registry
         $this->commands[$name] = $class;
     }
 
+    /**
+     * An action. Its name, description and permission come from #[AsAction].
+     *
+     * @param class-string<Action<mixed>> $class
+     */
+    public function action(string $class): void
+    {
+        if (!$this->catalog->add($class)->isAction()) {
+            throw new DefinitionException(\sprintf('%s is a query. Register it with query().', $class));
+        }
+    }
+
+    /**
+     * A query. Its name, description and permission come from #[AsQuery].
+     *
+     * @param class-string<Query<mixed>> $class
+     */
+    public function query(string $class): void
+    {
+        if ($this->catalog->add($class)->isAction()) {
+            throw new DefinitionException(\sprintf('%s is an action. Register it with action().', $class));
+        }
+    }
+
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -123,5 +156,10 @@ final class Registry
     public function migrationSources(): MigrationSources
     {
         return $this->migrations;
+    }
+
+    public function catalog(): Catalog
+    {
+        return $this->catalog;
     }
 }

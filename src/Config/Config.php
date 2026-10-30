@@ -52,6 +52,17 @@ final readonly class Config
         return $value;
     }
 
+    public function int(string $path, ?int $default = null): int
+    {
+        $value = $this->get($path, $default);
+
+        if (!\is_int($value)) {
+            throw new ConfigException(\sprintf('Config value "%s" must be a whole number.', $path));
+        }
+
+        return $value;
+    }
+
     public function bool(string $path, ?bool $default = null): bool
     {
         $value = $this->get($path, $default);

@@ -8,10 +8,15 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Extension;
 
+use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Console\AboutCommand;
+use Frootbox\Core\Console\ActionLogCommand;
+use Frootbox\Core\Console\ActionsCommand;
+use Frootbox\Core\Console\CallCommand;
 use Frootbox\Core\Console\ExtensionsCommand;
 use Frootbox\Core\Console\MakeExtensionCommand;
 use Frootbox\Core\Console\MigrateCommand;
+use Frootbox\Core\Console\PruneActionLogCommand;
 use Frootbox\Core\Http\WelcomeHandler;
 
 /**
@@ -28,6 +33,12 @@ final class CoreExtension implements Extension
         $registry->command(MigrateCommand::class);
         $registry->command(ExtensionsCommand::class);
         $registry->command(MakeExtensionCommand::class);
+        $registry->command(ActionsCommand::class);
+        $registry->command(CallCommand::class);
+        $registry->command(ActionLogCommand::class);
+        $registry->command(PruneActionLogCommand::class);
+
+        $registry->action(UndoAction::class);
 
         $registry->migrations('Frootbox\Core\Migrations', \dirname(__DIR__, 2) . '/migrations');
     }

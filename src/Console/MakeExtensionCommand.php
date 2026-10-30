@@ -118,7 +118,9 @@ final class MakeExtensionCommand extends Command
             {
                 public function register(Registry \$registry): void
                 {
-                    // Routes, listeners and console commands of this extension, e.g.:
+                    // Actions, queries, routes, listeners and console commands, e.g.:
+                    // \$registry->action(PublishArticle::class);
+                    // \$registry->query(ListArticles::class);
                     // \$registry->get('/feed.xml', FeedHandler::class);
                     // \$registry->listen(SomeEvent::class, SomeListener::class);
                     // \$registry->command(ImportCommand::class);

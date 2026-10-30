@@ -8,11 +8,14 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Database;
 
+use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Tools\DsnParser;
+use Frootbox\Core\Action\Journal;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\ConfigException;
+use Frootbox\Core\Database\WriteGuard\WriteGuard;
 use Frootbox\Core\ProjectPaths;
 
 /**
@@ -21,11 +24,12 @@ use Frootbox\Core\ProjectPaths;
  *   pdo-sqlite:///storage/database.sqlite   (path relative to the project root)
  *   pdo-mysql://user:secret@localhost:3306/frootbox
  *
- * The connection opens lazily on the first query.
+ * The connection opens lazily on the first query. With a Journal, the
+ * WriteGuard watches for writes that bypass the repositories.
  */
 final class ConnectionFactory
 {
-    public static function create(Config $config, ProjectPaths $paths): Connection
+    public static function create(Config $config, ProjectPaths $paths, ?Journal $journal = null): Connection
     {
         $url = $config->string('database.url', '');
 
@@ -39,6 +43,12 @@ final class ConnectionFactory
             $params['path'] = $paths->root . '/' . $params['path'];
         }
 
-        return DriverManager::getConnection($params);
+        $configuration = new Configuration();
+
+        if (null !== $journal) {
+            $configuration->setMiddlewares([new WriteGuard($journal)]);
+        }
+
+        return DriverManager::getConnection($params, $configuration);
     }
 }

@@ -9,6 +9,9 @@ declare(strict_types=1);
 namespace Frootbox\Core;
 
 use DI\Container;
+use Frootbox\Core\Action\Channel;
+use Frootbox\Core\Action\Context;
+use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Config\ConfigLoader;
 use Frootbox\Core\Container\ContainerFactory;
 use Frootbox\Core\Error\ErrorMiddleware;
@@ -105,6 +108,9 @@ final readonly class Application
         $console->setAutoExit(false);
         $console->setCatchExceptions(false);
         $output ??= new ConsoleOutput();
+
+        // Commands act as the system, like a cron job.
+        $this->service(CurrentContext::class, CurrentContext::class)->set(Context::system(Channel::Console));
 
         try {
             return $console->run($input, $output);

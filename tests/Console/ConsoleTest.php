@@ -58,7 +58,8 @@ final class ConsoleTest extends TestCase
         [$exitCode, $output] = $this->console('migrate');
 
         self::assertSame(0, $exitCode, $output);
-        self::assertStringContainsString('up to date', $output);
+        self::assertStringContainsString('Version20261030120000', $output);
+        self::assertStringContainsString('up to date', $this->console('migrate')[1]);
         self::assertFileExists($this->project->root . '/storage/database.sqlite');
     }
 

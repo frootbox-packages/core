@@ -1,0 +1,33 @@
+<?php
+
+/*
+ * SPDX-License-Identifier: LGPL-3.0-only
+ */
+
+declare(strict_types=1);
+
+namespace Frootbox\Core\Action\Undo;
+
+use Frootbox\Core\Action\Action;
+use Frootbox\Core\Action\AsAction;
+use Frootbox\Core\Action\Schema\Description;
+
+/**
+ * @implements Action<array{action: string, changes: int}>
+ */
+#[AsAction('action.undo', 'Undoes an earlier action: restores the data it changed and runs its compensations. Fails if that data has changed since.')]
+final readonly class UndoAction implements Action
+{
+    public function __construct(
+        #[Description('ID of the action in the action log')]
+        public int $id,
+    ) {}
+
+    /**
+     * @return array{action: string, changes: int}
+     */
+    public function handle(Undoer $undoer): array
+    {
+        return $undoer->undo($this->id);
+    }
+}
