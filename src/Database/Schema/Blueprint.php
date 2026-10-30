@@ -193,6 +193,16 @@ final class Blueprint
 
         foreach ($this->dropIndexes as $name) {
             $editor->dropIndexByUnquotedName($name);
+
+            // MySQL and MariaDB report a unique index a second time as a
+            // unique constraint. Both describe the same index in the database.
+            foreach ($table->getUniqueConstraints() as $constraint) {
+                $constraintName = $constraint->getObjectName()?->getIdentifier()->getValue();
+
+                if (null !== $constraintName && 0 === strcasecmp($constraintName, $name)) {
+                    $editor->dropUniqueConstraintByUnquotedName($name);
+                }
+            }
         }
 
         foreach ($this->dropColumns as $name) {
