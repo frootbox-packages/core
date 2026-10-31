@@ -114,6 +114,7 @@ final readonly class PageHandler implements RequestHandlerInterface
         }
 
         $this->service(Urls::class)->clear();
+        $this->service(PageOutline::class)->clear();
 
         try {
             return $this->service(UrlResolver::class)->resolve($request);

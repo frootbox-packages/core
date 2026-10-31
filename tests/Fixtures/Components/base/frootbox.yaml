@@ -5,3 +5,6 @@ theme:
       primary: '#0a6e4f'
       text: '#222'
     radius: 4px
+  navigations:
+    main: Main navigation
+    footer: Footer

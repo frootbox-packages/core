@@ -19,23 +19,29 @@ use Frootbox\Core\Extension\ExtensionPackage;
  *         color:
  *           primary: '#0a6e4f'
  *         radius: 4px
+ *       navigations:
+ *         main: { title: Main navigation, depth: 2 }
+ *         footer: Footer
  *
- * Tokens become CSS variables such as --color-primary.
+ * Tokens become CSS variables such as --color-primary. Navigations are
+ * the menus the theme shows (decision 0106).
  */
 final readonly class Theme
 {
-    private const array KEYS = ['parent', 'tokens'];
+    private const array KEYS = ['parent', 'tokens', 'navigations'];
 
     private const string TOKEN_NAME = '/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/';
 
     /**
-     * @param array<string, string> $tokens Flat: "color-primary" => "#0a6e4f"
+     * @param array<string, string>       $tokens      Flat: "color-primary" => "#0a6e4f"
+     * @param array<string, array<mixed>> $navigations By key, as in the manifest; read by Navigation\Definitions
      */
     public function __construct(
         public string $name,
         public string $path,
         public ?string $parent = null,
         public array $tokens = [],
+        public array $navigations = [],
     ) {}
 
     public static function fromPackage(ExtensionPackage $package): ?self
@@ -63,7 +69,17 @@ final readonly class Theme
             throw new ThemeException(\sprintf('%s: "tokens" must contain key-value pairs.', $where));
         }
 
-        return new self($package->name, $package->path, $parent, self::flatten($tokens, '', $where));
+        $navigations = [];
+
+        foreach (\is_array($package->theme['navigations'] ?? null) ? $package->theme['navigations'] : [] as $key => $navigation) {
+            $navigations[(string) $key] = \is_string($navigation) ? ['title' => $navigation] : (\is_array($navigation) ? $navigation : []);
+        }
+
+        if (isset($package->theme['navigations']) && !\is_array($package->theme['navigations'])) {
+            throw new ThemeException(\sprintf('%s: "navigations" must list the navigations by key, e.g. "main: Main navigation".', $where));
+        }
+
+        return new self($package->name, $package->path, $parent, self::flatten($tokens, '', $where), $navigations);
     }
 
     /**

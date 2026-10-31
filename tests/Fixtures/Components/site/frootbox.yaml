@@ -4,3 +4,9 @@ theme:
   tokens:
     color:
       primary: '#c00'
+  navigations:
+    main:
+      title: Main menu
+      depth: 2
+      options:
+        highlight: { type: boolean, label: As button }

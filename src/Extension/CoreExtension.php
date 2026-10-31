@@ -38,6 +38,13 @@ use Frootbox\Core\Field\Types\ListType;
 use Frootbox\Core\Field\Types\RichTextType;
 use Frootbox\Core\Field\Types\TextType;
 use Frootbox\Core\Install\InstallCommand;
+use Frootbox\Core\Navigation\CopyNavigation;
+use Frootbox\Core\Navigation\DiscardNavigation;
+use Frootbox\Core\Navigation\ListNavigations;
+use Frootbox\Core\Navigation\NavigationUndoCheck;
+use Frootbox\Core\Navigation\PublishNavigations;
+use Frootbox\Core\Navigation\ShowNavigation;
+use Frootbox\Core\Navigation\UpdateNavigation;
 use Frootbox\Core\Page\CreatePage;
 use Frootbox\Core\Page\DeletePage;
 use Frootbox\Core\Page\DiscardPage;
@@ -132,6 +139,14 @@ final class CoreExtension implements Extension
 
         $registry->query(ListRedirects::class);
         $registry->query(ListNotFound::class);
+
+        foreach ([UpdateNavigation::class, PublishNavigations::class, DiscardNavigation::class, CopyNavigation::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ListNavigations::class);
+        $registry->query(ShowNavigation::class);
+        $registry->undoCheck(NavigationUndoCheck::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListTokens::class);

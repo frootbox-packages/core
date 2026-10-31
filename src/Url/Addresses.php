@@ -49,6 +49,16 @@ final class Addresses extends Repository
         return $addresses;
     }
 
+    /**
+     * The current addresses of all pages.
+     *
+     * @return list<Address>
+     */
+    public function pages(): array
+    {
+        return $this->fetch(['where' => ['basePageId' => null, 'current' => true]])->all();
+    }
+
     protected function table(): string
     {
         return self::TABLE;

@@ -26,6 +26,9 @@ final class Urls
     /** @var array<string, array<string, Address>> */
     private array $addresses = [];
 
+    /** Whether the addresses of all pages are read, see preload() */
+    private bool $pages = false;
+
     public function __construct(
         private readonly Addresses $repository,
         private readonly Languages $languages,
@@ -103,7 +106,28 @@ final class Urls
     {
         $key = (string) $target;
 
+        if ($this->pages && !isset($this->addresses[$key]) && str_starts_with($key, Target::PAGE . ':')) {
+            return [];
+        }
+
         return $this->addresses[$key] ??= $this->repository->of($target instanceof Target ? $target : Target::parse($target));
+    }
+
+    /**
+     * Reads the addresses of all pages at once, e.g. before building a
+     * navigation with many links.
+     */
+    public function preload(): void
+    {
+        if ($this->pages) {
+            return;
+        }
+
+        foreach ($this->repository->pages() as $address) {
+            $this->addresses[$address->target][$address->language] = $address;
+        }
+
+        $this->pages = true;
     }
 
     /**
@@ -112,6 +136,7 @@ final class Urls
     public function clear(): void
     {
         $this->addresses = [];
+        $this->pages = false;
     }
 
     private function pagePath(Target|string $target, string $language): ?string

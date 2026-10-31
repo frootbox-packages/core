@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace Frootbox\Core\View;
 
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Navigation\MenuItem;
+use Frootbox\Core\Navigation\Menus;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
 use Psr\Container\ContainerInterface;
@@ -49,6 +51,8 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('language', fn(): string => $this->service(Delivery::class)->language()->code),
             new TwigFunction('content_language', fn(): string => $this->service(Delivery::class)->contentLanguage()->code),
             new TwigFunction('alternates', $this->alternates(...)),
+            new TwigFunction('navigation', $this->navigation(...)),
+            new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),
         ];
     }
 
@@ -68,6 +72,17 @@ final class ViewExtension extends AbstractExtension
         $parsed = Target::tryParse($target);
 
         return null === $parsed ? $target : $this->service(Urls::class)->href($parsed, $language);
+    }
+
+    /**
+     * The items of a navigation of the theme in the language of the
+     * visitor, e.g. navigation('main').
+     *
+     * @return list<MenuItem>
+     */
+    public function navigation(string $name): array
+    {
+        return $this->service(Menus::class)->navigation($name);
     }
 
     /**
