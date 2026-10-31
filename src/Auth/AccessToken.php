@@ -25,5 +25,6 @@ final readonly class AccessToken extends Entity
         public ?DateTimeImmutable $lastUsedAt,
         public ?DateTimeImmutable $expiresAt,
         public DateTimeImmutable $createdAt,
+        public bool $remember = false,
     ) {}
 }

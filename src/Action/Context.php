@@ -12,7 +12,9 @@ use Frootbox\Core\Auth\Actor;
 
 /**
  * Who runs an action and through which channel. A signed-in user also
- * brings the access token of the session or API client.
+ * brings the access token of the session or API client. A request from
+ * the web brings the address of the client, e.g. for throttling the
+ * sign-in (decision 0115).
  */
 final readonly class Context
 {
@@ -20,6 +22,7 @@ final readonly class Context
         public Actor $actor,
         public Channel $channel,
         public ?int $tokenId = null,
+        public ?string $address = null,
     ) {}
 
     public static function system(Channel $channel = Channel::System): self
@@ -27,8 +30,8 @@ final readonly class Context
         return new self(Actor::system(), $channel);
     }
 
-    public static function guest(Channel $channel = Channel::Web): self
+    public static function guest(Channel $channel = Channel::Web, ?string $address = null): self
     {
-        return new self(Actor::guest(), $channel);
+        return new self(Actor::guest(), $channel, address: $address);
     }
 }

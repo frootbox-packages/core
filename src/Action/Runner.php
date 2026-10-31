@@ -38,6 +38,7 @@ final readonly class Runner
         private Connection $connection,
         private EventDispatcherInterface $events,
         private LoggerInterface $logger,
+        private Bookkeeping $afterwards,
     ) {}
 
     /**
@@ -66,6 +67,10 @@ final readonly class Runner
             $this->bookkeeping(fn() => $this->log->failed($descriptor, $context, $logged, $parentId, $error, self::since($started)));
 
             throw $error;
+        } finally {
+            if (null === $parentId) {
+                $this->bookkeeping($this->afterwards->flush(...));
+            }
         }
 
         $this->events->dispatch(new ActionExecuted($descriptor, $action, $result, $context, $entryId));
@@ -146,7 +151,7 @@ final readonly class Runner
                 throw AccessDeniedException::for($descriptor, $context->actor);
             }
 
-            $errors = $this->validator->errors($descriptor->schema(), $input);
+            $errors = $this->validator->messages($descriptor->schema(), $input);
 
             if ([] !== $errors) {
                 throw new InvalidInputException($descriptor->name, $errors);

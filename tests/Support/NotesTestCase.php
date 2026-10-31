@@ -39,7 +39,7 @@ use PHPUnit\Framework\TestCase;
  */
 abstract class NotesTestCase extends TestCase
 {
-    private const array TABLES = ['notes', 'navigations', 'urls', 'redirects', 'not_found', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
+    private const array TABLES = ['notes', 'sign_in_failures', 'navigations', 'urls', 'redirects', 'not_found', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
 
     protected Container $container;
 

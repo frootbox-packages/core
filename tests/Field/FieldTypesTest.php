@@ -94,7 +94,7 @@ final class FieldTypesTest extends TestCase
 
         $schemaErrors = new InputValidator()->errors($this->types->schemaFor($this->fields), $values);
         self::assertArrayHasKey('/title', $schemaErrors);
-        self::assertArrayHasKey('/slides/2', $schemaErrors);
+        self::assertArrayHasKey('/slides/2/title', $schemaErrors, 'A missing field is reported at the field.');
     }
 
     public function testKnowsItsTypes(): void

@@ -10,10 +10,10 @@ namespace Frootbox\Core\Account;
 
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
+use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Schema\Length;
 use Frootbox\Core\Action\Schema\Sensitive;
 use Frootbox\Core\Auth\AccessTokens;
-use Frootbox\Core\Auth\AuthenticationException;
 use Frootbox\Core\Auth\CurrentUser;
 use Frootbox\Core\Auth\Passwords;
 use Frootbox\Core\User\SetPassword;
@@ -41,7 +41,8 @@ final readonly class ChangePassword implements Action
         $id = $current->id();
 
         if (!$passwords->verify($this->currentPassword, $users->passwordHash($id))) {
-            throw AuthenticationException::wrongPassword();
+            // At the field, so a form shows it there.
+            throw new InvalidInputException('account.change-password', ['/currentPassword' => 'is wrong.']);
         }
 
         $users->update($id, ['password' => $passwords->hash($this->newPassword)]);

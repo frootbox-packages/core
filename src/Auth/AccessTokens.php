@@ -43,7 +43,10 @@ final readonly class AccessTokens
         $this->writer = new DirectWriter($connection);
     }
 
-    public function issue(int $userId, TokenType $type, ?string $name = null, ?DateTimeImmutable $expiresAt = null): IssuedToken
+    /**
+     * @param bool $remember for a session: "stay signed in" for days instead of hours (decision 0115)
+     */
+    public function issue(int $userId, TokenType $type, ?string $name = null, ?DateTimeImmutable $expiresAt = null, bool $remember = false): IssuedToken
     {
         $token = self::PREFIX . bin2hex(random_bytes(32));
         $now = new DateTimeImmutable();
@@ -53,7 +56,8 @@ final readonly class AccessTokens
             'type' => $type,
             'name' => $name,
             'token_hash' => self::hash($token),
-            'expires_at' => $expiresAt ?? (TokenType::Session === $type ? $this->sessionEnd($now) : null),
+            'expires_at' => $expiresAt ?? (TokenType::Session === $type ? $this->sessionEnd($now, $remember) : null),
+            'remember' => TokenType::Session === $type && $remember,
             'created_at' => $now,
         ]));
 
@@ -90,7 +94,7 @@ final readonly class AccessTokens
             $changes = ['last_used_at' => $now];
 
             if (TokenType::Session === $accessToken->type) {
-                $changes['expires_at'] = $this->sessionEnd($now);
+                $changes['expires_at'] = $this->sessionEnd($now, $accessToken->remember);
             }
 
             $accessToken = EntityMapper::hydrate(AccessToken::class, $this->journal->trusted(fn(): array => $this->writer->update(self::TABLE, $accessToken->id, $changes)));
@@ -152,9 +156,15 @@ final readonly class AccessTokens
         ));
     }
 
-    private function sessionEnd(DateTimeImmutable $now): DateTimeImmutable
+    /**
+     * A session ends this long after its last use: days with "stay signed
+     * in", else hours.
+     */
+    private function sessionEnd(DateTimeImmutable $now, bool $remember): DateTimeImmutable
     {
-        return $now->modify(\sprintf('+%d days', $this->config->int('auth.session_days', 14)));
+        return $remember
+            ? $now->modify(\sprintf('+%d days', $this->config->int('auth.session_days', 14)))
+            : $now->modify(\sprintf('+%d hours', $this->config->int('auth.session_hours', 12)));
     }
 
     private static function hash(string $token): string

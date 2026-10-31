@@ -13,6 +13,7 @@ use Frootbox\Core\Action\ActionException;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\UndoException;
 use Frootbox\Core\Action\UnknownActionException;
+use Frootbox\Core\Auth\TooManyAttemptsException;
 use Frootbox\Core\Http\Exception\HttpException;
 use Frootbox\Database\EntityNotFoundException;
 use Throwable;
@@ -83,6 +84,7 @@ final readonly class Problem
             $throwable instanceof UnknownActionException,
             $throwable instanceof EntityNotFoundException => new self(404, 'not-found', $throwable->getMessage()),
             $throwable instanceof UndoException => new self(409, 'conflict', $throwable->getMessage()),
+            $throwable instanceof TooManyAttemptsException => new self(429, 'too-many-requests', $throwable->getMessage(), ['Retry-After' => (string) $throwable->retryAfter]),
             $throwable instanceof ActionException => new self(422, 'unprocessable', $throwable->getMessage()),
             default => new self(500, 'server-error', $showDetails ? $throwable->getMessage() : self::title(500)),
         };

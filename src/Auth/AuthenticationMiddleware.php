@@ -42,13 +42,15 @@ final readonly class AuthenticationMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         [$authentication, $channel] = $this->authenticate($request);
+        $address = $request->getServerParams()['REMOTE_ADDR'] ?? null;
+        $address = \is_string($address) && '' !== $address ? $address : null;
 
         if (null === $authentication) {
-            return $handler->handle($request);
+            return $this->context->runAs(Context::guest($channel, $address), static fn(): ResponseInterface => $handler->handle($request));
         }
 
         return $this->context->runAs(
-            new Context($authentication->actor, $channel, $authentication->token->id),
+            new Context($authentication->actor, $channel, $authentication->token->id, $address),
             static fn(): ResponseInterface => $handler->handle($request->withAttribute(Authentication::class, $authentication)),
         );
     }

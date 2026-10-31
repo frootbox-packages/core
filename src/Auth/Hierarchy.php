@@ -12,6 +12,7 @@ use Frootbox\Core\Action\AccessDeniedException;
 use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Action\InvalidInputException;
+use Frootbox\Core\Support\Message;
 use Frootbox\Core\User\Role;
 use Frootbox\Core\User\RoleAssignments;
 
@@ -51,14 +52,14 @@ final readonly class Hierarchy
     public function assertMayManageUser(int $userId): void
     {
         if ($this->level() < $this->assignments->globalLevel($userId)) {
-            throw new AccessDeniedException(\sprintf('User #%d ranks above you.', $userId));
+            throw new AccessDeniedException(new Message('User #{id} ranks above you.', ['id' => $userId]));
         }
     }
 
     public function assertMayAssign(Role $role): void
     {
         if ($this->level() < $role->level) {
-            throw new AccessDeniedException(\sprintf('The role "%s" ranks above you.', $role->name));
+            throw new AccessDeniedException(new Message('The role "{role}" ranks above you.', ['role' => $role->name]));
         }
     }
 
@@ -68,7 +69,7 @@ final readonly class Hierarchy
     public function assertMayChangeRole(string $name, int $level): void
     {
         if ($this->level() <= $level) {
-            throw new AccessDeniedException(\sprintf('The role "%s" does not rank below you.', $name));
+            throw new AccessDeniedException(new Message('The role "{role}" does not rank below you.', ['role' => $name]));
         }
     }
 
@@ -91,7 +92,7 @@ final readonly class Hierarchy
         }
 
         if ([] !== $missing) {
-            throw new InvalidInputException($action, ['/permissions' => 'grants permissions you do not have: ' . implode(', ', $missing)]);
+            throw new InvalidInputException($action, ['/permissions' => new Message('grants permissions you do not have: {permissions}', ['permissions' => implode(', ', $missing)])]);
         }
     }
 

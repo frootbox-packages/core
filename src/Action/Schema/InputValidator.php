@@ -8,13 +8,16 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Action\Schema;
 
-use Opis\JsonSchema\Errors\ErrorFormatter;
+use Frootbox\Core\Support\Message;
+use Opis\JsonSchema\Errors\ValidationError;
 use Opis\JsonSchema\Helper;
 use Opis\JsonSchema\Validator;
 use stdClass;
 
 /**
- * Checks input against a JSON schema (opis/json-schema).
+ * Checks input against a JSON schema (opis/json-schema). The messages are
+ * our own templates (decision 0115): short, translatable and at the field
+ * they belong to, e.g. "/email": "is required."
  */
 final class InputValidator
 {
@@ -33,6 +36,19 @@ final class InputValidator
      */
     public function errors(array $schema, array $input): array
     {
+        return array_map(static fn(Message $message): string => (string) $message, $this->messages($schema, $input));
+    }
+
+    /**
+     * Like errors(), as templates with values for translation.
+     *
+     * @param array<string, mixed> $schema
+     * @param array<string, mixed> $input
+     *
+     * @return array<string, Message> by JSON pointer, empty if the input is valid
+     */
+    public function messages(array $schema, array $input): array
+    {
         $unknown = $this->unknownFields($schema, $input);
 
         // opis also reports known fields as "additional" when they are invalid,
@@ -46,23 +62,125 @@ final class InputValidator
             throw new \LogicException('A JSON schema must be an object.');
         }
 
-        $result = $this->validator->validate($data, $schemaObject);
-        $error = $result->error();
-
-        $errors = [];
+        $error = $this->validator->validate($data, $schemaObject)->error();
+        $messages = [];
 
         if (null !== $error) {
-            foreach (new ErrorFormatter()->format($error, false) as $pointer => $message) {
-                $errors[(string) $pointer] = \is_string($message) ? $message : 'is invalid';
-            }
+            self::collect($error, $messages);
         }
 
         if ([] !== $unknown) {
-            $message = \sprintf('Unknown fields: %s', implode(', ', $unknown));
-            $errors['/'] = isset($errors['/']) ? $errors['/'] . '; ' . $message : $message;
+            $messages['/'] = new Message('Unknown fields: {fields}', ['fields' => implode(', ', $unknown)]);
         }
 
-        return $errors;
+        return $messages;
+    }
+
+    /**
+     * The innermost errors, the first one per field.
+     *
+     * @param array<string, Message> $messages
+     */
+    private static function collect(ValidationError $error, array &$messages): void
+    {
+        if ([] !== $error->subErrors()) {
+            foreach ($error->subErrors() as $sub) {
+                if ($sub instanceof ValidationError) {
+                    self::collect($sub, $messages);
+                }
+            }
+
+            return;
+        }
+
+        $path = $error->data()->fullPath();
+        $args = $error->args();
+        $missing = $args['missing'] ?? null;
+
+        if ('required' === $error->keyword() && \is_array($missing)) {
+            foreach ($missing as $field) {
+                $messages[self::pointer([...$path, \is_scalar($field) ? (string) $field : ''])] ??= new Message('is required.');
+            }
+
+            return;
+        }
+
+        $messages[self::pointer($path)] ??= self::message($error, $args);
+    }
+
+    /**
+     * @param array<mixed> $args
+     */
+    private static function message(ValidationError $error, array $args): Message
+    {
+        $number = static fn(string $key): int|float|string => \is_int($args[$key] ?? null) || \is_float($args[$key] ?? null) ? $args[$key] : '?';
+        $format = $args['format'] ?? null;
+
+        // An empty text where one is needed, e.g. an empty field of a form.
+        if ('' === $error->data()->value() && \in_array($error->keyword(), ['minLength', 'format', 'pattern'], true)) {
+            return new Message('is required.');
+        }
+
+        return match ($error->keyword()) {
+            'minLength' => new Message('must be at least {min} characters long.', ['min' => $number('min')]),
+            'maxLength' => new Message('must be at most {max} characters long.', ['max' => $number('max')]),
+            'minimum' => new Message('must be at least {min}.', ['min' => $number('min')]),
+            'maximum' => new Message('must be at most {max}.', ['max' => $number('max')]),
+            'exclusiveMinimum' => new Message('must be more than {min}.', ['min' => $number('min')]),
+            'exclusiveMaximum' => new Message('must be less than {max}.', ['max' => $number('max')]),
+            'minItems' => new Message('needs at least {min} entries.', ['min' => $number('min')]),
+            'maxItems' => new Message('can have at most {max} entries.', ['max' => $number('max')]),
+            'pattern' => new Message('has the wrong format.'),
+            'enum', 'const' => new Message('is not one of the allowed values.'),
+            'format' => 'email' === $format
+                ? new Message('must be an email address.')
+                : new Message('must be a valid {format}.', ['format' => \is_string($format) ? $format : 'value']),
+            'type' => self::typeMessage($args['expected'] ?? null),
+            default => new Message(self::fill($error->message(), $args)),
+        };
+    }
+
+    private static function typeMessage(mixed $expected): Message
+    {
+        $types = array_values(array_filter(\is_array($expected) ? $expected : [$expected], static fn(mixed $type): bool => 'null' !== $type));
+
+        return match ($types[0] ?? null) {
+            'string' => new Message('must be text.'),
+            'integer' => new Message('must be a whole number.'),
+            'number' => new Message('must be a number.'),
+            'boolean' => new Message('must be true or false.'),
+            'array' => new Message('must be a list.'),
+            'object' => new Message('must be an object.'),
+            default => new Message('has the wrong type.'),
+        };
+    }
+
+    /**
+     * The message of opis for keywords without a template of ours.
+     *
+     * @param array<mixed> $args
+     */
+    private static function fill(string $text, array $args): string
+    {
+        $replace = [];
+
+        foreach ($args as $name => $value) {
+            $replace['{' . $name . '}'] = \is_scalar($value) ? (string) $value : (string) json_encode($value);
+        }
+
+        return '' === $text ? 'is invalid.' : strtr($text, $replace);
+    }
+
+    /**
+     * @param array<int|string> $path
+     */
+    private static function pointer(array $path): string
+    {
+        if ([] === $path) {
+            return '/';
+        }
+
+        return '/' . implode('/', array_map(static fn(int|string $part): string => strtr((string) $part, ['~' => '~0', '/' => '~1']), $path));
     }
 
     /**

@@ -21,6 +21,7 @@ use Frootbox\Core\Action\AccessDeniedException;
 use Frootbox\Core\Action\Channel;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\EntryStatus;
+use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Auth\AccessToken;
 use Frootbox\Core\Auth\AccessTokens;
 use Frootbox\Core\Auth\Actor;
@@ -98,7 +99,7 @@ final class AccountTest extends NotesTestCase
 
             $entry = $this->lastEntry();
             self::assertSame(EntryStatus::Failed, $entry->status);
-            self::assertEquals(['email' => $email, 'password' => '***', 'device' => null], $entry->input);
+            self::assertEquals(['email' => $email, 'password' => '***', 'device' => null, 'remember' => false], $entry->input);
         }
 
         self::assertSame($messages[0], $messages[1]);
@@ -134,7 +135,8 @@ final class AccountTest extends NotesTestCase
         try {
             $this->runner()->run(new ChangePassword('wrong password', 'a new long password'), $context);
             self::fail('The wrong current password was accepted.');
-        } catch (AuthenticationException) {
+        } catch (InvalidInputException $error) {
+            self::assertSame(['/currentPassword' => 'is wrong.'], $error->errors);
         }
 
         $this->runner()->run(new ChangePassword(self::PASSWORD, 'a new long password'), $context);

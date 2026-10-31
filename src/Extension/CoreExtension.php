@@ -74,10 +74,12 @@ use Frootbox\Core\User\CreateRole;
 use Frootbox\Core\User\CreateUser;
 use Frootbox\Core\User\DeleteRole;
 use Frootbox\Core\User\DeleteUser;
+use Frootbox\Core\User\ListPermissions;
 use Frootbox\Core\User\ListRoles;
 use Frootbox\Core\User\ListUsers;
 use Frootbox\Core\User\RemoveRole;
 use Frootbox\Core\User\SetPassword;
+use Frootbox\Core\User\SetRoles;
 use Frootbox\Core\User\ShowUser;
 use Frootbox\Core\User\UpdateRole;
 use Frootbox\Core\User\UpdateUser;
@@ -119,13 +121,14 @@ final class CoreExtension implements Extension
 
         $registry->action(UndoAction::class);
 
-        foreach ([CreateUser::class, UpdateUser::class, SetPassword::class, DeleteUser::class, AssignRole::class, RemoveRole::class, CreateRole::class, UpdateRole::class, DeleteRole::class] as $action) {
+        foreach ([CreateUser::class, UpdateUser::class, SetPassword::class, DeleteUser::class, AssignRole::class, RemoveRole::class, SetRoles::class, CreateRole::class, UpdateRole::class, DeleteRole::class] as $action) {
             $registry->action($action);
         }
 
         $registry->query(ListUsers::class);
         $registry->query(ShowUser::class);
         $registry->query(ListRoles::class);
+        $registry->query(ListPermissions::class);
 
         foreach ([SignIn::class, SignOut::class, ChangePassword::class, CreateToken::class, RevokeToken::class] as $action) {
             $registry->action($action);

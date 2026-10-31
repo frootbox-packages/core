@@ -63,7 +63,7 @@ final class ActionCommandsTest extends TestCase
 
         [$exitCode, $output] = $this->console(['command' => 'call', 'name' => 'action.undo', 'input' => '{}']);
         self::assertSame(2, $exitCode);
-        self::assertStringContainsString('(id) are missing', $output);
+        self::assertStringContainsString('/id: is required.', $output);
 
         self::assertSame(2, $this->console(['command' => 'call', 'name' => 'action.undo', 'input' => '[1]'])[0]);
 

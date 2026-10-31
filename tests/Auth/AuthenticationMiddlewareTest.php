@@ -64,6 +64,18 @@ final class AuthenticationMiddlewareTest extends NotesTestCase
         self::assertSame(ActorType::Guest, $this->seen?->actor->type);
     }
 
+    public function testTheContextKnowsTheAddress(): void
+    {
+        $request = new Psr17Factory()->createServerRequest('GET', '/', ['REMOTE_ADDR' => '203.0.113.7']);
+
+        $this->process($request);
+        self::assertSame('203.0.113.7', $this->seen?->address, 'Also for guests.');
+
+        $this->process($request->withCookieParams([AuthenticationMiddleware::COOKIE => $this->token(TokenType::Session)]));
+        self::assertSame(ActorType::User, $this->seen?->actor->type);
+        self::assertSame('203.0.113.7', $this->seen->address);
+    }
+
     public function testTheCookieTakesNoApiToken(): void
     {
         $token = $this->token(TokenType::Api);

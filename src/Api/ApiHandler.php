@@ -56,7 +56,7 @@ final readonly class ApiHandler implements RequestHandlerInterface
     {
         $context = $current->get();
 
-        return Channel::Api === $context->channel ? $context : Context::guest(Channel::Api);
+        return Channel::Api === $context->channel ? $context : Context::guest(Channel::Api, $context->address);
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface

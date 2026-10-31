@@ -10,6 +10,7 @@ namespace Frootbox\Core\User;
 
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Auth\PermissionRules;
+use Frootbox\Core\Support\Message;
 
 /**
  * Checks the permission rules given to role.create and role.update.
@@ -25,7 +26,7 @@ final class RoleRules
 
         foreach ($permissions as $index => $rule) {
             if (!PermissionRules::isValid($rule)) {
-                $errors['/permissions/' . $index] = \sprintf('"%s" is not a rule. Use "*", "page.*", "page.create" or "-page.delete".', $rule);
+                $errors['/permissions/' . $index] = new Message('"{rule}" is not a rule. Use "*", "page.*", "page.create" or "-page.delete".', ['rule' => $rule]);
             }
         }
 

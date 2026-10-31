@@ -154,7 +154,7 @@ final class PagesTest extends NotesTestCase
             '/translations/de/content/areas/side' => 'acme/base/Page has no area "side". Areas: main.',
             '/translations/de/content/areas/main/0/areas/left/0/block' => 'acme/site/Hero is not allowed in the area "left". Allowed: acme/base/Teaser, acme/news/List.',
             '/translations/de/content/areas/main/1/options/rounded' => 'must be a valid boolean.',
-            '/translations/de/content/areas/main/1/fields/title' => 'Maximum string length is 80, found 81',
+            '/translations/de/content/areas/main/1/fields/title' => 'must be at most 80 characters long.',
             '/translations/de/content/areas/main/2/block' => 'there is no block "acme/other/Promo".',
             '/translations/de/content/areas/main/4/id' => '"same0001" is used by another block of this content.',
             '/translations/de/content/areas/main/5/id' => 'must be 8 characters a-z and 0-9, or be left out for a new block.',
@@ -170,8 +170,8 @@ final class PagesTest extends NotesTestCase
         $start = $this->createStart(content: ['areas' => ['main' => [['block' => 'acme/base/Teaser']]]]);
 
         $this->assertInvalid([
-            '/ids/0/translations/de/content/fields' => 'The required properties (heading) are missing',
-            '/ids/0/translations/de/content/areas/main/0/fields' => 'The required properties (title) are missing',
+            '/ids/0/translations/de/content/fields/heading' => 'is required.',
+            '/ids/0/translations/de/content/areas/main/0/fields/title' => 'is required.',
         ], fn() => $this->publish($start->id));
     }
 

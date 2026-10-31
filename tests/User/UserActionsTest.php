@@ -28,6 +28,7 @@ use Frootbox\Core\User\CreateRole;
 use Frootbox\Core\User\CreateUser;
 use Frootbox\Core\User\DeleteRole;
 use Frootbox\Core\User\DeleteUser;
+use Frootbox\Core\User\ListPermissions;
 use Frootbox\Core\User\ListRoles;
 use Frootbox\Core\User\ListUsers;
 use Frootbox\Core\User\RemoveRole;
@@ -35,6 +36,7 @@ use Frootbox\Core\User\Role;
 use Frootbox\Core\User\RoleAssignments;
 use Frootbox\Core\User\Roles;
 use Frootbox\Core\User\SetPassword;
+use Frootbox\Core\User\SetRoles;
 use Frootbox\Core\User\ShowUser;
 use Frootbox\Core\User\UpdateRole;
 use Frootbox\Core\User\UpdateUser;
@@ -48,6 +50,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(UpdateUser::class)]
 #[CoversClass(SetPassword::class)]
 #[CoversClass(DeleteUser::class)]
+#[CoversClass(SetRoles::class)]
+#[CoversClass(ListPermissions::class)]
 #[CoversClass(AssignRole::class)]
 #[CoversClass(RemoveRole::class)]
 #[CoversClass(CreateRole::class)]
@@ -141,6 +145,39 @@ final class UserActionsTest extends NotesTestCase
         self::assertTrue($this->runner()->run(new RemoveRole($user->id, 'admin')));
         self::assertFalse($this->runner()->run(new RemoveRole($user->id, 'admin')));
         $this->assertDenied(new CreateNote('Removed'), $this->as($user));
+    }
+
+    public function testSetsTheGlobalRolesInOneGo(): void
+    {
+        $user = $this->createUser('jane@example.com', ['editor'])->user;
+        $this->runner()->run(new AssignRole($user->id, 'editor', 'page:01J0000000000000000000000A'));
+
+        $profile = $this->runner()->run(new SetRoles($user->id, ['admin', 'admin']));
+        self::assertSame([['role' => 'admin', 'scope' => null], ['role' => 'editor', 'scope' => 'page:01J0000000000000000000000A']], $profile->roles, 'Scoped roles stay.');
+
+        $profile = $this->runner()->run(new SetRoles($user->id, []));
+        self::assertSame([['role' => 'editor', 'scope' => 'page:01J0000000000000000000000A']], $profile->roles);
+    }
+
+    public function testSettingRolesKeepsTheHierarchy(): void
+    {
+        $admin = $this->createUser('admin@example.com', ['admin'])->user;
+        $jane = $this->createUser('jane@example.com')->user;
+
+        $this->expectException(AccessDeniedException::class);
+        $this->runner()->run(new SetRoles($jane->id, ['superuser']), $this->as($admin));
+    }
+
+    public function testListsThePermissionsARoleCanGrant(): void
+    {
+        $names = array_column($this->runner()->ask(new ListPermissions()), 'name');
+
+        self::assertContains('page.create', $names);
+        self::assertContains('user.set-roles', $names);
+        self::assertContains('role.list', $names);
+        self::assertNotContains('account.sign-in', $names, 'Everyone may sign in.');
+        self::assertNotContains('account.show', $names, 'Every signed-in user may see the own account.');
+        self::assertSame($names, array_values(array_unique($names)));
     }
 
     public function testAssigningARoleTwiceKeepsOne(): void
