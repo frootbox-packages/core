@@ -53,7 +53,11 @@ final class ActionsCommand extends Command
             $rows[] = [
                 $descriptor->name,
                 $descriptor->kind->value,
-                $descriptor->public ? 'public' : $descriptor->permission,
+                match (true) {
+                    $descriptor->public => 'public',
+                    $descriptor->signedIn => 'signed in',
+                    default => $descriptor->permission,
+                },
                 $descriptor->description,
             ];
         }

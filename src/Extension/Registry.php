@@ -14,6 +14,7 @@ use Frootbox\Core\Action\DefinitionException;
 use Frootbox\Core\Action\Query;
 use Frootbox\Core\Console\CommandInfo;
 use Frootbox\Core\Database\MigrationSources;
+use Frootbox\Core\Database\SensitiveColumns;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Routing\Router;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -46,10 +47,13 @@ final class Registry
 
     private Catalog $catalog;
 
+    private SensitiveColumns $sensitive;
+
     public function __construct()
     {
         $this->migrations = new MigrationSources();
         $this->catalog = new Catalog();
+        $this->sensitive = new SensitiveColumns();
     }
 
     /**
@@ -126,6 +130,15 @@ final class Registry
         }
     }
 
+    /**
+     * Columns such as password hashes that are recorded only as "***" for
+     * undoing, e.g. sensitive('users', 'password').
+     */
+    public function sensitive(string $table, string ...$columns): void
+    {
+        $this->sensitive->add($table, ...$columns);
+    }
+
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -161,5 +174,10 @@ final class Registry
     public function catalog(): Catalog
     {
         return $this->catalog;
+    }
+
+    public function sensitiveColumns(): SensitiveColumns
+    {
+        return $this->sensitive;
     }
 }

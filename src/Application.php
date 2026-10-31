@@ -12,6 +12,7 @@ use DI\Container;
 use Frootbox\Core\Action\Channel;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\CurrentContext;
+use Frootbox\Core\Auth\AuthenticationMiddleware;
 use Frootbox\Core\Config\ConfigLoader;
 use Frootbox\Core\Container\ContainerFactory;
 use Frootbox\Core\Error\ErrorMiddleware;
@@ -53,6 +54,7 @@ final readonly class Application
      */
     private const array MIDDLEWARE = [
         ErrorMiddleware::class,
+        AuthenticationMiddleware::class,
         RoutingMiddleware::class,
     ];
 

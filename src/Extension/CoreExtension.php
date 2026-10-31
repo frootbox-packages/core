@@ -8,6 +8,13 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Extension;
 
+use Frootbox\Core\Account\ChangePassword;
+use Frootbox\Core\Account\CreateToken;
+use Frootbox\Core\Account\ListTokens;
+use Frootbox\Core\Account\RevokeToken;
+use Frootbox\Core\Account\ShowAccount;
+use Frootbox\Core\Account\SignIn;
+use Frootbox\Core\Account\SignOut;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
@@ -17,7 +24,22 @@ use Frootbox\Core\Console\ExtensionsCommand;
 use Frootbox\Core\Console\MakeExtensionCommand;
 use Frootbox\Core\Console\MigrateCommand;
 use Frootbox\Core\Console\PruneActionLogCommand;
+use Frootbox\Core\Console\UserCreateCommand;
+use Frootbox\Core\Console\UserTokenCommand;
 use Frootbox\Core\Http\WelcomeHandler;
+use Frootbox\Core\User\AssignRole;
+use Frootbox\Core\User\CreateRole;
+use Frootbox\Core\User\CreateUser;
+use Frootbox\Core\User\DeleteRole;
+use Frootbox\Core\User\DeleteUser;
+use Frootbox\Core\User\ListRoles;
+use Frootbox\Core\User\ListUsers;
+use Frootbox\Core\User\RemoveRole;
+use Frootbox\Core\User\SetPassword;
+use Frootbox\Core\User\ShowUser;
+use Frootbox\Core\User\UpdateRole;
+use Frootbox\Core\User\UpdateUser;
+use Frootbox\Core\User\Users;
 
 /**
  * The core registers itself like any other extension, through the same
@@ -37,8 +59,26 @@ final class CoreExtension implements Extension
         $registry->command(CallCommand::class);
         $registry->command(ActionLogCommand::class);
         $registry->command(PruneActionLogCommand::class);
+        $registry->command(UserCreateCommand::class);
+        $registry->command(UserTokenCommand::class);
 
         $registry->action(UndoAction::class);
+
+        foreach ([CreateUser::class, UpdateUser::class, SetPassword::class, DeleteUser::class, AssignRole::class, RemoveRole::class, CreateRole::class, UpdateRole::class, DeleteRole::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ListUsers::class);
+        $registry->query(ShowUser::class);
+        $registry->query(ListRoles::class);
+
+        foreach ([SignIn::class, SignOut::class, ChangePassword::class, CreateToken::class, RevokeToken::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ShowAccount::class);
+        $registry->query(ListTokens::class);
+        $registry->sensitive(Users::TABLE, 'password');
 
         $registry->migrations('Frootbox\Core\Migrations', \dirname(__DIR__, 2) . '/migrations');
     }

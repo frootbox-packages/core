@@ -21,6 +21,7 @@ use LogicException;
 /**
  * The writer of the CMS: writes only inside an action and records every
  * change with the state before and after, so the action can be undone.
+ * Sensitive columns are recorded as "***" (see SensitiveColumns).
  */
 final readonly class RecordingWriter implements Writer
 {
@@ -30,6 +31,7 @@ final readonly class RecordingWriter implements Writer
         Connection $connection,
         private Journal $journal,
         private ActionLog $log,
+        private SensitiveColumns $sensitive,
     ) {
         $this->direct = new DirectWriter($connection);
     }
@@ -39,7 +41,7 @@ final readonly class RecordingWriter implements Writer
         $this->requireAction($table);
         $after = $this->journal->trusted(fn(): array => $this->direct->insert($table, $values));
         $id = $after['id'] ?? null;
-        $this->log->recordChange(ChangeKind::Insert, $table, \is_int($id) || \is_string($id) ? $id : null, null, $after);
+        $this->log->recordChange(ChangeKind::Insert, $table, \is_int($id) || \is_string($id) ? $id : null, null, $this->sensitive->mask($table, $after));
 
         return $after;
     }
@@ -50,8 +52,12 @@ final readonly class RecordingWriter implements Writer
         $before = $this->find($table, $id) ?? throw EntityNotFoundException::for($table, $id);
         $after = $this->journal->trusted(fn(): array => $this->direct->update($table, $id, $values));
 
+        if ($this->sensitive->changed($table, $before, $after)) {
+            $this->journal->preventUndo();
+        }
+
         if (!Rows::same($before, $after)) {
-            $this->log->recordChange(ChangeKind::Update, $table, $id, $before, $after);
+            $this->log->recordChange(ChangeKind::Update, $table, $id, $this->sensitive->mask($table, $before), $this->sensitive->mask($table, $after));
         }
 
         return $after;
@@ -67,7 +73,7 @@ final readonly class RecordingWriter implements Writer
         }
 
         $this->journal->trusted(fn(): bool => $this->direct->delete($table, $id));
-        $this->log->recordChange(ChangeKind::Delete, $table, $id, $before, null);
+        $this->log->recordChange(ChangeKind::Delete, $table, $id, $this->sensitive->mask($table, $before), null);
 
         return true;
     }

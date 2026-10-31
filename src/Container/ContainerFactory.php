@@ -14,7 +14,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\Migrations\DependencyFactory;
 use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Auth\Permissions;
-use Frootbox\Core\Auth\SystemPermissions;
+use Frootbox\Core\Auth\RolePermissions;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Console\ConsoleFactory;
@@ -22,6 +22,7 @@ use Frootbox\Core\Database\ConnectionFactory;
 use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Database\RecordingWriter;
+use Frootbox\Core\Database\SensitiveColumns;
 use Frootbox\Core\Event\EventDispatcher;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Extension\ExtensionLoader;
@@ -83,7 +84,8 @@ final class ContainerFactory
             DependencyFactory::class => factory([MigrationsFactory::class, 'create']),
             ConsoleApplication::class => factory([ConsoleFactory::class, 'create']),
             Catalog::class => factory([self::class, 'createCatalog']),
-            Permissions::class => get(SystemPermissions::class),
+            Permissions::class => get(RolePermissions::class),
+            SensitiveColumns::class => factory([self::class, 'createSensitiveColumns']),
         ]);
 
         $container = $builder->build();
@@ -116,6 +118,11 @@ final class ContainerFactory
     public static function createCatalog(Registry $registry): Catalog
     {
         return $registry->catalog();
+    }
+
+    public static function createSensitiveColumns(Registry $registry): SensitiveColumns
+    {
+        return $registry->sensitiveColumns();
     }
 
     public static function createListenerProvider(ContainerInterface $container, Registry $registry): ListenerProvider

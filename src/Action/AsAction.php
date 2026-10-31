@@ -21,6 +21,7 @@ final readonly class AsAction
      * @param string      $description What the action does, in one sentence. The AI reads it.
      * @param string|null $permission  Needed permission, by default the name
      * @param bool        $public      Anyone may run it, e.g. sending a contact form
+     * @param bool        $signedIn    Every signed-in user may run it, e.g. signing out
      * @param bool        $undoable    False if it has effects outside the database, such as sending a mail
      */
     public function __construct(
@@ -28,6 +29,7 @@ final readonly class AsAction
         public string $description,
         public ?string $permission = null,
         public bool $public = false,
+        public bool $signedIn = false,
         public bool $undoable = true,
     ) {}
 }

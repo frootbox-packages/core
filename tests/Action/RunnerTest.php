@@ -28,7 +28,8 @@ use Frootbox\Core\Action\Schema\InputValidator;
 use Frootbox\Core\Action\Schema\SchemaFactory;
 use Frootbox\Core\Action\UnknownActionException;
 use Frootbox\Core\Auth\Actor;
-use Frootbox\Core\Auth\SystemPermissions;
+use Frootbox\Core\Auth\Gate;
+use Frootbox\Core\Auth\RolePermissions;
 use Frootbox\Core\Database\RecordingWriter;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Tests\Fixtures\Notes\CreateNote;
@@ -57,7 +58,8 @@ use RuntimeException;
 #[CoversClass(CurrentContext::class)]
 #[CoversClass(Context::class)]
 #[CoversClass(Actor::class)]
-#[CoversClass(SystemPermissions::class)]
+#[CoversClass(Gate::class)]
+#[CoversClass(RolePermissions::class)]
 #[CoversClass(RecordingWriter::class)]
 final class RunnerTest extends NotesTestCase
 {

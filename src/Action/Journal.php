@@ -79,6 +79,17 @@ final class Journal
         array_pop($this->frames);
     }
 
+    /**
+     * Makes the running action not undoable, e.g. because it changed a
+     * sensitive column.
+     */
+    public function preventUndo(): void
+    {
+        if ([] !== $this->frames) {
+            $this->undoable = false;
+        }
+    }
+
     public function markCompensated(): void
     {
         $last = array_key_last($this->frames);

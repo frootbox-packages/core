@@ -32,6 +32,7 @@ final class Descriptor
         public readonly string $description,
         public readonly string $permission,
         public readonly bool $public,
+        public readonly bool $signedIn,
         public readonly bool $undoable,
         public readonly string $class,
     ) {}
@@ -60,6 +61,10 @@ final class Descriptor
             throw new DefinitionException(\sprintf('The name "%s" of %s must be lowercase with at least one dot, e.g. "page.create".', $info->name, $class));
         }
 
+        if ($info->public && $info->signedIn) {
+            throw new DefinitionException(\sprintf('%s cannot be public and signedIn at once.', $class));
+        }
+
         if (!$reflection->hasMethod('handle') || !$reflection->getMethod('handle')->isPublic() || $reflection->getMethod('handle')->isStatic()) {
             throw new DefinitionException(\sprintf('%s needs a public method handle().', $class));
         }
@@ -70,6 +75,7 @@ final class Descriptor
             $info->description,
             $info->permission ?? $info->name,
             $info->public,
+            $info->signedIn,
             $info instanceof AsAction && $info->undoable,
             $class,
         );

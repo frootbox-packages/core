@@ -11,13 +11,15 @@ namespace Frootbox\Core\Action;
 use Frootbox\Core\Auth\Actor;
 
 /**
- * Who runs an action and through which channel.
+ * Who runs an action and through which channel. A signed-in user also
+ * brings the access token of the session or API client.
  */
 final readonly class Context
 {
     public function __construct(
         public Actor $actor,
         public Channel $channel,
+        public ?int $tokenId = null,
     ) {}
 
     public static function system(Channel $channel = Channel::System): self

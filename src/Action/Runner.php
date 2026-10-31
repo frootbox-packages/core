@@ -11,7 +11,7 @@ namespace Frootbox\Core\Action;
 use Doctrine\DBAL\Connection;
 use Frootbox\Core\Action\Schema\InputMapper;
 use Frootbox\Core\Action\Schema\InputValidator;
-use Frootbox\Core\Auth\Permissions;
+use Frootbox\Core\Auth\Gate;
 use Invoker\InvokerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -31,7 +31,7 @@ final readonly class Runner
         private Catalog $catalog,
         private InvokerInterface $invoker,
         private CurrentContext $context,
-        private Permissions $permissions,
+        private Gate $gate,
         private InputValidator $validator,
         private ActionLog $log,
         private Journal $journal,
@@ -142,7 +142,7 @@ final readonly class Runner
     private function check(Descriptor $descriptor, array $input, Context $context, ?int $parentId): void
     {
         try {
-            if (!$descriptor->public && !$this->permissions->allows($context->actor, $descriptor->permission)) {
+            if (!$this->gate->allows($context->actor, $descriptor)) {
                 throw AccessDeniedException::for($descriptor, $context->actor);
             }
 

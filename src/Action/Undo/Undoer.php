@@ -22,8 +22,10 @@ use Frootbox\Core\Action\LogEntry;
 use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Action\Schema\InputMapper;
 use Frootbox\Core\Action\UndoException;
-use Frootbox\Core\Auth\Permissions;
+use Frootbox\Core\Auth\Gate;
+use Frootbox\Core\Auth\Hierarchy;
 use Frootbox\Core\Database\RecordingWriter;
+use Frootbox\Core\Database\SensitiveColumns;
 use Frootbox\Database\Rows;
 use LogicException;
 
@@ -40,7 +42,9 @@ final readonly class Undoer
         private Journal $journal,
         private Catalog $catalog,
         private Runner $runner,
-        private Permissions $permissions,
+        private Gate $gate,
+        private Hierarchy $hierarchy,
+        private SensitiveColumns $sensitive,
         private CurrentContext $context,
     ) {}
 
@@ -84,8 +88,13 @@ final readonly class Undoer
         $original = $this->catalog->get($entry->action);
         $actor = $this->context->get()->actor;
 
-        if (!$original->public && !$this->permissions->allows($actor, $original->permission)) {
+        if (!$this->gate->allows($actor, $original)) {
             throw AccessDeniedException::forPermission($original->permission, $actor);
+        }
+
+        // Nobody undoes the work of someone who ranks above them.
+        if (!$this->hierarchy->mayUndoActionsOf($entry->actorType, $entry->actorId)) {
+            throw new AccessDeniedException(\sprintf('Action #%d was run by %s, who ranks above you.', $entry->id, $entry->actorName ?? $entry->actorType));
         }
     }
 
@@ -105,7 +114,9 @@ final readonly class Undoer
 
             $expected = ChangeKind::Delete === $change->kind ? null : $change->newValues;
 
-            if (!Rows::same($this->writer->find($change->target, $change->rowId), $expected)) {
+            $current = $this->sensitive->mask($change->target, $this->writer->find($change->target, $change->rowId));
+
+            if (!Rows::same($current, $expected)) {
                 $conflicts[] = \sprintf('%s #%s', $change->target, $change->rowId);
             }
         }
@@ -127,8 +138,10 @@ final readonly class Undoer
 
         match ($change->kind) {
             ChangeKind::Insert => $this->writer->delete($change->target, $rowId),
-            ChangeKind::Update => $this->writer->update($change->target, $rowId, $change->oldValues ?? []),
-            ChangeKind::Delete => $this->writer->insert($change->target, $change->oldValues ?? []),
+            // Sensitive columns were recorded as "***": keep them on update,
+            // leave them empty when restoring a deleted row.
+            ChangeKind::Update => $this->writer->update($change->target, $rowId, $this->sensitive->without($change->target, $change->oldValues ?? [])),
+            ChangeKind::Delete => $this->writer->insert($change->target, $this->sensitive->cleared($change->target, $change->oldValues ?? [])),
         };
     }
 
