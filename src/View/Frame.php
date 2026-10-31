@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\View;
 
+use Frootbox\Core\Asset\AssetList;
 use Frootbox\Core\Component\Component;
 use Frootbox\Core\Component\Instance;
 
@@ -25,5 +26,6 @@ final readonly class Frame
         public Instance $instance,
         public Scope $scope,
         public int $depth,
+        public ?AssetList $assets = null,
     ) {}
 }

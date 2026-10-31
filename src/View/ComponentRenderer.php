@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\View;
 
+use Frootbox\Core\Asset\AssetList;
 use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\Instance;
@@ -38,18 +39,20 @@ final readonly class ComponentRenderer
 
     /**
      * @param Instance|array<mixed> $block
+     * @param AssetList|null        $assets collects the styles and scripts of everything rendered
      */
-    public function block(Instance|array $block): string
+    public function block(Instance|array $block, ?AssetList $assets = null): string
     {
-        return $this->render(ComponentKind::Block, $block instanceof Instance ? $block : Instance::fromArray($block), 0);
+        return $this->render(ComponentKind::Block, $block instanceof Instance ? $block : Instance::fromArray($block), 0, $assets);
     }
 
     /**
      * @param Instance|array<mixed> $layout
+     * @param AssetList|null        $assets collects the styles and scripts of everything rendered
      */
-    public function layout(Instance|array $layout): string
+    public function layout(Instance|array $layout, ?AssetList $assets = null): string
     {
-        return $this->render(ComponentKind::Layout, $layout instanceof Instance ? $layout : Instance::fromArray($layout, ComponentKind::Layout), 0);
+        return $this->render(ComponentKind::Layout, $layout instanceof Instance ? $layout : Instance::fromArray($layout, ComponentKind::Layout), 0, $assets);
     }
 
     /**
@@ -71,13 +74,13 @@ final readonly class ComponentRenderer
         $html = '';
 
         foreach ($frame->instance->areas[$name] ?? [] as $block) {
-            $html .= $this->render(ComponentKind::Block, $block, $frame->depth + 1);
+            $html .= $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets);
         }
 
         return $html;
     }
 
-    private function render(ComponentKind $kind, Instance $instance, int $depth): string
+    private function render(ComponentKind $kind, Instance $instance, int $depth, ?AssetList $assets): string
     {
         $component = $this->service(Components::class)->get($kind, $instance->name);
 
@@ -87,10 +90,12 @@ final readonly class ComponentRenderer
                 : '';
         }
 
+        $assets?->addComponent($component);
+
         return $this->service(Twig::class)->render($component->variant($instance->variant)->template, [
             'id' => $instance->id,
             'options' => $component->variant($instance->variant)->options($instance->options),
-            Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types), $depth),
+            Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types), $depth, $assets),
         ]);
     }
 

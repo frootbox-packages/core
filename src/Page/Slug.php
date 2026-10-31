@@ -17,6 +17,9 @@ final class Slug
 
     public const int MAX_LENGTH = 100;
 
+    /** Not allowed directly below the start page (decision 0104). */
+    public const array RESERVED = ['api', 'assets', 'admin', 'media'];
+
     private const array REPLACE = [
         'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss', 'æ' => 'ae', 'œ' => 'oe', 'ø' => 'o', 'å' => 'a',
         'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',

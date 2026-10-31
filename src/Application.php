@@ -20,9 +20,9 @@ use Frootbox\Core\Error\ErrorMiddleware;
 use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Source\ComposerSource;
 use Frootbox\Core\Http\MiddlewareDispatcher;
-use Frootbox\Core\Http\NotFoundHandler;
 use Frootbox\Core\Http\ResponseEmitter;
 use Frootbox\Core\Install\InstallCommand;
+use Frootbox\Core\Page\PageHandler;
 use Frootbox\Core\Routing\RoutingMiddleware;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
@@ -121,7 +121,7 @@ final readonly class Application
     {
         $middleware = array_map($this->middleware(...), self::MIDDLEWARE);
 
-        return new MiddlewareDispatcher($middleware, $this->service(NotFoundHandler::class, RequestHandlerInterface::class))
+        return new MiddlewareDispatcher($middleware, $this->service(PageHandler::class, RequestHandlerInterface::class))
             ->handle($request);
     }
 

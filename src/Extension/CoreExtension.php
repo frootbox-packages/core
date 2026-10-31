@@ -21,6 +21,7 @@ use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
 use Frootbox\Core\Console\ActionsCommand;
+use Frootbox\Core\Console\AssetsPublishCommand;
 use Frootbox\Core\Console\BlocksCheckCommand;
 use Frootbox\Core\Console\BlocksCommand;
 use Frootbox\Core\Console\CacheClearCommand;
@@ -36,7 +37,6 @@ use Frootbox\Core\Field\Types\LinkType;
 use Frootbox\Core\Field\Types\ListType;
 use Frootbox\Core\Field\Types\RichTextType;
 use Frootbox\Core\Field\Types\TextType;
-use Frootbox\Core\Http\WelcomeHandler;
 use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Page\CreatePage;
 use Frootbox\Core\Page\DeletePage;
@@ -71,13 +71,12 @@ final class CoreExtension implements Extension
 {
     public function register(Registry $registry): void
     {
-        $registry->get('/', WelcomeHandler::class, 'welcome');
-
         // The static route has to come before the placeholder.
         $registry->get(ApiHandler::PREFIX . '/openapi.json', OpenApiHandler::class, 'api.openapi');
         $registry->route(['GET', 'POST'], ApiHandler::PREFIX . '/' . ApiHandler::NAME, ApiHandler::class, 'api');
 
         $registry->command(AboutCommand::class);
+        $registry->command(AssetsPublishCommand::class);
         $registry->command(InstallCommand::class);
         $registry->command(MigrateCommand::class);
         $registry->command(ExtensionsCommand::class);

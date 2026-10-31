@@ -319,7 +319,7 @@ final readonly class PageEditor
             }
 
             if (null !== $data->parentId) {
-                $error = $this->checkSlug($slug, $language, $siblings);
+                $error = $this->checkSlug($slug, $language, $siblings, null === ($nodes[$data->parentId] ?? null)?->data->parentId);
 
                 if (null !== $error) {
                     $errors[$at . '/slug'] = $error;
@@ -379,8 +379,9 @@ final readonly class PageEditor
 
     /**
      * @param array<string, PageNode> $siblings
+     * @param bool                    $belowStart whether the page is directly below the start page
      */
-    private function checkSlug(string $slug, string $language, array $siblings): ?string
+    private function checkSlug(string $slug, string $language, array $siblings, bool $belowStart): ?string
     {
         if ('' === $slug) {
             return 'is required: the title has no letters or digits to make one from.';
@@ -388,6 +389,10 @@ final readonly class PageEditor
 
         if (!Slug::isValid($slug)) {
             return \sprintf('must be lower case a-z, 0-9 and hyphens, at most %d characters, e.g. "about-us".', Slug::MAX_LENGTH);
+        }
+
+        if ($belowStart && \in_array($slug, Slug::RESERVED, true)) {
+            return \sprintf('"%s" is reserved directly below the start page. Reserved: %s.', $slug, implode(', ', Slug::RESERVED));
         }
 
         foreach ($siblings as $sibling) {

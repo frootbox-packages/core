@@ -84,7 +84,7 @@ final class ApplicationTest extends TestCase
         $response = $this->request($this->application('prod'), 'POST', '/');
 
         self::assertSame(405, $response->getStatusCode());
-        self::assertSame('GET', $response->getHeaderLine('Allow'));
+        self::assertSame('GET, HEAD', $response->getHeaderLine('Allow'));
     }
 
     public function testRouteParametersReachTheHandler(): void
