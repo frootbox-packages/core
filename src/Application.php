@@ -13,6 +13,7 @@ use Frootbox\Core\Action\Channel;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Auth\AuthenticationMiddleware;
+use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Config\ConfigLoader;
 use Frootbox\Core\Container\ContainerFactory;
 use Frootbox\Core\Error\ErrorMiddleware;
@@ -21,6 +22,7 @@ use Frootbox\Core\Extension\Source\ComposerSource;
 use Frootbox\Core\Http\MiddlewareDispatcher;
 use Frootbox\Core\Http\NotFoundHandler;
 use Frootbox\Core\Http\ResponseEmitter;
+use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Routing\RoutingMiddleware;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
@@ -33,6 +35,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Application as ConsoleApplication;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\ExceptionInterface as ConsoleException;
+use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -72,6 +75,41 @@ final readonly class Application
         $extensions = ExtensionLoader::discover($sources, $paths, useCache: !$config->environment->isDevelopment());
 
         return new self(ContainerFactory::create($config, $paths, $extensions, ExtensionLoader::boot($extensions)));
+    }
+
+    /**
+     * Entry point of bin/frootbox. "install" runs before the installation
+     * is booted, so it also works without a configuration; other commands
+     * then point to it.
+     *
+     * @param array<string, string>|null $serverEnvironment Defaults to the real environment (getenv()).
+     */
+    public static function console(string $projectRoot, ?InputInterface $input = null, ?OutputInterface $output = null, ?array $serverEnvironment = null): int
+    {
+        $input ??= new ArgvInput();
+        $output ??= new ConsoleOutput();
+        $serverEnvironment ??= getenv();
+        $paths = new ProjectPaths($projectRoot);
+
+        if ('install' === $input->getFirstArgument()) {
+            $console = new ConsoleApplication('Frootbox', Frootbox::VERSION);
+            $console->setAutoExit(false);
+            $console->addCommand(new InstallCommand($paths, $serverEnvironment));
+
+            return $console->run($input, $output);
+        }
+
+        try {
+            $application = self::fromProjectRoot($projectRoot, $serverEnvironment);
+        } catch (ConfigException $error) {
+            $errorOutput = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
+            $errorOutput->writeln(\sprintf('<error>%s</error>', $error->getMessage()));
+            $errorOutput->writeln('Not set up yet? Run: php bin/frootbox install');
+
+            return Command::FAILURE;
+        }
+
+        return $application->runConsole($input, $output);
     }
 
     public function container(): ContainerInterface

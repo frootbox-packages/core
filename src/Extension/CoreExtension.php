@@ -29,6 +29,7 @@ use Frootbox\Core\Console\PruneActionLogCommand;
 use Frootbox\Core\Console\UserCreateCommand;
 use Frootbox\Core\Console\UserTokenCommand;
 use Frootbox\Core\Http\WelcomeHandler;
+use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\User\AssignRole;
 use Frootbox\Core\User\CreateRole;
 use Frootbox\Core\User\CreateUser;
@@ -58,6 +59,7 @@ final class CoreExtension implements Extension
         $registry->route(['GET', 'POST'], ApiHandler::PREFIX . '/' . ApiHandler::NAME, ApiHandler::class, 'api');
 
         $registry->command(AboutCommand::class);
+        $registry->command(InstallCommand::class);
         $registry->command(MigrateCommand::class);
         $registry->command(ExtensionsCommand::class);
         $registry->command(MakeExtensionCommand::class);
