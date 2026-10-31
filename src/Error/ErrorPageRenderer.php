@@ -19,6 +19,7 @@ final class ErrorPageRenderer
         403 => 'Kein Zugriff',
         404 => 'Seite nicht gefunden',
         405 => 'Methode nicht erlaubt',
+        410 => 'Seite nicht mehr vorhanden',
         500 => 'Es ist ein Fehler aufgetreten',
         503 => 'Vorübergehend nicht erreichbar',
     ];

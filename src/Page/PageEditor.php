@@ -14,6 +14,7 @@ use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Revision\RevisionStore;
 use Frootbox\Core\Support\SortKey;
+use Frootbox\Core\Url\AddressSync;
 use Frootbox\Database\EntityNotFoundException;
 
 /**
@@ -33,6 +34,7 @@ final readonly class PageEditor
         private Components $components,
         private ContentValidator $content,
         private Languages $languages,
+        private AddressSync $addresses,
     ) {}
 
     /**
@@ -223,6 +225,8 @@ final readonly class PageEditor
             $this->store->publish(PageReader::TYPE, $id);
         }
 
+        $this->addresses->sync();
+
         return array_map($this->reader->details(...), $ids);
     }
 
@@ -272,6 +276,7 @@ final readonly class PageEditor
         $this->pages->delete($id);
         $this->store->discard(PageReader::TYPE, $id);
         $this->store->archive(PageReader::TYPE, $id);
+        $this->addresses->sync();
     }
 
     /**
@@ -391,8 +396,10 @@ final readonly class PageEditor
             return \sprintf('must be lower case a-z, 0-9 and hyphens, at most %d characters, e.g. "about-us".', Slug::MAX_LENGTH);
         }
 
-        if ($belowStart && \in_array($slug, Slug::RESERVED, true)) {
-            return \sprintf('"%s" is reserved directly below the start page. Reserved: %s.', $slug, implode(', ', Slug::RESERVED));
+        $reserved = [...Slug::RESERVED, ...$this->languages->prefixes()];
+
+        if ($belowStart && \in_array($slug, $reserved, true)) {
+            return \sprintf('"%s" is reserved directly below the start page. Reserved: %s.', $slug, implode(', ', $reserved));
         }
 
         foreach ($siblings as $sibling) {

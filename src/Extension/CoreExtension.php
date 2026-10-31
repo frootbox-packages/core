@@ -49,6 +49,13 @@ use Frootbox\Core\Page\RestorePage;
 use Frootbox\Core\Page\ShowPage;
 use Frootbox\Core\Page\ShowPageTree;
 use Frootbox\Core\Page\UpdatePage;
+use Frootbox\Core\Url\ClearNotFound;
+use Frootbox\Core\Url\CreateRedirect;
+use Frootbox\Core\Url\DeleteRedirect;
+use Frootbox\Core\Url\ListNotFound;
+use Frootbox\Core\Url\ListRedirects;
+use Frootbox\Core\Url\SyncUrls;
+use Frootbox\Core\Url\UpdateRedirect;
 use Frootbox\Core\User\AssignRole;
 use Frootbox\Core\User\CreateRole;
 use Frootbox\Core\User\CreateUser;
@@ -118,6 +125,13 @@ final class CoreExtension implements Extension
         }
 
         $registry->undoCheck(PageUndoCheck::class);
+
+        foreach ([SyncUrls::class, CreateRedirect::class, UpdateRedirect::class, DeleteRedirect::class, ClearNotFound::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ListRedirects::class);
+        $registry->query(ListNotFound::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListTokens::class);

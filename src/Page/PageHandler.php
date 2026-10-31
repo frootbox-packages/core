@@ -16,7 +16,13 @@ use Frootbox\Core\Config\Config;
 use Frootbox\Core\Http\Exception\HttpException;
 use Frootbox\Core\Http\SiteUrl;
 use Frootbox\Core\Http\WelcomeHandler;
+use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Url\NotFoundLog;
+use Frootbox\Core\Url\Resolution;
+use Frootbox\Core\Url\UrlResolver;
+use Frootbox\Core\Url\Urls;
 use Frootbox\Core\View\ComponentRenderer;
+use Frootbox\Core\View\Delivery;
 use Frootbox\Core\View\Document;
 use Frootbox\Core\View\Head;
 use LogicException;
@@ -28,8 +34,10 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
- * Delivers published pages when no route matches (decision 0104). Without
- * a published start page, "/" shows the welcome page.
+ * Delivers published pages when no route matches (decisions 0104 and
+ * 0105): finds the page by language and path, follows redirects, logs
+ * what found nothing. Without a published start page, "/" shows the
+ * welcome page.
  */
 final readonly class PageHandler implements RequestHandlerInterface
 {
@@ -60,28 +68,55 @@ final readonly class PageHandler implements RequestHandlerInterface
             return $this->responses->createResponse(301)->withHeader('Location', ('' === $target ? '/' : $target) . ('' === $uri->getQuery() ? '' : '?' . $uri->getQuery()));
         }
 
-        $page = $this->find($path);
+        $resolution = $this->resolve($request);
 
-        if (null === $page) {
+        if (null === $resolution) {
             return '/' === $path ? $this->service(WelcomeHandler::class)->handle($request) : throw HttpException::notFound($path);
         }
 
-        return $this->responses->createResponse(200)
-            ->withHeader('Content-Type', 'text/html; charset=utf-8')
-            ->withBody($this->streams->createStream($this->render($page, $request)));
+        if (null !== $resolution->page) {
+            return $this->responses->createResponse(200)
+                ->withHeader('Content-Type', 'text/html; charset=utf-8')
+                ->withBody($this->streams->createStream($this->render($resolution->page, $request)));
+        }
+
+        if (null !== $resolution->location) {
+            $response = $this->responses->createResponse($resolution->status)->withHeader('Location', $resolution->location);
+
+            return [] === $resolution->vary ? $response : $response->withHeader('Vary', implode(', ', $resolution->vary));
+        }
+
+        // No start page published yet.
+        if ('/' === $path) {
+            return $this->service(WelcomeHandler::class)->handle($request);
+        }
+
+        if (410 === $resolution->status) {
+            throw HttpException::gone($path);
+        }
+
+        if ('GET' === $request->getMethod()) {
+            $this->service(NotFoundLog::class)->record($path);
+        }
+
+        throw HttpException::notFound($path);
     }
 
-    private function find(string $path): ?ResolvedPage
+    /**
+     * Null if Frootbox is not installed or migrated yet: no pages then.
+     */
+    private function resolve(ServerRequestInterface $request): ?Resolution
     {
         $database = $this->config->get('database.url');
 
-        // Not installed or not migrated yet: no pages.
         if (!\is_string($database) || '' === $database) {
             return null;
         }
 
+        $this->service(Urls::class)->clear();
+
         try {
-            return $this->service(PageResolver::class)->resolve($path);
+            return $this->service(UrlResolver::class)->resolve($request);
         } catch (TableNotFoundException) {
             return null;
         }
@@ -89,6 +124,10 @@ final readonly class PageHandler implements RequestHandlerInterface
 
     private function render(ResolvedPage $page, ServerRequestInterface $request): string
     {
+        $languages = $this->service(Languages::class);
+        $urls = $this->service(Urls::class);
+        $this->service(Delivery::class)->set($languages->get($page->language), $languages->get($page->contentLanguage), $page->target());
+
         $assets = new AssetList();
         $layout = Instance::fromArray(['layout' => $page->data->layout, 'variant' => $page->data->variant, ...$page->translation->content], ComponentKind::Layout);
         $body = $this->service(ComponentRenderer::class)->layout($layout, $assets);
@@ -98,10 +137,23 @@ final readonly class PageHandler implements RequestHandlerInterface
         $head = new Head(
             $page->language,
             $page->isStart() ? $site : $page->translation->title . ' – ' . $site,
-            null === $base ? null : $base . $page->path,
+            // A fallback points search engines to the original.
+            $urls->absolute($page->target(), $page->isFallback() ? $page->contentLanguage : $page->language, $base),
         );
 
-        return $this->service(Document::class)->render($head, $body, $assets, $request, $page->id);
+        $addresses = $urls->addresses($page->target());
+
+        foreach ($languages->codes() as $code) {
+            if (isset($addresses[$code]) && !$addresses[$code]->fallback) {
+                $url = $urls->absolute($page->target(), $code, $base);
+
+                if (null !== $url) {
+                    $head->alternate($code, $url);
+                }
+            }
+        }
+
+        return $this->service(Document::class)->render($head, $body, $assets, $request, $page->target());
     }
 
     /**

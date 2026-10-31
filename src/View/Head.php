@@ -17,6 +17,9 @@ final class Head
     /** @var list<string> */
     private array $tags = [];
 
+    /** @var array<string, string> */
+    private array $alternates = [];
+
     public function __construct(
         public string $language,
         public string $title,
@@ -30,6 +33,22 @@ final class Head
     public function add(string $html): void
     {
         $this->tags[] = $html;
+    }
+
+    /**
+     * The URL of this page in another language, for hreflang.
+     */
+    public function alternate(string $language, string $url): void
+    {
+        $this->alternates[$language] = $url;
+    }
+
+    /**
+     * @return array<string, string> URL by language
+     */
+    public function alternates(): array
+    {
+        return $this->alternates;
     }
 
     /**

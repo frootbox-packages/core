@@ -34,6 +34,14 @@ final class HttpException extends RuntimeException
     }
 
     /**
+     * The page was there, but is deleted or has no translation any more.
+     */
+    public static function gone(string $path): self
+    {
+        return new self(410, \sprintf('The page at "%s" is gone.', $path));
+    }
+
+    /**
      * @param list<string> $allowedMethods
      */
     public static function methodNotAllowed(string $method, array $allowedMethods): self

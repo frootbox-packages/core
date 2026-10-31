@@ -37,6 +37,7 @@ use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Theme\ThemeChain;
+use Frootbox\Core\Url\TargetLink;
 use Frootbox\Core\View\TwigFactory;
 use Frootbox\Database\Writer;
 use Frootbox\RichText\RichText;
@@ -101,7 +102,7 @@ final class ContainerFactory
             Languages::class => factory([Languages::class, 'fromConfig']),
             Components::class => factory([ComponentsFactory::class, 'create']),
             Twig::class => factory([TwigFactory::class, 'create']),
-            RichText::class => factory([RichText::class, 'standard']),
+            RichText::class => factory([self::class, 'createRichText']),
         ]);
 
         $container = $builder->build();
@@ -116,6 +117,14 @@ final class ContainerFactory
         $container->set(InvokerInterface::class, $container);
 
         return $container;
+    }
+
+    /**
+     * Rich text whose links may point to targets such as pages (decision 0105).
+     */
+    public static function createRichText(ContainerInterface $container): RichText
+    {
+        return RichText::standard()->withMark(new TargetLink($container));
     }
 
     public static function createRouter(Registry $registry): Router

@@ -71,13 +71,30 @@ final readonly class ComponentRenderer
             ));
         }
 
+        // Content from a fallback language gets its language marked for screen readers (decision 0105).
+        $delivery = 0 === $frame->depth ? $this->service(Delivery::class) : null;
+        $language = null !== $delivery && $delivery->isFallback() ? $delivery->contentLanguage()->code : null;
         $html = '';
 
         foreach ($frame->instance->areas[$name] ?? [] as $block) {
-            $html .= $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets);
+            $rendered = $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets);
+            $html .= null === $language ? $rendered : self::withLanguage($rendered, $language);
         }
 
         return $html;
+    }
+
+    /**
+     * Adds lang="…" to the outer element of a rendered block, unless it has one.
+     */
+    private static function withLanguage(string $html, string $language): string
+    {
+        return (string) preg_replace(
+            '/^(\s*(?:<!--.*?-->\s*)*<[a-zA-Z][a-zA-Z0-9-]*)(?=[\s>\/])(?![^>]*\slang=)/s',
+            '$1 lang="' . Html::escape($language) . '"',
+            $html,
+            1,
+        );
     }
 
     private function render(ComponentKind $kind, Instance $instance, int $depth, ?AssetList $assets): string

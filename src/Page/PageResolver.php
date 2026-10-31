@@ -8,44 +8,47 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Page;
 
+use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Url\Addresses;
+use Frootbox\Core\Url\Target;
 
 /**
- * Finds the published page for a path, segment by segment along the
- * slugs from the start page (decision 0104). Until the language URLs
- * arrive, only the default language without prefix.
+ * Finds the published page at a path in a language through its current
+ * address (decision 0105).
  */
 final readonly class PageResolver
 {
     public function __construct(
+        private Addresses $addresses,
         private PageReader $reader,
         private Languages $languages,
     ) {}
 
-    public function resolve(string $path): ?ResolvedPage
+    /**
+     * @param string $path The path without language prefix, e.g. "ueber-uns/team"
+     */
+    public function resolve(Language $language, string $path): ?ResolvedPage
     {
-        $language = $this->languages->default()->code;
-        $nodes = $this->reader->nodesAfterPublishing([]);
-        $node = PageReader::children($nodes, null)[0] ?? null;
-        $segments = '/' === $path ? [] : explode('/', trim($path, '/'));
+        $address = $this->addresses->at($language->code, trim($path, '/'));
+        $target = null === $address ? null : Target::tryParse($address->target);
 
-        foreach ($segments as $segment) {
-            if (null === $node) {
-                return null;
-            }
-
-            $node = array_find(
-                PageReader::children($nodes, $node->id),
-                static fn(PageNode $child): bool => ($child->data->translations[$language] ?? null)?->slug === $segment,
-            );
-        }
-
-        $translation = $node?->data->translations[$language] ?? null;
-
-        if (null === $node || null === $translation) {
+        if (null === $target || !$target->isPage()) {
             return null;
         }
 
-        return new ResolvedPage($node->id, $node->data, $language, $translation, '/' . implode('/', $segments));
+        $data = $this->reader->published($target->id);
+
+        if (null === $data) {
+            return null;
+        }
+
+        $content = array_find($this->languages->contentLanguages($language->code), static fn(string $code): bool => isset($data->translations[$code]));
+
+        if (null === $content) {
+            return null;
+        }
+
+        return new ResolvedPage($target->id, $data, $language->code, $data->translations[$content], $language->path($path), $content);
     }
 }
