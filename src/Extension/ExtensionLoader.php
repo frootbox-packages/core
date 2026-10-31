@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Extension;
 
+use Frootbox\Core\Cache\CacheFile;
 use Frootbox\Core\Extension\Source\ExtensionSource;
 use Frootbox\Core\ProjectPaths;
 
@@ -31,9 +32,9 @@ final class ExtensionLoader
         $cacheFile = $paths->var(self::CACHE_FILE);
 
         if ($useCache) {
-            $cached = self::readCache($cacheFile, $fingerprint);
+            $cached = CacheFile::read($cacheFile, $fingerprint, [Extensions::class, ExtensionPackage::class]);
 
-            if (null !== $cached) {
+            if ($cached instanceof Extensions) {
                 return $cached;
             }
         }
@@ -50,10 +51,10 @@ final class ExtensionLoader
             }
         }
 
-        $extensions = new Extensions(self::sort($packages));
+        $extensions = new Extensions(self::sort($packages), $fingerprint);
 
         if ($useCache) {
-            self::writeCache($cacheFile, $fingerprint, $extensions);
+            CacheFile::write($cacheFile, $fingerprint, $extensions);
         }
 
         return $extensions;
@@ -147,38 +148,5 @@ final class ExtensionLoader
         }
 
         return new $class();
-    }
-
-    private static function readCache(string $file, string $fingerprint): ?Extensions
-    {
-        if (!is_file($file)) {
-            return null;
-        }
-
-        [$cachedFingerprint, $serialized] = explode("\n", (string) file_get_contents($file), 2) + ['', ''];
-
-        if ($cachedFingerprint !== $fingerprint) {
-            return null;
-        }
-
-        $extensions = unserialize($serialized, ['allowed_classes' => [Extensions::class, ExtensionPackage::class]]);
-
-        return $extensions instanceof Extensions ? $extensions : null;
-    }
-
-    private static function writeCache(string $file, string $fingerprint, Extensions $extensions): void
-    {
-        $directory = \dirname($file);
-
-        if (!is_dir($directory) && !@mkdir($directory, 0o775, true) && !is_dir($directory)) {
-            return;
-        }
-
-        // Write to a temporary file first, so no request reads a half-written cache.
-        $temporary = $file . '.' . bin2hex(random_bytes(4));
-
-        if (false !== @file_put_contents($temporary, $fingerprint . "\n" . serialize($extensions))) {
-            rename($temporary, $file);
-        }
     }
 }

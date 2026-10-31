@@ -1,0 +1,4 @@
+{# frootbox
+title: Site teaser
+#}
+<article class="site-teaser"><h3>{{ field('title') }}</h3>{% if value('button') %}<a class="btn" href="{{ value('button').url }}">{{ value('button').text }}</a>{% endif %}</article>

@@ -16,6 +16,8 @@ use Frootbox\Core\Console\CommandInfo;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Database\SensitiveColumns;
 use Frootbox\Core\Event\ListenerProvider;
+use Frootbox\Core\Field\FieldType;
+use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Routing\Router;
 use Psr\Http\Server\RequestHandlerInterface;
 use Symfony\Component\Console\Command\Command;
@@ -28,6 +30,7 @@ use Symfony\Component\Console\Command\Command;
  *     $registry->command(ImportCommand::class);
  *     $registry->action(PublishNews::class);
  *     $registry->query(ListNews::class);
+ *     $registry->fieldType(PriceType::class);
  *
  * Migrations in the folder migrations/ of an extension are found
  * automatically.
@@ -51,6 +54,9 @@ final class Registry
     private ?string $package = null;
 
     private SensitiveColumns $sensitive;
+
+    /** @var array<string, class-string<FieldType>> */
+    private array $fieldTypes = [];
 
     public function __construct()
     {
@@ -164,6 +170,32 @@ final class Registry
         $this->sensitive->add($table, ...$columns);
     }
 
+    /**
+     * A field type for blocks and layouts. Its name comes from
+     * #[AsFieldType]; an extension names it "<vendor>/<package>/…", e.g.
+     * "acme/shop/price".
+     *
+     * @param class-string<FieldType> $class
+     */
+    public function fieldType(string $class): void
+    {
+        $name = FieldTypes::nameOf($class);
+        $slash = strrpos($name, '/');
+        $package = false === $slash ? null : substr($name, 0, $slash);
+
+        if ($package !== $this->package) {
+            throw new DefinitionException(null === $this->package
+                ? \sprintf('The core field type %s must not have a package in its name "%s".', $class, $name)
+                : \sprintf('The field type %s of %s must be named "%s/%s".', $class, $this->package, $this->package, false === $slash ? $name : substr($name, $slash + 1)));
+        }
+
+        if (isset($this->fieldTypes[$name])) {
+            throw new DefinitionException(\sprintf('The field type "%s" is registered twice: %s and %s.', $name, $this->fieldTypes[$name], $class));
+        }
+
+        $this->fieldTypes[$name] = $class;
+    }
+
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -199,6 +231,14 @@ final class Registry
     public function catalog(): Catalog
     {
         return $this->catalog;
+    }
+
+    /**
+     * @return array<string, class-string<FieldType>> name => class
+     */
+    public function fieldTypes(): array
+    {
+        return $this->fieldTypes;
     }
 
     public function sensitiveColumns(): SensitiveColumns

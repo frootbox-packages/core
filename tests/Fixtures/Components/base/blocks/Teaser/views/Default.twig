@@ -1,0 +1,14 @@
+{# frootbox
+title: Teaser
+description: Heading, text and a button.
+options:
+  imageHeight:
+    type: choice
+    choices: { 400: Standard, 550: High }
+    default: 400
+fields:
+  title: { type: headline, maxLength: 80 }
+  text: { type: richtext, optional: true }
+  button: { type: link, optional: true }
+#}
+<section class="teaser" style="--h: {{ options.imageHeight }}px"><h2>{{ field('title') }}</h2>{{ field('text') }}{{ field('button') }}</section>

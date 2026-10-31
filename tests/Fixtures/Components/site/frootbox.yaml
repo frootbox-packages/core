@@ -1,0 +1,6 @@
+title: Site theme
+theme:
+  parent: acme/base
+  tokens:
+    color:
+      primary: '#c00'

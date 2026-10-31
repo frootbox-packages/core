@@ -21,6 +21,9 @@ use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
 use Frootbox\Core\Console\ActionsCommand;
+use Frootbox\Core\Console\BlocksCheckCommand;
+use Frootbox\Core\Console\BlocksCommand;
+use Frootbox\Core\Console\CacheClearCommand;
 use Frootbox\Core\Console\CallCommand;
 use Frootbox\Core\Console\ExtensionsCommand;
 use Frootbox\Core\Console\MakeExtensionCommand;
@@ -28,6 +31,11 @@ use Frootbox\Core\Console\MigrateCommand;
 use Frootbox\Core\Console\PruneActionLogCommand;
 use Frootbox\Core\Console\UserCreateCommand;
 use Frootbox\Core\Console\UserTokenCommand;
+use Frootbox\Core\Field\Types\HeadlineType;
+use Frootbox\Core\Field\Types\LinkType;
+use Frootbox\Core\Field\Types\ListType;
+use Frootbox\Core\Field\Types\RichTextType;
+use Frootbox\Core\Field\Types\TextType;
 use Frootbox\Core\Http\WelcomeHandler;
 use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\User\AssignRole;
@@ -69,6 +77,13 @@ final class CoreExtension implements Extension
         $registry->command(PruneActionLogCommand::class);
         $registry->command(UserCreateCommand::class);
         $registry->command(UserTokenCommand::class);
+        $registry->command(BlocksCommand::class);
+        $registry->command(BlocksCheckCommand::class);
+        $registry->command(CacheClearCommand::class);
+
+        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class] as $fieldType) {
+            $registry->fieldType($fieldType);
+        }
 
         $registry->action(UndoAction::class);
 

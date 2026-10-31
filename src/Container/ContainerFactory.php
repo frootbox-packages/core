@@ -15,6 +15,8 @@ use Doctrine\Migrations\DependencyFactory;
 use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Auth\Permissions;
 use Frootbox\Core\Auth\RolePermissions;
+use Frootbox\Core\Component\Components;
+use Frootbox\Core\Component\ComponentsFactory;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Console\ConsoleFactory;
@@ -28,10 +30,14 @@ use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Extension\Registry;
+use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Core\Theme\ThemeChain;
+use Frootbox\Core\View\TwigFactory;
 use Frootbox\Database\Writer;
+use Frootbox\RichText\RichText;
 use Invoker\InvokerInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Container\ContainerInterface;
@@ -44,6 +50,7 @@ use Psr\Http\Message\UploadedFileFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Application as ConsoleApplication;
+use Twig\Environment as Twig;
 
 use function DI\factory;
 use function DI\get;
@@ -86,6 +93,11 @@ final class ContainerFactory
             Catalog::class => factory([self::class, 'createCatalog']),
             Permissions::class => get(RolePermissions::class),
             SensitiveColumns::class => factory([self::class, 'createSensitiveColumns']),
+            FieldTypes::class => factory([self::class, 'createFieldTypes']),
+            ThemeChain::class => factory([self::class, 'createThemeChain']),
+            Components::class => factory([ComponentsFactory::class, 'create']),
+            Twig::class => factory([TwigFactory::class, 'create']),
+            RichText::class => factory([RichText::class, 'standard']),
         ]);
 
         $container = $builder->build();
@@ -123,6 +135,21 @@ final class ContainerFactory
     public static function createSensitiveColumns(Registry $registry): SensitiveColumns
     {
         return $registry->sensitiveColumns();
+    }
+
+    public static function createFieldTypes(Registry $registry, ContainerInterface $container): FieldTypes
+    {
+        return new FieldTypes($registry->fieldTypes(), $container);
+    }
+
+    /**
+     * The active theme comes from "theme:" in config/app.yaml.
+     */
+    public static function createThemeChain(Extensions $extensions, Config $config): ThemeChain
+    {
+        $theme = $config->get('theme');
+
+        return ThemeChain::resolve($extensions, \is_string($theme) ? $theme : null);
     }
 
     public static function createListenerProvider(ContainerInterface $container, Registry $registry): ListenerProvider

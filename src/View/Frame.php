@@ -1,0 +1,29 @@
+<?php
+
+/*
+ * SPDX-License-Identifier: LGPL-3.0-only
+ */
+
+declare(strict_types=1);
+
+namespace Frootbox\Core\View;
+
+use Frootbox\Core\Component\Component;
+use Frootbox\Core\Component\Instance;
+
+/**
+ * What field(), value() and area() need while one block or layout is rendered.
+ *
+ * @internal
+ */
+final readonly class Frame
+{
+    public const string VARIABLE = '_frootbox';
+
+    public function __construct(
+        public Component $component,
+        public Instance $instance,
+        public Scope $scope,
+        public int $depth,
+    ) {}
+}

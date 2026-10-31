@@ -18,8 +18,12 @@ final readonly class Extensions implements \IteratorAggregate, \Countable
 {
     /**
      * @param list<ExtensionPackage> $packages
+     * @param string                 $fingerprint Changes when packages are installed, updated or removed
      */
-    public function __construct(public array $packages = []) {}
+    public function __construct(
+        public array $packages = [],
+        public string $fingerprint = '',
+    ) {}
 
     /**
      * @return \ArrayIterator<int, ExtensionPackage>

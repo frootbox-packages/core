@@ -1,0 +1,12 @@
+{# frootbox
+title: Hero
+fields:
+  intro: { type: text, multiline: true, optional: true }
+  slides:
+    type: list
+    max: 5
+    fields:
+      title: { type: headline }
+      link: { type: link, optional: true }
+#}
+<div class="hero">{{ field('intro') }}<ul>{% for slide in field('slides') %}<li>{{ slide.field('title') }}{{ slide.field('link') }}</li>{% endfor %}</ul>{{ field('slides')|length }}</div>
