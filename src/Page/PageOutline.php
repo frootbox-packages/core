@@ -13,14 +13,19 @@ use Doctrine\DBAL\Connection;
 /**
  * The published page tree with titles only, read in two queries, for
  * navigations, the breadcrumb and what applies to a page from above
- * (decision 0117).
+ * (decision 0117). In the editing mode the tree with drafts (decision
+ * 0119).
  */
 final class PageOutline
 {
     /** @var array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}>|null */
     private ?array $pages = null;
 
-    public function __construct(private readonly Connection $connection) {}
+    public function __construct(
+        private readonly Connection $connection,
+        private readonly EditMode $editMode,
+        private readonly PageReader $reader,
+    ) {}
 
     /**
      * @return array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}|null
@@ -113,6 +118,10 @@ final class PageOutline
             return $this->pages;
         }
 
+        if ($this->editMode->active()) {
+            return $this->pages = $this->drafts();
+        }
+
         $quote = $this->connection->quoteSingleIdentifier(...);
         $pages = [];
 
@@ -142,6 +151,30 @@ final class PageOutline
         }
 
         return $this->pages = $pages;
+    }
+
+    /**
+     * The tree with drafts for the editing mode (decision 0119); the lock
+     * is the one of the published page.
+     *
+     * @return array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}>
+     */
+    private function drafts(): array
+    {
+        $pages = [];
+
+        foreach ($this->reader->nodes() as $id => $node) {
+            $pages[$id] = [
+                'parentId' => $node->data->parentId,
+                'position' => $node->data->position,
+                'locked' => $node->locked,
+                'excludeFromSearchEngines' => $node->data->excludeFromSearchEngines,
+                'excludeFromSiteSearch' => $node->data->excludeFromSiteSearch,
+                'titles' => array_map(static fn(TranslationData $translation): string => $translation->title, $node->data->translations),
+            ];
+        }
+
+        return $pages;
     }
 
     /**

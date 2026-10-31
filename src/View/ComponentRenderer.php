@@ -14,6 +14,7 @@ use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\Instance;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Page\EditMode;
 use Frootbox\RichText\Html;
 use Psr\Container\ContainerInterface;
 use Twig\Environment as Twig;
@@ -35,6 +36,8 @@ final readonly class ComponentRenderer
         private FieldTypes $types,
         private ContainerInterface $container,
         private Environment $environment,
+        private EditMode $editMode,
+        private EditMarkup $markup,
     ) {}
 
     /**
@@ -75,13 +78,16 @@ final readonly class ComponentRenderer
         $delivery = 0 === $frame->depth ? $this->service(Delivery::class) : null;
         $language = null !== $delivery && $delivery->isFallback() ? $delivery->contentLanguage()->code : null;
         $html = '';
+        $marking = $this->editMode->marking();
 
         foreach ($frame->instance->areas[$name] ?? [] as $block) {
             $rendered = $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets);
-            $html .= null === $language ? $rendered : self::withLanguage($rendered, $language);
+            $rendered = null === $language ? $rendered : self::withLanguage($rendered, $language);
+            $component = $marking ? $this->service(Components::class)->get(ComponentKind::Block, $block->name) : null;
+            $html .= null === $component ? $rendered : $this->markup->block($rendered, $block, $component, $name);
         }
 
-        return $html;
+        return $marking && '' === $html ? $this->markup->emptyArea($name) : $html;
     }
 
     /**
@@ -109,11 +115,14 @@ final readonly class ComponentRenderer
 
         $assets?->addComponent($component);
 
-        return $this->service(Twig::class)->render($component->variant($instance->variant)->template, [
+        $marking = $this->editMode->marking();
+        $html = $this->service(Twig::class)->render($component->variant($instance->variant)->template, [
             'id' => $instance->id,
             'options' => $component->variant($instance->variant)->options($instance->options),
-            Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types), $depth, $assets),
+            Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types, $marking ? $this->markup : null), $depth, $assets),
         ]);
+
+        return $marking ? $this->markup->unwrap($html, keepRoot: ComponentKind::Block === $kind) : $html;
     }
 
     /**

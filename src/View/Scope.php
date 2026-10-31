@@ -10,6 +10,7 @@ namespace Frootbox\Core\View;
 
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
+use Twig\Markup;
 
 /**
  * The fields of a block, a layout or one list entry with their values,
@@ -20,12 +21,24 @@ final readonly class Scope
     /**
      * @param array<string, Field> $fields
      * @param array<mixed>         $values
+     * @param EditMarkup|null      $markup In the editing mode, for users who may change the page (decision 0119)
+     * @param string               $path   Where these fields are inside the block, e.g. "slides/0/"
      */
     public function __construct(
         private array $fields,
         private array $values,
         private FieldTypes $types,
+        private ?EditMarkup $markup = null,
+        private string $path = '',
     ) {}
+
+    /**
+     * The same fields with the markup of the editing mode at a place.
+     */
+    public function within(EditMarkup $markup, string $path): self
+    {
+        return new self($this->fields, $this->values, $this->types, $markup, $path);
+    }
 
     /**
      * The field ready for output, e.g. {{ slide.field('title') }}.
@@ -33,8 +46,14 @@ final readonly class Scope
     public function field(string $name): mixed
     {
         $field = $this->definition($name);
+        $output = $this->types->get($field->type)->output($this->values[$name] ?? null, $field);
 
-        return $this->types->get($field->type)->output($this->values[$name] ?? null, $field);
+        return match (true) {
+            null === $this->markup => $output,
+            $output instanceof ListValue => $output->within($this->markup, $this->path . $name . '/'),
+            \is_string($output) || $output instanceof Markup => $this->markup->field($this->path . $name, $field, $output),
+            default => $output,
+        };
     }
 
     /**

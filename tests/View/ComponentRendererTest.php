@@ -126,9 +126,12 @@ final class ComponentRendererTest extends TestCase
 
     public function testLeavesOutUnknownBlocksInProduction(): void
     {
-        self::assertSame('', $this->renderer('acme/site', Environment::Production)->block(['block' => 'acme/other/Promo']));
-        self::assertStringStartsWith('<article', $this->renderer('acme/site', Environment::Production)->block(['block' => 'acme/base/Teaser', 'fields' => ['title' => 'x']]));
-        self::assertFileExists($this->project->root . '/var/cache/twig', 'Templates are compiled in production.');
+        $container = FixtureSite::container($this->project, 'acme/site', Environment::Production);
+
+        self::assertSame('', $this->get($container, ComponentRenderer::class)->block(['block' => 'acme/other/Promo']));
+        self::assertStringStartsWith('<article', $this->get($container, ComponentRenderer::class)->block(['block' => 'acme/base/Teaser', 'fields' => ['title' => 'x']]));
+        // Twig writes no file for a template another test has loaded already, so ask it where it compiles to.
+        self::assertSame(realpath($this->project->root) . '/var/cache/twig', $this->get($container, Twig::class)->getCache(), 'Templates are compiled in production.');
     }
 
     public function testLeavesOutUnsafeLinks(): void

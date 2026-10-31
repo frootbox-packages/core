@@ -33,6 +33,15 @@ final readonly class ListValue implements IteratorAggregate, Countable, Stringab
         return new ArrayIterator($this->entries);
     }
 
+    /**
+     * The entries with their places for the editing mode, e.g.
+     * "slides/0/" (decision 0119).
+     */
+    public function within(EditMarkup $markup, string $path): self
+    {
+        return new self(array_map(static fn(int $index, Scope $entry): Scope => $entry->within($markup, $path . $index . '/'), array_keys($this->entries), $this->entries));
+    }
+
     public function count(): int
     {
         return \count($this->entries);

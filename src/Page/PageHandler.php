@@ -9,7 +9,12 @@ declare(strict_types=1);
 namespace Frootbox\Core\Page;
 
 use Doctrine\DBAL\Exception\TableNotFoundException;
+use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Asset\AssetList;
+use Frootbox\Core\Auth\ActorType;
+use Frootbox\Core\Auth\Authentication;
+use Frootbox\Core\Auth\Gate;
+use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Cache\PageCache;
 use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\Instance;
@@ -71,6 +76,8 @@ final readonly class PageHandler implements RequestHandlerInterface
         }
 
         $installed = $this->isInstalled();
+        $editing = $installed && $this->wantsEditMode($request);
+        $this->service(EditMode::class)->set($editing);
 
         if ($installed) {
             $this->service(Scheduler::class)->runIfDue();
@@ -89,8 +96,13 @@ final readonly class PageHandler implements RequestHandlerInterface
 
         if (null !== $resolution->page) {
             // Locked pages are not cached, the cache only holds pages that were delivered.
-            if (null !== $this->service(PageOutline::class)->lockedBy($resolution->page->id)) {
+            // Editors see them in the editing mode, the bar says they are locked.
+            if (!$editing && null !== $this->service(PageOutline::class)->lockedBy($resolution->page->id)) {
                 throw HttpException::locked($path);
+            }
+
+            if ($editing) {
+                $this->service(EditMode::class)->set(true, $this->mayChange($request, $resolution->page->id));
             }
 
             $html = $this->render($resolution->page, $request);
@@ -125,6 +137,36 @@ final readonly class PageHandler implements RequestHandlerInterface
         }
 
         throw HttpException::notFound($path);
+    }
+
+    /**
+     * The editing mode is on for users who may see pages and switched it
+     * on in the bar (decision 0119).
+     */
+    private function wantsEditMode(ServerRequestInterface $request): bool
+    {
+        $authentication = $request->getAttribute(Authentication::class);
+
+        if ('1' !== ($request->getCookieParams()[EditMode::COOKIE] ?? null) || !$authentication instanceof Authentication || ActorType::User !== $authentication->actor->type) {
+            return false;
+        }
+
+        $catalog = $this->service(Catalog::class);
+
+        return $catalog->has('page.show') && $this->service(Gate::class)->allows($authentication->actor, $catalog->get('page.show'));
+    }
+
+    /**
+     * Whether the user may change the page, so its fields get marked.
+     */
+    private function mayChange(ServerRequestInterface $request, string $id): bool
+    {
+        $authentication = $request->getAttribute(Authentication::class);
+        $catalog = $this->service(Catalog::class);
+
+        return $authentication instanceof Authentication
+            && $catalog->has('page.update')
+            && $this->service(Gate::class)->allowsOn($authentication->actor, $catalog->get('page.update'), [Scope::page($id)]);
     }
 
     private function isInstalled(): bool

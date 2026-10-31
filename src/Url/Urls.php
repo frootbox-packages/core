@@ -8,9 +8,11 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Url;
 
+use DateTimeImmutable;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\View\Delivery;
 
 /**
@@ -34,6 +36,8 @@ final class Urls
         private readonly Languages $languages,
         private readonly Delivery $delivery,
         private readonly Config $config,
+        private readonly EditMode $editMode,
+        private readonly DraftAddresses $drafts,
     ) {}
 
     /**
@@ -106,6 +110,14 @@ final class Urls
     {
         $key = (string) $target;
 
+        // In the editing mode pages have the addresses of their drafts (decision 0119).
+        if ($this->editMode->active() && str_starts_with($key, Target::PAGE . ':')) {
+            return array_map(
+                static fn(PagePath $path): Address => new Address(0, $key, $path->language, null, $path->path, true, $path->language !== $path->contentLanguage, new DateTimeImmutable(), null),
+                $this->drafts->of(substr($key, \strlen(Target::PAGE) + 1)),
+            );
+        }
+
         if ($this->pages && !isset($this->addresses[$key]) && str_starts_with($key, Target::PAGE . ':')) {
             return [];
         }
@@ -137,6 +149,7 @@ final class Urls
     {
         $this->addresses = [];
         $this->pages = false;
+        $this->drafts->clear();
     }
 
     private function pagePath(Target|string $target, string $language): ?string

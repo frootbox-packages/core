@@ -27,11 +27,13 @@ final readonly class PagePaths
     ) {}
 
     /**
+     * @param bool $drafts From the tree with drafts, as it will be once published (decision 0119)
+     *
      * @return list<PagePath>
      */
-    public function all(): array
+    public function all(bool $drafts = false): array
     {
-        $nodes = $this->reader->nodesAfterPublishing([]);
+        $nodes = $drafts ? $this->reader->nodes() : $this->reader->nodesAfterPublishing([]);
         $children = [];
 
         foreach ($nodes as $node) {

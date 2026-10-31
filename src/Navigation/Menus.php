@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Navigation;
 
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Page\PageOutline;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
@@ -23,7 +24,8 @@ final readonly class Menus
 {
     public function __construct(
         private Definitions $definitions,
-        private Navigations $navigations,
+        private NavigationReader $reader,
+        private EditMode $editMode,
         private PageOutline $outline,
         private Urls $urls,
         private Delivery $delivery,
@@ -45,13 +47,14 @@ final readonly class Menus
             $name,
             [] === $this->definitions->all() ? 'none' : implode(', ', array_keys($this->definitions->all())),
         ));
-        $published = $this->navigations->of($name);
+        // In the editing mode the draft, as it will be once published (decision 0119).
+        $items = $this->editMode->active() ? $this->reader->current($name) : $this->reader->published($name);
 
         foreach ($this->chain() as $language) {
-            if (isset($published[$language])) {
+            if (isset($items[$language])) {
                 $this->urls->preload();
 
-                return $this->level($published[$language]->items, $definition, 1);
+                return $this->level($items[$language], $definition, 1);
             }
         }
 
