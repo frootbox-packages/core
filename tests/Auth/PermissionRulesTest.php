@@ -47,6 +47,25 @@ final class PermissionRulesTest extends TestCase
         self::assertTrue($rules->allows('media.upload'));
     }
 
+    public function testRulesForVendorsAndPackages(): void
+    {
+        $rules = new PermissionRules(['acme/*', '-acme/shop/order.delete', 'foo/blog/post.*', 'bar/news/article.publish']);
+
+        self::assertTrue($rules->allows('acme/shop/order.create'));
+        self::assertTrue($rules->allows('acme/guestbook/entry.sign'));
+        self::assertFalse($rules->allows('acme/shop/order.delete'));
+        self::assertTrue($rules->allows('foo/blog/post.create'));
+        self::assertFalse($rules->allows('foo/blog/comment.create'));
+        self::assertTrue($rules->allows('bar/news/article.publish'));
+        self::assertFalse($rules->allows('bar/news/article.delete'));
+        self::assertFalse($rules->allows('acme-other/shop/order.create'));
+        self::assertFalse($rules->allows('page.create'));
+
+        $package = new PermissionRules(['acme/shop/*']);
+        self::assertTrue($package->allows('acme/shop/order.create'));
+        self::assertFalse($package->allows('acme/shop-two/order.create'));
+    }
+
     public function testNoRulesAllowNothing(): void
     {
         self::assertFalse(new PermissionRules([])->allows('page.create'));
@@ -72,5 +91,10 @@ final class PermissionRulesTest extends TestCase
         yield 'two stars' => ['**'];
         yield 'double minus' => ['--page.create'];
         yield 'trailing dot' => ['page.'];
+        yield 'vendor only' => ['acme/'];
+        yield 'package only' => ['acme/shop/'];
+        yield 'star inside a package' => ['acme/*/order.create'];
+        yield 'leading slash' => ['/page.create'];
+        yield 'upper case vendor' => ['Acme/*'];
     }
 }

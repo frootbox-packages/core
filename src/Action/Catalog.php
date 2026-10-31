@@ -20,11 +20,15 @@ final class Catalog
     private array $byClass = [];
 
     /**
+     * Adds an action or query of an extension package, or of the core
+     * when $package is null. Its name must start with the package name.
+     *
      * @param class-string $class
      */
-    public function add(string $class): Descriptor
+    public function add(string $class, ?string $package = null): Descriptor
     {
         $descriptor = Descriptor::of($class);
+        self::assertOwnedBy($descriptor, $package);
         $existing = $this->byName[$descriptor->name] ?? null;
 
         if (null !== $existing) {
@@ -35,6 +39,21 @@ final class Catalog
         $this->byClass[$class] = $descriptor;
 
         return $descriptor;
+    }
+
+    private static function assertOwnedBy(Descriptor $descriptor, ?string $package): void
+    {
+        $owner = ActionName::package($descriptor->name);
+
+        if ($owner === $package) {
+            return;
+        }
+
+        throw new DefinitionException(match (true) {
+            null === $package => \sprintf('The name "%s" of %s belongs to the package %s. Register it in that extension.', $descriptor->name, $descriptor->class, $owner),
+            null === $owner => \sprintf('The name "%s" of %s needs the package name in front: "%s/%s".', $descriptor->name, $descriptor->class, $package, $descriptor->name),
+            default => \sprintf('The name "%s" of %s must start with "%s/", the name of its package.', $descriptor->name, $descriptor->class, $package),
+        });
     }
 
     public function has(string $name): bool

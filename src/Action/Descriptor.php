@@ -18,8 +18,6 @@ use ReflectionClass;
  */
 final class Descriptor
 {
-    private const string NAME_PATTERN = '/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)+$/';
-
     /** @var array<string, mixed>|null */
     private ?array $schema = null;
 
@@ -57,8 +55,8 @@ final class Descriptor
 
         $info = $attribute->newInstance();
 
-        if (1 !== preg_match(self::NAME_PATTERN, $info->name)) {
-            throw new DefinitionException(\sprintf('The name "%s" of %s must be lowercase with at least one dot, e.g. "page.create".', $info->name, $class));
+        if (!ActionName::isValid($info->name)) {
+            throw new DefinitionException(\sprintf('The name "%s" of %s must be lowercase with at least one dot, e.g. "page.create", or "acme/shop/order.create" in an extension.', $info->name, $class));
         }
 
         if ($info->public && $info->signedIn) {

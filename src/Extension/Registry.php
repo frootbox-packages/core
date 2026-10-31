@@ -47,6 +47,9 @@ final class Registry
 
     private Catalog $catalog;
 
+    /** The package whose extension is registering, null for the core. */
+    private ?string $package = null;
+
     private SensitiveColumns $sensitive;
 
     public function __construct()
@@ -107,13 +110,35 @@ final class Registry
     }
 
     /**
+     * Runs the registration of an extension package. Its actions and
+     * queries must be named "<package>/…".
+     *
+     * @internal Called by the ExtensionLoader.
+     *
+     * @param callable(): void $register
+     */
+    public function forPackage(string $package, callable $register): void
+    {
+        $previous = $this->package;
+        $this->package = $package;
+
+        try {
+            $register();
+        } finally {
+            $this->package = $previous;
+        }
+    }
+
+    /**
      * An action. Its name, description and permission come from #[AsAction].
+     * An extension names it "<vendor>/<package>/…", e.g.
+     * "acme/shop/order.create".
      *
      * @param class-string<Action<mixed>> $class
      */
     public function action(string $class): void
     {
-        if (!$this->catalog->add($class)->isAction()) {
+        if (!$this->catalog->add($class, $this->package)->isAction()) {
             throw new DefinitionException(\sprintf('%s is a query. Register it with query().', $class));
         }
     }
@@ -125,7 +150,7 @@ final class Registry
      */
     public function query(string $class): void
     {
-        if ($this->catalog->add($class)->isAction()) {
+        if ($this->catalog->add($class, $this->package)->isAction()) {
             throw new DefinitionException(\sprintf('%s is an action. Register it with action().', $class));
         }
     }

@@ -27,6 +27,7 @@ use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Tests\Fixtures\Notes\Notes;
 use Frootbox\Core\Tests\Fixtures\Notes\NotesExtension;
 use Frootbox\Core\Tests\Fixtures\Notes\Outbox;
+use Frootbox\Core\Tests\Fixtures\Shop\ListOrders;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -46,6 +47,7 @@ abstract class NotesTestCase extends TestCase
         $this->project = TemporaryProject::create();
         $registry = ExtensionLoader::boot(new Extensions());
         new NotesExtension()->register($registry);
+        $registry->forPackage('acme/shop', static fn() => $registry->query(ListOrders::class));
 
         $config = new Config(Environment::Development, ['database' => ['url' => TestDatabase::url()]]);
         $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), new Extensions(), $registry);

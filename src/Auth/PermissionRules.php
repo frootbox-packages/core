@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Auth;
 
+use Frootbox\Core\Action\ActionName;
 use InvalidArgumentException;
 
 /**
@@ -16,12 +17,19 @@ use InvalidArgumentException;
  *     ['*']                               everything
  *     ['page.*', 'media.upload']          everything starting with "page." plus one permission
  *     ['page.*', '-page.delete']          a minus takes permissions out again
+ *     ['acme/*', 'acme/shop/order.*']     everything of a vendor, part of an extension
  *
  * Exceptions win over grants, so the order does not matter.
  */
 final readonly class PermissionRules
 {
-    private const string PATTERN = '/^-?(?:\*|[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*(?:\.\*)?)$/';
+    private const string VENDOR = '[a-z0-9](?:[_.-]?[a-z0-9]+)*';
+
+    private const string PATTERN = '#^-?(?:\*'
+        . '|' . self::VENDOR . '/\*'
+        . '|' . ActionName::PACKAGE . '/\*'
+        . '|(?:' . ActionName::PACKAGE . '/)?' . ActionName::SEGMENT . '(?:\.' . ActionName::SEGMENT . ')*(?:\.\*)?'
+        . ')$#';
 
     /** @var list<string> */
     private array $grants;
@@ -79,7 +87,7 @@ final readonly class PermissionRules
     {
         return match (true) {
             '*' === $rule => true,
-            str_ends_with($rule, '.*') => str_starts_with($permission, substr($rule, 0, -1)),
+            str_ends_with($rule, '.*'), str_ends_with($rule, '/*') => str_starts_with($permission, substr($rule, 0, -1)),
             default => $rule === $permission,
         };
     }

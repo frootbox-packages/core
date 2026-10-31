@@ -16,6 +16,8 @@ use Frootbox\Core\Account\ShowAccount;
 use Frootbox\Core\Account\SignIn;
 use Frootbox\Core\Account\SignOut;
 use Frootbox\Core\Action\Undo\UndoAction;
+use Frootbox\Core\Api\ApiHandler;
+use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
 use Frootbox\Core\Console\ActionsCommand;
@@ -50,6 +52,10 @@ final class CoreExtension implements Extension
     public function register(Registry $registry): void
     {
         $registry->get('/', WelcomeHandler::class, 'welcome');
+
+        // The static route has to come before the placeholder.
+        $registry->get(ApiHandler::PREFIX . '/openapi.json', OpenApiHandler::class, 'api.openapi');
+        $registry->route(['GET', 'POST'], ApiHandler::PREFIX . '/' . ApiHandler::NAME, ApiHandler::class, 'api');
 
         $registry->command(AboutCommand::class);
         $registry->command(MigrateCommand::class);
