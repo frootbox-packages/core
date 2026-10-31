@@ -66,6 +66,7 @@ use Frootbox\Core\Page\ShowPageTree;
 use Frootbox\Core\Page\UnlockPage;
 use Frootbox\Core\Page\UnpublishPage;
 use Frootbox\Core\Page\UpdatePage;
+use Frootbox\Core\Page\UpdatePageField;
 use Frootbox\Core\Url\ClearNotFound;
 use Frootbox\Core\Url\CreateRedirect;
 use Frootbox\Core\Url\DeleteRedirect;
@@ -138,7 +139,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([CreatePage::class, UpdatePage::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class] as $action) {
+        foreach ([CreatePage::class, UpdatePage::class, UpdatePageField::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class] as $action) {
             $registry->action($action);
         }
 

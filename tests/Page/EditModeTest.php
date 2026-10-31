@@ -117,7 +117,7 @@ final class EditModeTest extends NotesTestCase
         self::assertStringContainsString('<h1>Willkommen</h1>', $this->html('/', Actor::user($nobody->id, $nobody->name)), 'Without page.show neither.');
         self::assertFalse($this->get(EditMode::class)->active());
 
-        self::assertStringContainsString('<h1 data-fb-field="heading" data-fb-type="headline" data-fb-label="Heading" tabindex="0">Entwurf</h1>', $this->html('/', $this->admin));
+        self::assertStringContainsString('<h1 data-fb-field="heading" data-fb-type="headline" data-fb-label="Heading" tabindex="0" data-fb-value="&quot;Entwurf&quot;">Entwurf</h1>', $this->html('/', $this->admin));
         self::assertTrue($this->get(EditMode::class)->marking());
     }
 
@@ -171,7 +171,7 @@ final class EditModeTest extends NotesTestCase
         self::assertMatchesRegularExpression('/<article data-fb-block="[0-9a-z]{8}" data-fb-name="acme\/base\/Teaser" data-fb-title="Teaser" data-fb-area="main" class="site-teaser"/', $html);
         self::assertStringContainsString('<h3 data-fb-field="title" data-fb-type="headline"', $html, 'A field alone in its element marks the element.');
         self::assertStringContainsString('<fb-field data-fb-field="text" data-fb-type="richtext" data-fb-label="Text" tabindex="0"></fb-field></article>', $html, 'Next to others it keeps the wrapper.');
-        self::assertStringContainsString('<li><fb-field data-fb-field="slides/0/title" data-fb-type="headline" data-fb-label="Title" tabindex="0">Eins</fb-field><fb-field data-fb-field="slides/0/link"', $html);
+        self::assertStringContainsString('<li><fb-field data-fb-field="slides/0/title" data-fb-type="headline" data-fb-label="Title" tabindex="0" data-fb-value="&quot;Eins&quot;">Eins</fb-field><fb-field data-fb-field="slides/0/link"', $html);
         self::assertStringContainsString('data-fb-field="slides/1/title"', $html);
         self::assertStringContainsString('<fb-area data-fb-area="main" data-fb-empty></fb-area>', $this->html('/ueber-uns', $this->admin));
     }
@@ -187,6 +187,15 @@ final class EditModeTest extends NotesTestCase
         self::assertStringContainsString('data-fb-field="heading"', $this->html('/ueber-uns', $this->editor), 'Within the branch.');
     }
 
+    public function testMarksNothingInAFallbackLanguage(): void
+    {
+        $html = $this->html('/en/ueber-uns', $this->admin);
+
+        self::assertStringContainsString('Über uns', $html, 'The German content stands in.');
+        self::assertStringNotContainsString('data-fb-', $html, 'There is no English content to change yet.');
+        self::assertTrue($this->get(EditMode::class)->active());
+    }
+
     protected function environment(): Environment
     {
         return Environment::Production;
@@ -199,7 +208,7 @@ final class EditModeTest extends NotesTestCase
 
     protected function config(): array
     {
-        return ['app' => ['name' => 'Testsite', 'url' => 'https://example.org'], 'theme' => 'acme/site', 'languages' => ['de' => ['title' => 'Deutsch']]];
+        return ['app' => ['name' => 'Testsite', 'url' => 'https://example.org'], 'theme' => 'acme/site', 'languages' => ['de' => ['title' => 'Deutsch'], 'en' => ['title' => 'English']]];
     }
 
     /**

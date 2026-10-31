@@ -51,7 +51,7 @@ final readonly class Scope
         return match (true) {
             null === $this->markup => $output,
             $output instanceof ListValue => $output->within($this->markup, $this->path . $name . '/'),
-            \is_string($output) || $output instanceof Markup => $this->markup->field($this->path . $name, $field, $output),
+            \is_string($output) || $output instanceof Markup => $this->markup->field($this->path . $name, $field, $output, $this->values[$name] ?? null),
             default => $output,
         };
     }

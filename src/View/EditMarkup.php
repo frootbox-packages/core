@@ -28,17 +28,19 @@ final readonly class EditMarkup
     private const string ROOT = '/^\s*(?:<!--.*?-->\s*)*</s';
 
     /**
-     * Wraps the output of a field that is text or markup.
+     * Wraps the output of a field that is text or markup. The stored value
+     * goes along as JSON for the editors (decision 0122).
      *
      * @param string $path Inside the block or layout, e.g. "title" or "slides/0/title"
      */
-    public function field(string $path, Field $field, string|Markup $output): Markup
+    public function field(string $path, Field $field, string|Markup $output, mixed $value = null): Markup
     {
         return new Markup(\sprintf(
-            '<fb-field data-fb-field="%s" data-fb-type="%s" data-fb-label="%s" tabindex="0">%s</fb-field>',
+            '<fb-field data-fb-field="%s" data-fb-type="%s" data-fb-label="%s" tabindex="0"%s>%s</fb-field>',
             Html::escape($path),
             Html::escape($field->type),
             Html::escape($field->label),
+            null === $value ? '' : ' data-fb-value="' . Html::escape(json_encode($value, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)) . '"',
             $output instanceof Markup ? (string) $output : Html::escape($output),
         ), 'UTF-8');
     }

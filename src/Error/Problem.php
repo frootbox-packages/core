@@ -10,6 +10,7 @@ namespace Frootbox\Core\Error;
 
 use Frootbox\Core\Action\AccessDeniedException;
 use Frootbox\Core\Action\ActionException;
+use Frootbox\Core\Action\ConflictException;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\UndoException;
 use Frootbox\Core\Action\UnknownActionException;
@@ -83,7 +84,8 @@ final readonly class Problem
             $throwable instanceof InvalidInputException => new self(422, 'invalid-input', $throwable->getMessage(), errors: $throwable->errors),
             $throwable instanceof UnknownActionException,
             $throwable instanceof EntityNotFoundException => new self(404, 'not-found', $throwable->getMessage()),
-            $throwable instanceof UndoException => new self(409, 'conflict', $throwable->getMessage()),
+            $throwable instanceof UndoException,
+            $throwable instanceof ConflictException => new self(409, 'conflict', $throwable->getMessage()),
             $throwable instanceof TooManyAttemptsException => new self(429, 'too-many-requests', $throwable->getMessage(), ['Retry-After' => (string) $throwable->retryAfter]),
             $throwable instanceof ActionException => new self(422, 'unprocessable', $throwable->getMessage()),
             default => new self(500, 'server-error', $showDetails ? $throwable->getMessage() : self::title(500)),

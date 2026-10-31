@@ -102,7 +102,8 @@ final readonly class PageHandler implements RequestHandlerInterface
             }
 
             if ($editing) {
-                $this->service(EditMode::class)->set(true, $this->mayChange($request, $resolution->page->id));
+                // A page in a fallback language has no content of its own to change (decision 0122).
+                $this->service(EditMode::class)->set(true, !$resolution->page->isFallback() && $this->mayChange($request, $resolution->page->id));
             }
 
             $html = $this->render($resolution->page, $request);
