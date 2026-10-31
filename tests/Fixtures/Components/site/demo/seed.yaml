@@ -1,0 +1,17 @@
+# Demo content for the site theme.
+- page.create:
+    layout: acme/base/Page
+    translations: { de: { title: Start, content: { fields: { heading: Willkommen } } } }
+  as: start
+- page.create:
+    layout: acme/base/Page
+    parentId: '${start.id}'
+    translations: { de: { title: Über uns, content: { fields: { heading: Wir } } } }
+  as: about
+- navigation.update:
+    name: main
+    items: { de: [{ type: target, target: 'page:${about.id}', label: 'Mehr über ${about.draft.translations.de.title}' }] }
+- page.publish: { ids: ['${start.id}', '${about.id}'] }
+- navigation.publish: { names: [main] }
+- page.tree: {}
+  as: tree

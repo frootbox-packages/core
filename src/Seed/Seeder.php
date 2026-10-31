@@ -1,0 +1,212 @@
+<?php
+
+/*
+ * SPDX-License-Identifier: LGPL-3.0-only
+ */
+
+declare(strict_types=1);
+
+namespace Frootbox\Core\Seed;
+
+use Frootbox\Core\Action\ActionException;
+use Frootbox\Core\Action\InvalidInputException;
+use Frootbox\Core\Action\Normalizer;
+use Frootbox\Core\Action\Runner;
+use Frootbox\Core\Extension\Extensions;
+use Frootbox\Database\EntityNotFoundException;
+use Symfony\Component\Yaml\Exception\ParseException;
+use Symfony\Component\Yaml\Yaml;
+
+/**
+ * Runs a list of actions and queries from a YAML file, one after the
+ * other (decision 0109):
+ *
+ *     - page.create: { layout: acme/site/Page, translations: { de: { title: Start } } }
+ *       as: start
+ *     - page.publish: { ids: ['${start.id}'] }
+ *
+ * "${name.path}" puts in a value from an earlier result: alone in a string
+ * it keeps its type, inside a text it becomes text.
+ */
+final readonly class Seeder
+{
+    private const string NAME = '[A-Za-z0-9_-]+';
+
+    public function __construct(
+        private Runner $runner,
+        private Extensions $extensions,
+    ) {}
+
+    /**
+     * The file of a path or of "vendor/package:path" in an extension.
+     *
+     * @throws SeedException
+     */
+    public function file(string $path, string $directory): string
+    {
+        if (1 === preg_match('#^([a-z0-9_.-]+/[a-z0-9_.-]+):(.+)$#', $path, $match)) {
+            $package = $this->extensions->get($match[1]) ?? throw new SeedException(\sprintf('There is no extension %s.', $match[1]));
+            $path = $package->path . '/' . ltrim($match[2], '/');
+        } elseif (!str_starts_with($path, '/')) {
+            $path = $directory . '/' . $path;
+        }
+
+        return is_file($path) ? $path : throw new SeedException(\sprintf('There is no file %s.', $path));
+    }
+
+    /**
+     * Reads the steps of a seed file.
+     *
+     * @return list<array{string, array<string, mixed>, string|null}> Name, input and "as" of each step
+     *
+     * @throws SeedException
+     */
+    public function read(string $file): array
+    {
+        try {
+            $data = Yaml::parseFile($file);
+        } catch (ParseException $error) {
+            throw new SeedException($error->getMessage(), previous: $error);
+        }
+
+        if (!\is_array($data) || !array_is_list($data)) {
+            throw new SeedException(\sprintf('%s must be a list of steps, e.g. "- page.create: { … }".', $file));
+        }
+
+        $steps = [];
+
+        foreach ($data as $index => $step) {
+            $steps[] = self::step($step, $index + 1);
+        }
+
+        return $steps;
+    }
+
+    /**
+     * Runs the steps.
+     *
+     * @param list<array{string, array<string, mixed>, string|null}> $steps
+     * @param (callable(int, string): void)|null                     $progress Called before each step with its number and name
+     *
+     * @return array<string, mixed> The results remembered with "as"
+     *
+     * @throws SeedException
+     */
+    public function run(array $steps, ?callable $progress = null): array
+    {
+        $results = [];
+
+        foreach ($steps as $index => [$name, $input, $as]) {
+            $number = $index + 1;
+
+            if (null !== $progress) {
+                $progress($number, $name);
+            }
+
+            try {
+                $map = [];
+
+                foreach ($input as $key => $value) {
+                    $map[$key] = self::fill($value, $results, $number);
+                }
+
+                $result = Normalizer::normalize($this->runner->call($name, $map));
+            } catch (InvalidInputException $error) {
+                throw new SeedException(\sprintf(
+                    "Step %d (%s) has invalid input:\n%s",
+                    $number,
+                    $name,
+                    implode("\n", array_map(static fn(string $pointer, string $message): string => '  ' . ('' === $pointer ? '/' : $pointer) . ': ' . $message, array_keys($error->errors), $error->errors)),
+                ), previous: $error);
+            } catch (ActionException|EntityNotFoundException $error) {
+                throw new SeedException(\sprintf('Step %d (%s) failed: %s', $number, $name, $error->getMessage()), previous: $error);
+            }
+
+            if (null !== $as) {
+                $results[$as] = $result;
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * @return array{string, array<string, mixed>, string|null}
+     */
+    private static function step(mixed $step, int $number): array
+    {
+        if (!\is_array($step) || array_is_list($step)) {
+            throw new SeedException(\sprintf('Step %d must be an object such as "page.create: { … }".', $number));
+        }
+
+        $as = $step['as'] ?? null;
+        unset($step['as']);
+
+        if (null !== $as && (!\is_string($as) || 1 !== preg_match('/^' . self::NAME . '$/', $as))) {
+            throw new SeedException(\sprintf('Step %d: "as" must be a name of letters, digits, "-" and "_".', $number));
+        }
+
+        if (1 !== \count($step)) {
+            throw new SeedException(\sprintf('Step %d must name exactly one action or query, besides "as". Found: %s.', $number, [] === $step ? 'none' : implode(', ', array_keys($step))));
+        }
+
+        $name = (string) array_key_first($step);
+        $input = $step[$name] ?? [];
+
+        if (!\is_array($input) || ([] !== $input && array_is_list($input))) {
+            throw new SeedException(\sprintf('Step %d: the input of %s must be an object.', $number, $name));
+        }
+
+        $map = [];
+
+        foreach ($input as $key => $value) {
+            $map[(string) $key] = $value;
+        }
+
+        return [$name, $map, $as];
+    }
+
+    /**
+     * @param array<string, mixed> $results
+     */
+    private static function fill(mixed $value, array $results, int $number): mixed
+    {
+        if (\is_array($value)) {
+            return array_map(static fn(mixed $item): mixed => self::fill($item, $results, $number), $value);
+        }
+
+        if (!\is_string($value) || !str_contains($value, '${')) {
+            return $value;
+        }
+
+        $reference = '\$\{(' . self::NAME . '(?:\.' . self::NAME . ')*)\}';
+
+        if (1 === preg_match('/^' . $reference . '$/', $value, $match)) {
+            return self::lookup($match[1], $results, $number);
+        }
+
+        return preg_replace_callback('/' . $reference . '/', static function (array $match) use ($results, $number): string {
+            $found = self::lookup($match[1], $results, $number);
+
+            return \is_scalar($found) ? (string) $found : throw new SeedException(\sprintf('Step %d: ${%s} is no text or number.', $number, $match[1]));
+        }, $value);
+    }
+
+    /**
+     * @param array<string, mixed> $results
+     */
+    private static function lookup(string $path, array $results, int $number): mixed
+    {
+        $value = $results;
+
+        foreach (explode('.', $path) as $key) {
+            if (!\is_array($value) || !\array_key_exists($key, $value)) {
+                throw new SeedException(\sprintf('Step %d: ${%s} is unknown. Remembered so far: %s.', $number, $path, [] === $results ? 'nothing' : implode(', ', array_keys($results))));
+            }
+
+            $value = $value[$key];
+        }
+
+        return $value;
+    }
+}

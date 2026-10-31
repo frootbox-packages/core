@@ -10,6 +10,7 @@ namespace Frootbox\Core\View;
 
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Theme\ThemeChain;
 use Twig\Environment as Twig;
 
 /**
@@ -19,11 +20,11 @@ use Twig\Environment as Twig;
  */
 final class TwigFactory
 {
-    public static function create(Environment $environment, ProjectPaths $paths, ViewExtension $extension): Twig
+    public static function create(Environment $environment, ProjectPaths $paths, ViewExtension $extension, ThemeChain $themes): Twig
     {
         $development = $environment->isDevelopment();
 
-        $twig = new Twig(new FileLoader(), [
+        $twig = new Twig(new FileLoader($themes), [
             'cache' => $development ? false : $paths->var('cache/twig'),
             'auto_reload' => $development,
             'strict_variables' => $development,

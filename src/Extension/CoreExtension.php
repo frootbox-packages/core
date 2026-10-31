@@ -33,6 +33,7 @@ use Frootbox\Core\Console\MakeExtensionCommand;
 use Frootbox\Core\Console\MigrateCommand;
 use Frootbox\Core\Console\PruneActionLogCommand;
 use Frootbox\Core\Console\ScheduleRunCommand;
+use Frootbox\Core\Console\SeedCommand;
 use Frootbox\Core\Console\UserCreateCommand;
 use Frootbox\Core\Console\UserTokenCommand;
 use Frootbox\Core\Field\Types\HeadlineType;
@@ -110,6 +111,7 @@ final class CoreExtension implements Extension
         $registry->command(BlocksCheckCommand::class);
         $registry->command(CacheClearCommand::class);
         $registry->command(ScheduleRunCommand::class);
+        $registry->command(SeedCommand::class);
 
         foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class] as $fieldType) {
             $registry->fieldType($fieldType);
