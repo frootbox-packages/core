@@ -53,7 +53,7 @@ abstract class NotesTestCase extends TestCase
         new NotesExtension()->register($registry);
         $registry->forPackage('acme/shop', static fn() => $registry->query(ListOrders::class));
 
-        $config = new Config(Environment::Development, ['database' => ['url' => TestDatabase::url()], ...$this->config()]);
+        $config = new Config($this->environment(), ['database' => ['url' => TestDatabase::url()], ...$this->config()]);
         $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), $extensions, $registry);
         $this->get(CurrentContext::class)->set(Context::system(Channel::Console));
 
@@ -68,6 +68,14 @@ abstract class NotesTestCase extends TestCase
     protected function extensions(): Extensions
     {
         return new Extensions();
+    }
+
+    /**
+     * Development by default: without caches.
+     */
+    protected function environment(): Environment
+    {
+        return Environment::Development;
     }
 
     /**

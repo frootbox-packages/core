@@ -123,6 +123,21 @@ final readonly class ActionLog
     }
 
     /**
+     * The tables an action changed, nested actions included.
+     *
+     * @return list<string>
+     */
+    public function changedTables(int $entryId): array
+    {
+        $tables = $this->connection->fetchFirstColumn(
+            \sprintf('SELECT DISTINCT %s FROM %s WHERE %s = ?', $this->quote('target'), $this->quote(self::CHANGES), $this->quote('entry_id')),
+            [$entryId],
+        );
+
+        return array_values(array_filter($tables, \is_string(...)));
+    }
+
+    /**
      * Succeeded actions after $afterId that changed one of these rows and
      * are not undone, e.g. to name what is in the way of an undo.
      *

@@ -10,6 +10,7 @@ namespace Frootbox\Core\Page;
 
 use Doctrine\DBAL\Exception\TableNotFoundException;
 use Frootbox\Core\Asset\AssetList;
+use Frootbox\Core\Cache\PageCache;
 use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\Instance;
 use Frootbox\Core\Config\Config;
@@ -17,6 +18,7 @@ use Frootbox\Core\Http\Exception\HttpException;
 use Frootbox\Core\Http\SiteUrl;
 use Frootbox\Core\Http\WelcomeHandler;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Schedule\Scheduler;
 use Frootbox\Core\Url\NotFoundLog;
 use Frootbox\Core\Url\Resolution;
 use Frootbox\Core\Url\UrlResolver;
@@ -68,16 +70,34 @@ final readonly class PageHandler implements RequestHandlerInterface
             return $this->responses->createResponse(301)->withHeader('Location', ('' === $target ? '/' : $target) . ('' === $uri->getQuery() ? '' : '?' . $uri->getQuery()));
         }
 
-        $resolution = $this->resolve($request);
+        $installed = $this->isInstalled();
+
+        if ($installed) {
+            $this->service(Scheduler::class)->runIfDue();
+            $cached = $this->service(PageCache::class)->get($request);
+
+            if (null !== $cached) {
+                return $this->page($cached, 'hit');
+            }
+        }
+
+        $resolution = $installed ? $this->resolve($request) : null;
 
         if (null === $resolution) {
             return '/' === $path ? $this->service(WelcomeHandler::class)->handle($request) : throw HttpException::notFound($path);
         }
 
         if (null !== $resolution->page) {
-            return $this->responses->createResponse(200)
-                ->withHeader('Content-Type', 'text/html; charset=utf-8')
-                ->withBody($this->streams->createStream($this->render($resolution->page, $request)));
+            $html = $this->render($resolution->page, $request);
+            $cache = $this->service(PageCache::class);
+
+            if (!$cache->accepts($request)) {
+                return $this->page($html, null);
+            }
+
+            $cache->put($request, $html);
+
+            return $this->page($html, 'miss');
         }
 
         if (null !== $resolution->location) {
@@ -102,17 +122,27 @@ final readonly class PageHandler implements RequestHandlerInterface
         throw HttpException::notFound($path);
     }
 
-    /**
-     * Null if Frootbox is not installed or migrated yet: no pages then.
-     */
-    private function resolve(ServerRequestInterface $request): ?Resolution
+    private function isInstalled(): bool
     {
         $database = $this->config->get('database.url');
 
-        if (!\is_string($database) || '' === $database) {
-            return null;
-        }
+        return \is_string($database) && '' !== $database;
+    }
 
+    private function page(string $html, ?string $cache): ResponseInterface
+    {
+        $response = $this->responses->createResponse(200)
+            ->withHeader('Content-Type', 'text/html; charset=utf-8')
+            ->withBody($this->streams->createStream($html));
+
+        return null === $cache ? $response : $response->withHeader(PageCache::HEADER, $cache);
+    }
+
+    /**
+     * Null if Frootbox is not migrated yet: no pages then.
+     */
+    private function resolve(ServerRequestInterface $request): ?Resolution
+    {
         $this->service(Urls::class)->clear();
         $this->service(PageOutline::class)->clear();
 

@@ -69,14 +69,50 @@ final readonly class RevisionStore
     public function publish(string $type, string $entityId): Revision
     {
         $draft = $this->revisions->draft($type, $entityId) ?? throw new LogicException(\sprintf('%s %s has no draft to publish.', $type, $entityId));
+        $previous = $this->revisions->published($type, $entityId);
         $this->archive($type, $entityId);
 
         return $this->revisions->update($draft->id, [
             'status' => RevisionStatus::Published,
             'version' => $this->revisions->lastVersion($type, $entityId) + 1,
             'publishedAt' => new DateTimeImmutable(),
+            'publishAt' => null,
+            // Taking it offline at a time stays planned for the new version.
+            'unpublishAt' => $draft->unpublishAt ?? $previous?->unpublishAt,
             ...$this->origin(),
         ]);
+    }
+
+    /**
+     * Plans when the draft is published, null for no time.
+     *
+     * @return bool false if there is no draft
+     */
+    public function publishAt(string $type, string $entityId, ?DateTimeImmutable $at): bool
+    {
+        $draft = $this->revisions->draft($type, $entityId);
+
+        if (null !== $draft && $draft->publishAt?->getTimestamp() !== $at?->getTimestamp()) {
+            $this->revisions->update($draft->id, ['publishAt' => $at]);
+        }
+
+        return null !== $draft;
+    }
+
+    /**
+     * Plans when the published version is taken offline, null for no time.
+     *
+     * @return bool false if nothing is published
+     */
+    public function unpublishAt(string $type, string $entityId, ?DateTimeImmutable $at): bool
+    {
+        $published = $this->revisions->published($type, $entityId);
+
+        if (null !== $published && $published->unpublishAt?->getTimestamp() !== $at?->getTimestamp()) {
+            $this->revisions->update($published->id, ['unpublishAt' => $at]);
+        }
+
+        return null !== $published;
     }
 
     /**

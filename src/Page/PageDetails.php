@@ -8,9 +8,12 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Page;
 
+use DateTimeImmutable;
+
 /**
  * A page with its draft and its published state, the result of page.show
- * and of the actions that change a page.
+ * and of the actions that change a page. publishAt and unpublishAt are
+ * the planned times, see page.schedule.
  */
 final readonly class PageDetails
 {
@@ -20,5 +23,7 @@ final readonly class PageDetails
         public ?int $version,
         public ?PageData $draft,
         public ?PageData $published,
+        public ?DateTimeImmutable $publishAt = null,
+        public ?DateTimeImmutable $unpublishAt = null,
     ) {}
 }

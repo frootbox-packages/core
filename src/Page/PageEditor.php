@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Page;
 
+use DateTimeImmutable;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ContentValidator;
@@ -277,6 +278,91 @@ final readonly class PageEditor
         $this->store->discard(PageReader::TYPE, $id);
         $this->store->archive(PageReader::TYPE, $id);
         $this->addresses->sync();
+    }
+
+    /**
+     * Takes a page and all its subpages offline. They stay as drafts, the
+     * published versions are archived (decision 0107).
+     *
+     * @return PageDetails The page, now a draft
+     *
+     * @throws InvalidInputException
+     */
+    public function unpublish(string $action, string $id): PageDetails
+    {
+        $published = $this->reader->nodesAfterPublishing([]);
+
+        if (!isset($published[$id])) {
+            throw new InvalidInputException($action, ['/id' => \sprintf('The page %s is not published.', $id)]);
+        }
+
+        foreach (array_reverse(self::branch($published, $id)) as $branchId) {
+            $data = $this->reader->published($branchId);
+
+            if (null !== $data && null === $this->reader->draft($branchId)) {
+                $this->store->saveDraft(PageReader::TYPE, $branchId, $data->toArray());
+            }
+
+            foreach ($this->translations->of($branchId) as $translation) {
+                $this->translations->delete($translation->id);
+            }
+
+            $this->pages->delete($branchId);
+            $this->store->archive(PageReader::TYPE, $branchId);
+        }
+
+        $this->addresses->sync();
+
+        return $this->reader->details($id);
+    }
+
+    /**
+     * Plans when the draft is published and when the page goes offline;
+     * null for no time.
+     *
+     * @throws InvalidInputException
+     * @throws EntityNotFoundException
+     */
+    public function schedule(string $action, string $id, ?DateTimeImmutable $publishAt, ?DateTimeImmutable $unpublishAt): PageDetails
+    {
+        $this->reader->details($id);
+        $errors = [];
+
+        if (!$this->store->publishAt(PageReader::TYPE, $id, $publishAt) && null !== $publishAt) {
+            $errors['/publishAt'] = 'The page has no draft to publish.';
+        }
+
+        if (!$this->store->unpublishAt(PageReader::TYPE, $id, $unpublishAt) && null !== $unpublishAt) {
+            $errors['/unpublishAt'] = 'The page is not published.';
+        }
+
+        if (null !== $publishAt && null !== $unpublishAt && $unpublishAt <= $publishAt) {
+            $errors['/unpublishAt'] = 'must be after "publishAt".';
+        }
+
+        if ([] !== $errors) {
+            throw new InvalidInputException($action, $errors);
+        }
+
+        return $this->reader->details($id);
+    }
+
+    /**
+     * The page and all pages below it, parents first.
+     *
+     * @param array<string, PageNode> $nodes
+     *
+     * @return list<string>
+     */
+    private static function branch(array $nodes, string $id): array
+    {
+        $ids = [$id];
+
+        foreach (PageReader::children($nodes, $id) as $child) {
+            array_push($ids, ...self::branch($nodes, $child->id));
+        }
+
+        return $ids;
     }
 
     /**

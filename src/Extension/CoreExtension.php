@@ -15,9 +15,11 @@ use Frootbox\Core\Account\RevokeToken;
 use Frootbox\Core\Account\ShowAccount;
 use Frootbox\Core\Account\SignIn;
 use Frootbox\Core\Account\SignOut;
+use Frootbox\Core\Action\ActionExecuted;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
+use Frootbox\Core\Cache\ClearPageCache;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
 use Frootbox\Core\Console\ActionsCommand;
@@ -30,6 +32,7 @@ use Frootbox\Core\Console\ExtensionsCommand;
 use Frootbox\Core\Console\MakeExtensionCommand;
 use Frootbox\Core\Console\MigrateCommand;
 use Frootbox\Core\Console\PruneActionLogCommand;
+use Frootbox\Core\Console\ScheduleRunCommand;
 use Frootbox\Core\Console\UserCreateCommand;
 use Frootbox\Core\Console\UserTokenCommand;
 use Frootbox\Core\Field\Types\HeadlineType;
@@ -53,8 +56,10 @@ use Frootbox\Core\Page\MovePage;
 use Frootbox\Core\Page\PageUndoCheck;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\RestorePage;
+use Frootbox\Core\Page\SchedulePage;
 use Frootbox\Core\Page\ShowPage;
 use Frootbox\Core\Page\ShowPageTree;
+use Frootbox\Core\Page\UnpublishPage;
 use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\Url\ClearNotFound;
 use Frootbox\Core\Url\CreateRedirect;
@@ -104,6 +109,7 @@ final class CoreExtension implements Extension
         $registry->command(BlocksCommand::class);
         $registry->command(BlocksCheckCommand::class);
         $registry->command(CacheClearCommand::class);
+        $registry->command(ScheduleRunCommand::class);
 
         foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class] as $fieldType) {
             $registry->fieldType($fieldType);
@@ -123,7 +129,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([CreatePage::class, UpdatePage::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class] as $action) {
+        foreach ([CreatePage::class, UpdatePage::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class] as $action) {
             $registry->action($action);
         }
 
@@ -147,6 +153,8 @@ final class CoreExtension implements Extension
         $registry->query(ListNavigations::class);
         $registry->query(ShowNavigation::class);
         $registry->undoCheck(NavigationUndoCheck::class);
+
+        $registry->listen(ActionExecuted::class, ClearPageCache::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListTokens::class);

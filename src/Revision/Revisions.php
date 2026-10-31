@@ -8,7 +8,9 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Revision;
 
+use DateTimeImmutable;
 use Frootbox\Database\Repository;
+use Frootbox\Database\Values;
 
 /**
  * Drafts and versions of all entities (decisions 0058, 0094). Changing
@@ -62,6 +64,39 @@ final class Revisions extends Repository
         }
 
         return $drafts;
+    }
+
+    /**
+     * Drafts whose time to be published has come and published versions
+     * whose time to be taken offline has come, by type.
+     *
+     * @return array{publish: array<string, list<string>>, unpublish: array<string, list<string>>} Entity ids by type
+     */
+    public function due(DateTimeImmutable $now): array
+    {
+        $quote = $this->connection->quoteSingleIdentifier(...);
+        $rows = $this->connection->fetchAllAssociative(
+            \sprintf(
+                'SELECT %1$s, %2$s, %3$s FROM %4$s WHERE (%3$s = ? AND %5$s <= ?) OR (%3$s = ? AND %6$s <= ?) ORDER BY %7$s',
+                $quote('type'),
+                $quote('entity_id'),
+                $quote('status'),
+                $quote(self::TABLE),
+                $quote('publish_at'),
+                $quote('unpublish_at'),
+                $quote('id'),
+            ),
+            [RevisionStatus::Draft->value, Values::toDatabase($now), RevisionStatus::Published->value, Values::toDatabase($now)],
+        );
+        $due = ['publish' => [], 'unpublish' => []];
+
+        foreach ($rows as $row) {
+            if (\is_string($row['type']) && \is_string($row['entity_id'])) {
+                $due[RevisionStatus::Draft->value === $row['status'] ? 'publish' : 'unpublish'][$row['type']][] = $row['entity_id'];
+            }
+        }
+
+        return $due;
     }
 
     /**

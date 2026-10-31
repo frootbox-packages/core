@@ -51,12 +51,16 @@ final readonly class PageReader
             throw EntityNotFoundException::for(Pages::TABLE, $id);
         }
 
+        $version = $this->revisions->published(self::TYPE, $id);
+
         return new PageDetails(
             $id,
             self::status($draft, $published),
-            $this->revisions->published(self::TYPE, $id)?->version,
+            $version?->version,
             $draft,
             $published,
+            null === $draft ? null : $this->revisions->draft(self::TYPE, $id)?->publishAt,
+            $version?->unpublishAt,
         );
     }
 
