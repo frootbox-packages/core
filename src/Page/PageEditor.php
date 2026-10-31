@@ -319,6 +319,26 @@ final readonly class PageEditor
     }
 
     /**
+     * Locks a published page for visitors right away, or unlocks it with
+     * Reach::None (decision 0117). The lock is not part of the draft.
+     *
+     * @throws InvalidInputException
+     * @throws EntityNotFoundException
+     */
+    public function lock(string $action, string $id, Reach $reach): PageDetails
+    {
+        $this->reader->details($id);
+
+        if (null === $this->pages->fetchById($id)) {
+            throw new InvalidInputException($action, ['/id' => 'Only published pages can be locked.']);
+        }
+
+        $this->pages->update($id, ['locked' => $reach]);
+
+        return $this->reader->details($id);
+    }
+
+    /**
      * Plans when the draft is published and when the page goes offline;
      * null for no time.
      *
@@ -432,7 +452,7 @@ final readonly class PageEditor
             $translations[$language] = new TranslationData($title, $slug, $content);
         }
 
-        return [new PageData($data->parentId, $data->position, $data->layout, $data->variant, $translations), $errors];
+        return [new PageData($data->parentId, $data->position, $data->layout, $data->variant, $translations, $data->excludeFromSearchEngines, $data->excludeFromSiteSearch), $errors];
     }
 
     /**
@@ -518,7 +538,14 @@ final readonly class PageEditor
      */
     private function write(string $id, PageData $data): void
     {
-        $values = ['parentId' => $data->parentId, 'position' => $data->position, 'layout' => $data->layout, 'variant' => $data->variant];
+        $values = [
+            'parentId' => $data->parentId,
+            'position' => $data->position,
+            'layout' => $data->layout,
+            'variant' => $data->variant,
+            'excludeFromSearchEngines' => $data->excludeFromSearchEngines,
+            'excludeFromSiteSearch' => $data->excludeFromSiteSearch,
+        ];
 
         if (null === $this->pages->fetchById($id)) {
             $this->pages->insert(['id' => $id, ...$values]);

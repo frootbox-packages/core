@@ -24,6 +24,7 @@ use Frootbox\Core\Page\PageStatus;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\SchedulePage;
 use Frootbox\Core\Page\ShowPage;
+use Frootbox\Core\Page\ShowPageTree;
 use Frootbox\Core\Page\UnpublishPage;
 use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\ProjectPaths;
@@ -128,6 +129,9 @@ final class CacheAndScheduleTest extends NotesTestCase
 
         self::assertSame(new DateTimeImmutable('2026-11-01 13:00:00 UTC')->getTimestamp(), $details->publishAt?->getTimestamp(), 'Stored in the time zone of PHP.');
         self::assertSame(new DateTimeImmutable('2026-11-03 12:00:00')->getTimestamp(), $details->unpublishAt?->getTimestamp());
+
+        $tree = $this->runner()->ask(new ShowPageTree());
+        self::assertSame($details->publishAt->getTimestamp(), $tree[0]->children[0]->publishAt?->getTimestamp(), 'The tree shows that the page is scheduled.');
 
         $scheduler = $this->get(Scheduler::class);
         self::assertEquals(new ScheduleResult(), $scheduler->run($now));

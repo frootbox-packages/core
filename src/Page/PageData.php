@@ -15,7 +15,11 @@ use UnexpectedValueException;
  * store it (decision 0101):
  *
  *     {"parentId": "01J…", "position": "i", "layout": "acme/website/Page", "variant": null,
+ *      "excludeFromSearchEngines": "none", "excludeFromSiteSearch": "branch",
  *      "translations": {"de": {"title": "Über uns", "slug": "ueber-uns", "content": {…}}}}
+ *
+ * The two exclusions reach the page only or its whole branch
+ * (decision 0117); snapshots without them mean none.
  */
 final readonly class PageData
 {
@@ -28,6 +32,8 @@ final readonly class PageData
         public string $layout,
         public ?string $variant,
         public array $translations,
+        public Reach $excludeFromSearchEngines = Reach::None,
+        public Reach $excludeFromSiteSearch = Reach::None,
     ) {}
 
     /**
@@ -60,7 +66,7 @@ final readonly class PageData
             throw new UnexpectedValueException('The page snapshot needs parentId, position and layout.');
         }
 
-        return new self($parentId, $position, $layout, $variant, $translations);
+        return new self($parentId, $position, $layout, $variant, $translations, self::reach($data, 'excludeFromSearchEngines'), self::reach($data, 'excludeFromSiteSearch'));
     }
 
     public static function fromPage(Page $page, PageTranslation ...$translations): self
@@ -77,11 +83,11 @@ final readonly class PageData
             $data[$translation->language] = new TranslationData($translation->title, $translation->slug, $content);
         }
 
-        return new self($page->parentId, $page->position, $page->layout, $page->variant, $data);
+        return new self($page->parentId, $page->position, $page->layout, $page->variant, $data, $page->excludeFromSearchEngines, $page->excludeFromSiteSearch);
     }
 
     /**
-     * @return array{parentId: string|null, position: string, layout: string, variant: string|null, translations: array<string, array{title: string, slug: string, content: array<string, mixed>}>}
+     * @return array{parentId: string|null, position: string, layout: string, variant: string|null, excludeFromSearchEngines: string, excludeFromSiteSearch: string, translations: array<string, array{title: string, slug: string, content: array<string, mixed>}>}
      */
     public function toArray(): array
     {
@@ -96,6 +102,8 @@ final readonly class PageData
             'position' => $this->position,
             'layout' => $this->layout,
             'variant' => $this->variant,
+            'excludeFromSearchEngines' => $this->excludeFromSearchEngines->value,
+            'excludeFromSiteSearch' => $this->excludeFromSiteSearch->value,
             'translations' => $translations,
         ];
     }
@@ -103,14 +111,33 @@ final readonly class PageData
     /**
      * @param array<string, TranslationData> $translations
      */
-    public function with(?string $parentId = null, ?string $position = null, ?string $layout = null, ?string $variant = null, ?array $translations = null): self
-    {
+    public function with(
+        ?string $parentId = null,
+        ?string $position = null,
+        ?string $layout = null,
+        ?string $variant = null,
+        ?array $translations = null,
+        ?Reach $excludeFromSearchEngines = null,
+        ?Reach $excludeFromSiteSearch = null,
+    ): self {
         return new self(
             $parentId ?? $this->parentId,
             $position ?? $this->position,
             $layout ?? $this->layout,
             $variant ?? $this->variant,
             $translations ?? $this->translations,
+            $excludeFromSearchEngines ?? $this->excludeFromSearchEngines,
+            $excludeFromSiteSearch ?? $this->excludeFromSiteSearch,
         );
+    }
+
+    /**
+     * @param array<mixed> $data
+     */
+    private static function reach(array $data, string $key): Reach
+    {
+        $value = $data[$key] ?? null;
+
+        return \is_string($value) ? Reach::tryFrom($value) ?? Reach::None : Reach::None;
     }
 }

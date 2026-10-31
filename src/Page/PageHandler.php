@@ -88,6 +88,11 @@ final readonly class PageHandler implements RequestHandlerInterface
         }
 
         if (null !== $resolution->page) {
+            // Locked pages are not cached, the cache only holds pages that were delivered.
+            if (null !== $this->service(PageOutline::class)->lockedBy($resolution->page->id)) {
+                throw HttpException::locked($path);
+            }
+
             $html = $this->render($resolution->page, $request);
             $cache = $this->service(PageCache::class);
 
@@ -171,6 +176,10 @@ final readonly class PageHandler implements RequestHandlerInterface
             // A fallback points search engines to the original.
             $urls->absolute($page->target(), $page->isFallback() ? $page->contentLanguage : $page->language, $base),
         );
+
+        if (null !== $this->service(PageOutline::class)->excludedFromSearchEnginesBy($page->id)) {
+            $head->add('<meta name="robots" content="noindex">');
+        }
 
         $addresses = $urls->addresses($page->target());
 

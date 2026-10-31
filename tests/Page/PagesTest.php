@@ -13,6 +13,9 @@ use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Action\UndoException;
 use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Component\Instance;
+use Frootbox\Core\Component\LayoutSummary;
+use Frootbox\Core\Component\ListLayouts;
+use Frootbox\Core\Component\VariantSummary;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
@@ -82,6 +85,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Languages::class)]
 #[CoversClass(Language::class)]
 #[CoversClass(SortKey::class)]
+#[CoversClass(ListLayouts::class)]
+#[CoversClass(LayoutSummary::class)]
+#[CoversClass(VariantSummary::class)]
 final class PagesTest extends NotesTestCase
 {
     private const string LAYOUT = 'acme/base/Page';
@@ -190,6 +196,8 @@ final class PagesTest extends NotesTestCase
         self::assertSame(2, $this->get(Pages::class)->count());
         self::assertSame('ueber-uns', $this->get(PageTranslations::class)->of($about->id)['de']->slug);
         $this->assertInvalid(['/ids/0' => \sprintf('The page %s has no draft to publish.', $about->id)], fn() => $this->publish($about->id));
+        self::assertSame(['de' => '/ueber-uns', 'en' => '/en/ueber-uns'], $this->runner()->ask(new ShowPage($about->id))->urls, 'page.show says where visitors find the page, English with the German text.');
+        self::assertSame([], $this->createPage($start->id, 'Neu')->urls);
 
         $changed = $this->runner()->run(new UpdatePage($about->id, ['de' => ['title' => 'Wir']]));
         self::assertSame(PageStatus::Changed, $changed->status);
@@ -395,6 +403,14 @@ final class PagesTest extends NotesTestCase
             '/translations/en/title' => 'is required.',
             '/translations/en/content' => 'must be an object with "options", "fields" and "areas".',
         ], fn() => $this->runner()->call('page.update', ['id' => $result->id, 'translations' => ['de' => ['name' => 'x'], 'en' => ['content' => 'x']]]));
+    }
+
+    public function testListsTheLayouts(): void
+    {
+        self::assertEquals(
+            [new LayoutSummary(self::LAYOUT, 'Page', '', [new VariantSummary('Default', 'Page', '')])],
+            $this->runner()->ask(new ListLayouts()),
+        );
     }
 
     public function testReadsLanguagesFromTheConfig(): void

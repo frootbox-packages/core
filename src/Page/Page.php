@@ -25,5 +25,9 @@ final readonly class Page extends Entity
         public ?string $variant,
         public DateTimeImmutable $createdAt,
         public ?DateTimeImmutable $updatedAt,
+        /** Visitors get 503, right away and not part of the draft (decision 0117) */
+        public Reach $locked = Reach::None,
+        public Reach $excludeFromSearchEngines = Reach::None,
+        public Reach $excludeFromSiteSearch = Reach::None,
     ) {}
 }

@@ -12,17 +12,18 @@ use Doctrine\DBAL\Connection;
 
 /**
  * The published page tree with titles only, read in two queries, for
- * navigations and the breadcrumb.
+ * navigations, the breadcrumb and what applies to a page from above
+ * (decision 0117).
  */
 final class PageOutline
 {
-    /** @var array<string, array{parentId: string|null, position: string, titles: array<string, string>}>|null */
+    /** @var array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}>|null */
     private ?array $pages = null;
 
     public function __construct(private readonly Connection $connection) {}
 
     /**
-     * @return array{parentId: string|null, position: string, titles: array<string, string>}|null
+     * @return array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}|null
      */
     public function get(string $id): ?array
     {
@@ -77,6 +78,25 @@ final class PageOutline
     }
 
     /**
+     * The page whose lock applies, the page itself or one above it; null
+     * if the page is not locked.
+     */
+    public function lockedBy(string $id): ?string
+    {
+        return $this->source($id, 'locked');
+    }
+
+    public function excludedFromSearchEnginesBy(string $id): ?string
+    {
+        return $this->source($id, 'excludeFromSearchEngines');
+    }
+
+    public function excludedFromSiteSearchBy(string $id): ?string
+    {
+        return $this->source($id, 'excludeFromSiteSearch');
+    }
+
+    /**
      * Forgets what was read, e.g. after publishing.
      */
     public function clear(): void
@@ -85,7 +105,7 @@ final class PageOutline
     }
 
     /**
-     * @return array<string, array{parentId: string|null, position: string, titles: array<string, string>}>
+     * @return array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}>
      */
     private function pages(): array
     {
@@ -96,9 +116,20 @@ final class PageOutline
         $quote = $this->connection->quoteSingleIdentifier(...);
         $pages = [];
 
-        foreach ($this->connection->fetchAllAssociative(\sprintf('SELECT %s, %s, %s FROM %s', $quote('id'), $quote('parent_id'), $quote('position'), $quote(Pages::TABLE))) as $row) {
+        $columns = ['id', 'parent_id', 'position', 'locked', 'exclude_from_search_engines', 'exclude_from_site_search'];
+        $sql = \sprintf('SELECT %s FROM %s', implode(', ', array_map($quote, $columns)), $quote(Pages::TABLE));
+        $reach = static fn(mixed $value): Reach => \is_string($value) ? Reach::tryFrom($value) ?? Reach::None : Reach::None;
+
+        foreach ($this->connection->fetchAllAssociative($sql) as $row) {
             if (\is_string($row['id']) && \is_string($row['position'])) {
-                $pages[$row['id']] = ['parentId' => \is_string($row['parent_id']) ? $row['parent_id'] : null, 'position' => $row['position'], 'titles' => []];
+                $pages[$row['id']] = [
+                    'parentId' => \is_string($row['parent_id']) ? $row['parent_id'] : null,
+                    'position' => $row['position'],
+                    'locked' => $reach($row['locked']),
+                    'excludeFromSearchEngines' => $reach($row['exclude_from_search_engines']),
+                    'excludeFromSiteSearch' => $reach($row['exclude_from_site_search']),
+                    'titles' => [],
+                ];
             }
         }
 
@@ -111,5 +142,19 @@ final class PageOutline
         }
 
         return $this->pages = $pages;
+    }
+
+    /**
+     * @param 'locked'|'excludeFromSearchEngines'|'excludeFromSiteSearch' $setting
+     */
+    private function source(string $id, string $setting): ?string
+    {
+        $trail = [];
+
+        foreach ($this->trail($id) as $current) {
+            $trail[$current] = $this->pages()[$current][$setting];
+        }
+
+        return Reach::source($trail);
     }
 }

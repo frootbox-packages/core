@@ -132,6 +132,11 @@ final readonly class Menus
         $target = Target::tryParse(self::string($item, 'target'));
         $url = null;
 
+        // Locked pages are left out (decision 0117).
+        if (null !== $target && $target->isPage() && null !== $this->outline->lockedBy($target->id)) {
+            return null;
+        }
+
         switch ($type) {
             case 'target':
                 if (null === $target) {
@@ -217,7 +222,8 @@ final readonly class Menus
     }
 
     /**
-     * A page as an item, null if it has no address in the language.
+     * A page as an item, null if it has no address in the language or is
+     * locked.
      *
      * @param array<string, mixed> $options
      * @param list<MenuItem>       $children
@@ -227,7 +233,7 @@ final readonly class Menus
         $url = $this->urls->href(Target::page($id));
         $title = $this->outline->title($id, $this->chain());
 
-        if (null === $url || null === $title) {
+        if (null === $url || null === $title || null !== $this->outline->lockedBy($id)) {
             return null;
         }
 

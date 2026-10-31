@@ -17,7 +17,7 @@ use Frootbox\Database\Ulid;
 /**
  * @implements Action<PageDetails>
  */
-#[AsAction('page.update', 'Changes layout, titles, slugs or content of a page in its draft')]
+#[AsAction('page.update', 'Changes layout, titles, slugs, content or the exclusions from searches of a page in its draft')]
 final readonly class UpdatePage implements Action
 {
     /**
@@ -32,6 +32,10 @@ final readonly class UpdatePage implements Action
         public ?string $layout = null,
         #[Description('Variant of the layout, left out to keep it, "Default" for the default')]
         public ?string $variant = null,
+        #[Description('noindex for search engines and not in the sitemap: "page", "branch" for the page and all below it, "none"; left out to keep it')]
+        public ?Reach $excludeFromSearchEngines = null,
+        #[Description('Left out by the site search: "page", "branch" or "none"; left out to keep it')]
+        public ?Reach $excludeFromSiteSearch = null,
     ) {}
 
     public function handle(PageEditor $editor): PageDetails
@@ -39,6 +43,12 @@ final readonly class UpdatePage implements Action
         $current = $editor->current($this->id);
         $translations = null === $this->translations ? $current->translations : $editor->translations('page.update', $this->translations, $current->translations);
 
-        return $editor->saveDraft('page.update', $this->id, $current->with(layout: $this->layout, variant: $this->variant, translations: $translations));
+        return $editor->saveDraft('page.update', $this->id, $current->with(
+            layout: $this->layout,
+            variant: $this->variant,
+            translations: $translations,
+            excludeFromSearchEngines: $this->excludeFromSearchEngines,
+            excludeFromSiteSearch: $this->excludeFromSiteSearch,
+        ));
     }
 }

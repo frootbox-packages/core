@@ -10,6 +10,7 @@ namespace Frootbox\Core\Error;
 
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Config\Environment;
+use Frootbox\Core\Http\Exception\HttpException;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -60,7 +61,8 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
             'exception' => $throwable,
         ];
 
-        if ($status >= 500) {
+        // A 503 for a locked page is no failure (decision 0117).
+        if ($status >= 500 && !$throwable instanceof HttpException) {
             $this->logger->error('{method} {path} failed with {status}: {message}', $context);
         } else {
             $this->logger->debug('{method} {path} answered with {status}', $context);

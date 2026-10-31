@@ -11,6 +11,7 @@ namespace Frootbox\Core\Navigation;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Revision\RevisionStore;
+use Frootbox\Core\Support\Message;
 
 /**
  * The work behind the navigation actions: checks the items against the
@@ -188,7 +189,7 @@ final readonly class NavigationEditor
     /**
      * @param array<string, mixed> $items Items by language
      *
-     * @return array{array<string, list<array<string, mixed>>>, array<string, string>} The items, and messages by JSON pointer
+     * @return array{array<string, list<array<string, mixed>>>, array<string, string|Message>} The items, and messages by JSON pointer
      */
     private function check(Definition $definition, array $items): array
     {

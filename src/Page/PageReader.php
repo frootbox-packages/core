@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Page;
 
+use DateTimeImmutable;
 use Frootbox\Core\Revision\Revision;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Database\EntityNotFoundException;
@@ -52,6 +53,7 @@ final readonly class PageReader
         }
 
         $version = $this->revisions->published(self::TYPE, $id);
+        $nodes = $this->nodes();
 
         return new PageDetails(
             $id,
@@ -61,6 +63,8 @@ final readonly class PageReader
             $published,
             null === $draft ? null : $this->revisions->draft(self::TYPE, $id)?->publishAt,
             $version?->unpublishAt,
+            locked: $nodes[$id]->locked ?? Reach::None,
+            visibility: $this->visibility($nodes)[$id] ?? new PageVisibility(),
         );
     }
 
@@ -71,7 +75,26 @@ final readonly class PageReader
      */
     public function nodes(): array
     {
-        return $this->merge($this->publishedPages(), $this->drafts());
+        $drafts = $this->revisions->drafts(self::TYPE);
+
+        return $this->merge(
+            $this->publishedPages(),
+            array_map(static fn(Revision $draft): PageData => PageData::fromArray($draft->data), $drafts),
+            array_map(static fn(Revision $draft): ?DateTimeImmutable => $draft->publishAt, $drafts),
+            $this->locks(),
+        );
+    }
+
+    /**
+     * What applies to every page (decision 0117).
+     *
+     * @param array<string, PageNode>|null $nodes from nodes(), if already read
+     *
+     * @return array<string, PageVisibility> by id
+     */
+    public function visibility(?array $nodes = null): array
+    {
+        return PageVisibility::of($nodes ?? $this->nodes(), $this->nodesAfterPublishing([]));
     }
 
     /**
@@ -84,7 +107,7 @@ final readonly class PageReader
      */
     public function nodesAfterPublishing(array $ids): array
     {
-        return $this->merge($this->publishedPages(), array_intersect_key($this->drafts(), array_flip($ids)));
+        return $this->merge($this->publishedPages(), array_intersect_key($this->drafts(), array_flip($ids)), [], $this->locks());
     }
 
     /**
@@ -103,18 +126,20 @@ final readonly class PageReader
     }
 
     /**
-     * @param array<string, PageData> $published
-     * @param array<string, PageData> $drafts
+     * @param array<string, PageData>                $published
+     * @param array<string, PageData>                $drafts
+     * @param array<string, DateTimeImmutable|null> $publishAt of the drafts
+     * @param array<string, Reach>                   $locks     of the published pages
      *
      * @return array<string, PageNode>
      */
-    private function merge(array $published, array $drafts): array
+    private function merge(array $published, array $drafts, array $publishAt = [], array $locks = []): array
     {
         $nodes = [];
 
         foreach ($published + $drafts as $id => $data) {
             $draft = $drafts[$id] ?? null;
-            $nodes[$id] = new PageNode($id, $draft ?? $data, self::status($draft, $published[$id] ?? null));
+            $nodes[$id] = new PageNode($id, $draft ?? $data, self::status($draft, $published[$id] ?? null), $publishAt[$id] ?? null, $locks[$id] ?? Reach::None);
         }
 
         return $nodes;
@@ -138,6 +163,22 @@ final readonly class PageReader
         }
 
         return $pages;
+    }
+
+    /**
+     * The locks of the published pages that have one.
+     *
+     * @return array<string, Reach>
+     */
+    private function locks(): array
+    {
+        $locks = [];
+
+        foreach ($this->pages->fetch(['where' => ['locked' => [Reach::Page->value, Reach::Branch->value]]]) as $page) {
+            $locks[$page->id] = $page->locked;
+        }
+
+        return $locks;
     }
 
     /**

@@ -22,16 +22,19 @@ final readonly class ShowPageTree implements Query
      */
     public function handle(PageReader $reader): array
     {
-        return self::branch($reader->nodes(), null, []);
+        $nodes = $reader->nodes();
+
+        return self::branch($nodes, $reader->visibility($nodes), null, []);
     }
 
     /**
-     * @param array<string, PageNode> $nodes
-     * @param array<string, true>     $path  Guards against loops in broken data
+     * @param array<string, PageNode>       $nodes
+     * @param array<string, PageVisibility> $visibility
+     * @param array<string, true>           $path       Guards against loops in broken data
      *
      * @return list<PageTreeNode>
      */
-    private static function branch(array $nodes, ?string $parentId, array $path): array
+    private static function branch(array $nodes, array $visibility, ?string $parentId, array $path): array
     {
         $branch = [];
 
@@ -46,7 +49,10 @@ final readonly class ShowPageTree implements Query
                 $node->data->layout,
                 array_map(static fn(TranslationData $translation): string => $translation->title, $node->data->translations),
                 array_map(static fn(TranslationData $translation): string => $translation->slug, $node->data->translations),
-                self::branch($nodes, $node->id, $path + [$node->id => true]),
+                self::branch($nodes, $visibility, $node->id, $path + [$node->id => true]),
+                $node->publishAt,
+                $node->locked,
+                $visibility[$node->id] ?? new PageVisibility(),
             );
         }
 

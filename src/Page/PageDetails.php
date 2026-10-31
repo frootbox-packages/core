@@ -25,5 +25,25 @@ final readonly class PageDetails
         public ?PageData $published,
         public ?DateTimeImmutable $publishAt = null,
         public ?DateTimeImmutable $unpublishAt = null,
+        /**
+         * Where visitors find the published page by language, e.g.
+         * {"de": "/ueber-uns"}, a full URL for a language on its own
+         * domain. Only page.show fills it.
+         *
+         * @var array<string, string>
+         */
+        public array $urls = [],
+        /** The page's own lock, see page.lock */
+        public Reach $locked = Reach::None,
+        /** What applies, maybe from a page above (decision 0117) */
+        public PageVisibility $visibility = new PageVisibility(),
     ) {}
+
+    /**
+     * @param array<string, string> $urls
+     */
+    public function withUrls(array $urls): self
+    {
+        return new self($this->id, $this->status, $this->version, $this->draft, $this->published, $this->publishAt, $this->unpublishAt, $urls, $this->locked, $this->visibility);
+    }
 }

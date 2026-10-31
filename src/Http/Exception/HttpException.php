@@ -42,6 +42,14 @@ final class HttpException extends RuntimeException
     }
 
     /**
+     * The page is locked for visitors (decision 0117).
+     */
+    public static function locked(string $path): self
+    {
+        return new self(503, \sprintf('The page at "%s" is locked for visitors.', $path), ['X-Robots-Tag' => 'noindex']);
+    }
+
+    /**
      * @param list<string> $allowedMethods
      */
     public static function methodNotAllowed(string $method, array $allowedMethods): self

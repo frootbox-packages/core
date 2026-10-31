@@ -11,6 +11,7 @@ namespace Frootbox\Core\Url;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\PageReader;
+use Frootbox\Core\Support\Message;
 use Frootbox\Database\EntityNotFoundException;
 
 /**
@@ -57,18 +58,18 @@ final readonly class RedirectEditor
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, string|Message>
      */
     private function checkPath(string $path, ?Redirect $existing): array
     {
         if (!self::isLocalPath($path) || str_contains($path, '?') || '/' === $path || str_ends_with($path, '/') || \strlen($path) > NotFoundLog::MAX_PATH_LENGTH) {
-            return ['/path' => \sprintf('must be a path like "/old-page", without query, without slash at the end, at most %d characters.', NotFoundLog::MAX_PATH_LENGTH)];
+            return ['/path' => new Message('must be a path like "/old-page", without query, without slash at the end, at most {max} characters.', ['max' => NotFoundLog::MAX_PATH_LENGTH])];
         }
 
         $other = $this->redirects->at($path);
 
         if (null !== $other && $other->id !== $existing?->id) {
-            return ['/path' => \sprintf('already has a redirect (#%d).', $other->id)];
+            return ['/path' => new Message('already has a redirect (#{id}).', ['id' => $other->id])];
         }
 
         foreach ($this->languages->all() as $language) {
@@ -76,7 +77,7 @@ final readonly class RedirectEditor
             $address = null === $rest ? null : $this->addresses->at($language->code, $rest);
 
             if (null !== $address) {
-                return ['/path' => \sprintf('is the address of %s. A page always wins over a redirect.', $address->target)];
+                return ['/path' => new Message('is the address of {target}. A page always wins over a redirect.', ['target' => $address->target])];
             }
         }
 
@@ -84,7 +85,7 @@ final readonly class RedirectEditor
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, string|Message>
      */
     private function checkDestination(string $path, ?string $target, ?string $location): array
     {
@@ -99,13 +100,13 @@ final readonly class RedirectEditor
                 return ['/target' => 'must be a page, e.g. "page:01J…".'];
             }
 
-            return isset($this->reader->nodes()[$parsed->id]) ? [] : ['/target' => \sprintf('There is no page %s.', $parsed->id)];
+            return isset($this->reader->nodes()[$parsed->id]) ? [] : ['/target' => new Message('There is no page {id}.', ['id' => $parsed->id])];
         }
 
         $location = (string) $location;
 
         if (\strlen($location) > self::MAX_LOCATION_LENGTH || (!self::isLocalPath($location) && 1 !== preg_match('#^https?://[^\s/?\#]+[^\s]*$#i', $location))) {
-            return ['/location' => \sprintf('must be a path like "/new-page" or a URL with http or https, at most %d characters.', self::MAX_LOCATION_LENGTH)];
+            return ['/location' => new Message('must be a path like "/new-page" or a URL with http or https, at most {max} characters.', ['max' => self::MAX_LOCATION_LENGTH])];
         }
 
         if (!self::isLocalPath($location)) {
@@ -121,7 +122,7 @@ final readonly class RedirectEditor
         $next = $this->redirects->at($localPath);
 
         if (null !== $next) {
-            return ['/location' => \sprintf('is redirected itself (#%d). Point to its destination %s directly.', $next->id, $next->location ?? $next->target)];
+            return ['/location' => new Message('is redirected itself (#{id}). Point to its destination {destination} directly.', ['id' => $next->id, 'destination' => $next->location ?? $next->target])];
         }
 
         return [];

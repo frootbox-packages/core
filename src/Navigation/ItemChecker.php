@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Navigation;
 
 use Frootbox\Core\Page\PageReader;
+use Frootbox\Core\Support\Message;
 use Frootbox\Core\Url\Target;
 use Frootbox\RichText\Attribute;
 
@@ -55,7 +56,7 @@ final readonly class ItemChecker
      * @param mixed  $items   The items of one language
      * @param string $pointer JSON pointer to them, e.g. "/items/de"
      *
-     * @return array{list<array<string, mixed>>, array<string, string>} The items, and messages by JSON pointer
+     * @return array{list<array<string, mixed>>, array<string, string|Message>} The items, and messages by JSON pointer
      */
     public function check(mixed $items, Definition $definition, string $pointer): array
     {
@@ -69,7 +70,7 @@ final readonly class ItemChecker
     /**
      * @param array<string, int>    $pages Ids of existing pages
      * @param array<string, true>   $ids
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      *
      * @return list<array<string, mixed>>
      */
@@ -82,7 +83,7 @@ final readonly class ItemChecker
         }
 
         if ($depth > $definition->depth && [] !== $items) {
-            $errors[$pointer] = \sprintf('The navigation "%s" has %d level(s), these items are deeper.', $definition->name, $definition->depth);
+            $errors[$pointer] = new Message('The navigation "{name}" has {depth} level(s), these items are deeper.', ['name' => $definition->name, 'depth' => $definition->depth]);
 
             return [];
         }
@@ -112,7 +113,7 @@ final readonly class ItemChecker
      * @param array<mixed>          $item
      * @param array<string, int>    $pages
      * @param array<string, true>   $ids
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      *
      * @return array<string, mixed>|null
      */
@@ -138,7 +139,9 @@ final readonly class ItemChecker
 
         if (null !== $label || \in_array($type, self::LABELLED, true)) {
             if (!\is_string($label) || '' === trim($label) || mb_strlen($label) > self::MAX_LABEL) {
-                $errors[$at . '/label'] = \sprintf('must be a text of 1 to %d characters%s.', self::MAX_LABEL, \in_array($type, self::LABELLED, true) ? ', it names the item' : '');
+                $errors[$at . '/label'] = \in_array($type, self::LABELLED, true)
+                    ? new Message('must be a text of 1 to {max} characters, it names the item.', ['max' => self::MAX_LABEL])
+                    : new Message('must be a text of 1 to {max} characters.', ['max' => self::MAX_LABEL]);
             } else {
                 $checked['label'] = trim($label);
             }
@@ -185,7 +188,7 @@ final readonly class ItemChecker
     /**
      * @param array<string, int> $pages
      */
-    private function field(string $field, mixed $value, array $pages): ?string
+    private function field(string $field, mixed $value, array $pages): string|Message|null
     {
         return match ($field) {
             'target' => self::checkTarget($value, $pages),
@@ -193,14 +196,14 @@ final readonly class ItemChecker
             'anchor' => \is_string($value) && 1 === preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,99}$/', $value) ? null : 'must be the id of an element without "#", e.g. "contact".',
             'phone' => \is_string($value) && 1 === preg_match('/^\+?[0-9][0-9 ()\/.-]{2,29}$/', $value) ? null : 'must be a phone number such as "+49 40 123456".',
             'email' => \is_string($value) && false !== filter_var($value, \FILTER_VALIDATE_EMAIL) ? null : 'must be an e-mail address.',
-            default => \is_int($value) && $value >= 1 && $value <= self::MAX_PAGES_DEPTH ? null : \sprintf('must be a whole number from 1 to %d.', self::MAX_PAGES_DEPTH),
+            default => \is_int($value) && $value >= 1 && $value <= self::MAX_PAGES_DEPTH ? null : new Message('must be a whole number from 1 to {max}.', ['max' => self::MAX_PAGES_DEPTH]),
         };
     }
 
     /**
      * @param array<string, int> $pages
      */
-    private static function checkTarget(mixed $value, array $pages): ?string
+    private static function checkTarget(mixed $value, array $pages): string|Message|null
     {
         $target = \is_string($value) ? Target::tryParse($value) : null;
 
@@ -212,11 +215,11 @@ final readonly class ItemChecker
             return 'Only pages can be linked so far.';
         }
 
-        return isset($pages[$target->id]) ? null : \sprintf('There is no page %s.', $target->id);
+        return isset($pages[$target->id]) ? null : new Message('There is no page {id}.', ['id' => $target->id]);
     }
 
     /**
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      *
      * @return array<string, mixed>
      */
@@ -247,7 +250,7 @@ final readonly class ItemChecker
 
     /**
      * @param array<string, true>   $ids
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      */
     private function id(mixed $id, string $pointer, array &$ids, array &$errors): string
     {
