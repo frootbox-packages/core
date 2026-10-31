@@ -17,8 +17,11 @@ final class Slug
 
     public const int MAX_LENGTH = 100;
 
-    /** Not allowed directly below the start page (decision 0104). */
-    public const array RESERVED = ['api', 'assets', 'admin', 'media'];
+    /**
+     * Not allowed directly below the start page (decisions 0104, 0114),
+     * nor the first segment of a route such as "cms".
+     */
+    public const array RESERVED = ['api', 'assets', 'media'];
 
     private const array REPLACE = [
         'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss', 'æ' => 'ae', 'œ' => 'oe', 'ø' => 'o', 'å' => 'a',

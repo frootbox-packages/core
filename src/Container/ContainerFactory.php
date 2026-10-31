@@ -127,10 +127,10 @@ final class ContainerFactory
         return RichText::standard()->withMark(new TargetLink($container));
     }
 
-    public static function createRouter(Registry $registry): Router
+    public static function createRouter(Registry $registry, Config $config): Router
     {
         $router = new Router();
-        $registry->applyRoutes($router);
+        $registry->applyRoutes($router, $config);
 
         return $router;
     }

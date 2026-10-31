@@ -11,6 +11,7 @@ namespace Frootbox\Core\Language;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Page\Slug;
+use Frootbox\Core\Routing\Router;
 
 /**
  * The languages of the website from "languages:" in config/app.yaml. The
@@ -35,8 +36,9 @@ final readonly class Languages
 
     /**
      * @param non-empty-list<Language> $languages
+     * @param list<string>             $reserved  slugs no prefix may use
      */
-    public function __construct(array $languages)
+    public function __construct(array $languages, array $reserved = Slug::RESERVED)
     {
         $byCode = [];
         $places = [];
@@ -46,8 +48,8 @@ final readonly class Languages
                 throw new ConfigException(\sprintf('"%s" in "languages" is not a language code. Use lower case codes such as "de", "en" or "de-ch".', $language->code));
             }
 
-            if ('' !== $language->prefix && (!Slug::isValid($language->prefix) || \in_array($language->prefix, Slug::RESERVED, true))) {
-                throw new ConfigException(\sprintf('The prefix "%s" of the language "%s" must be lower case a-z, 0-9 and hyphens and not one of %s.', $language->prefix, $language->code, implode(', ', Slug::RESERVED)));
+            if ('' !== $language->prefix && (!Slug::isValid($language->prefix) || \in_array($language->prefix, $reserved, true))) {
+                throw new ConfigException(\sprintf('The prefix "%s" of the language "%s" must be lower case a-z, 0-9 and hyphens and not one of %s.', $language->prefix, $language->code, implode(', ', $reserved)));
             }
 
             if (null !== $language->domain && 1 !== preg_match('/' . self::DOMAIN_PATTERN . '/', $language->domain)) {
@@ -71,12 +73,16 @@ final readonly class Languages
         $this->languages = $byCode;
     }
 
-    public static function fromConfig(Config $config): self
+    /**
+     * @param Router|null $router whose routes reserve their first segment, e.g. "cms"
+     */
+    public static function fromConfig(Config $config, ?Router $router = null): self
     {
         $configured = $config->get('languages');
+        $reserved = [...Slug::RESERVED, ...$router?->reservedSegments() ?? []];
 
         if (null === $configured) {
-            return new self([new Language('en', 'English')]);
+            return new self([new Language('en', 'English')], $reserved);
         }
 
         if (!\is_array($configured) || [] === $configured || array_is_list($configured)) {
@@ -107,7 +113,7 @@ final readonly class Languages
             $languages[] = new Language($code, $title, trim($prefix, '/'), null === $domain ? null : strtolower($domain), false === $fallback ? null : $fallback);
         }
 
-        return new self($languages);
+        return new self($languages, $reserved);
     }
 
     public function default(): Language

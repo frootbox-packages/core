@@ -14,6 +14,7 @@ use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Revision\RevisionStore;
+use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Support\SortKey;
 use Frootbox\Core\Url\AddressSync;
 use Frootbox\Database\EntityNotFoundException;
@@ -36,6 +37,7 @@ final readonly class PageEditor
         private ContentValidator $content,
         private Languages $languages,
         private AddressSync $addresses,
+        private Router $router,
     ) {}
 
     /**
@@ -482,7 +484,7 @@ final readonly class PageEditor
             return \sprintf('must be lower case a-z, 0-9 and hyphens, at most %d characters, e.g. "about-us".', Slug::MAX_LENGTH);
         }
 
-        $reserved = [...Slug::RESERVED, ...$this->languages->prefixes()];
+        $reserved = array_values(array_unique([...Slug::RESERVED, ...$this->router->reservedSegments(), ...$this->languages->prefixes()]));
 
         if ($belowStart && \in_array($slug, $reserved, true)) {
             return \sprintf('"%s" is reserved directly below the start page. Reserved: %s.', $slug, implode(', ', $reserved));

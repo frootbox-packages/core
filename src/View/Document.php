@@ -58,7 +58,7 @@ final readonly class Document
             $lines[] = \sprintf('<link rel="alternate" hreflang="x-default" href="%s">', Html::escape($this->defaultAlternate($alternates)));
         }
 
-        $lines[] = '<style>' . AssetList::layerOrder() . '</style>';
+        $lines[] = '<style>' . $assets->layerOrder() . '</style>';
         $tokens = $this->themes->css();
 
         if ('' !== $tokens) {

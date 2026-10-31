@@ -13,6 +13,8 @@ use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Action\DefinitionException;
 use Frootbox\Core\Action\Query;
 use Frootbox\Core\Action\Undo\UndoCheck;
+use Frootbox\Core\Config\Config;
+use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Console\CommandInfo;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Database\SensitiveColumns;
@@ -33,13 +35,20 @@ use Symfony\Component\Console\Command\Command;
  *     $registry->query(ListNews::class);
  *     $registry->fieldType(PriceType::class);
  *     $registry->undoCheck(OrderNumbersCheck::class);
+ *     $registry->mount('backend.path', '/cms')->get('/login', LoginHandler::class, 'backend.login');
+ *     $registry->import('lit', 'assets/build/lit.js');
+ *     $registry->asset('assets/css/shop.css', 'backend');
+ *     $registry->add(Screen::class, new Screen(…));
  *
  * Migrations in the folder migrations/ of an extension are found
  * automatically.
  */
 final class Registry
 {
-    /** @var list<array{list<string>|string, string, class-string<RequestHandlerInterface>, ?string}> */
+    /** A path below which an installation may move routes, e.g. "/cms". */
+    private const string MOUNT_PATTERN = '~^(/[a-z0-9]+(-[a-z0-9]+)*)+$~';
+
+    /** @var list<array{list<string>|string, string, class-string<RequestHandlerInterface>, ?string, ?Mount}> */
     private array $routes = [];
 
     /** @var list<array{class-string, object|non-empty-string|array{non-empty-string, non-empty-string}, int}> */
@@ -63,6 +72,18 @@ final class Registry
     /** @var list<class-string<UndoCheck>> */
     private array $undoChecks = [];
 
+    /** The folder of the package that is registering, null for the core. */
+    private ?string $path = null;
+
+    /** @var array<string, array{string, string}> name => [file, package] */
+    private array $imports = [];
+
+    /** @var array<string, list<string>> area => files */
+    private array $assets = [];
+
+    /** @var array<class-string, list<object>> */
+    private array $items = [];
+
     public function __construct()
     {
         $this->migrations = new MigrationSources();
@@ -76,7 +97,32 @@ final class Registry
      */
     public function route(array|string $methods, string $path, string $handler, ?string $name = null): void
     {
-        $this->routes[] = [$methods, $path, $handler, $name];
+        $this->routes[] = [$methods, $path, $handler, $name, null];
+    }
+
+    /**
+     * Routes below a path the installation can change in config/app.yaml,
+     * e.g. mount('backend.path', '/cms'). Their first segment is reserved
+     * for pages (decision 0114).
+     */
+    public function mount(string $configKey, string $default): Mount
+    {
+        if (1 !== preg_match(self::MOUNT_PATTERN, $default)) {
+            throw new ExtensionException(\sprintf('The mount path "%s" must start with a slash and use lower case a-z, 0-9 and hyphens, e.g. "/cms".', $default));
+        }
+
+        return new Mount($this, $configKey, $default);
+    }
+
+    /**
+     * @internal Called by Mount.
+     *
+     * @param list<string>|string                   $methods
+     * @param class-string<RequestHandlerInterface> $handler
+     */
+    public function mountedRoute(Mount $mount, array|string $methods, string $path, string $handler, ?string $name): void
+    {
+        $this->routes[] = [$methods, $path, $handler, $name, $mount];
     }
 
     /**
@@ -127,17 +173,77 @@ final class Registry
      * @internal Called by the ExtensionLoader.
      *
      * @param callable(): void $register
+     * @param string|null      $path      the folder of the package, for import() and asset()
      */
-    public function forPackage(string $package, callable $register): void
+    public function forPackage(string $package, callable $register, ?string $path = null): void
     {
-        $previous = $this->package;
+        [$previousPackage, $previousPath] = [$this->package, $this->path];
         $this->package = $package;
+        $this->path = $path;
 
         try {
             $register();
         } finally {
-            $this->package = $previous;
+            [$this->package, $this->path] = [$previousPackage, $previousPath];
         }
+    }
+
+    /**
+     * An entry of the import map, so scripts can `import { html } from "lit"`
+     * (decision 0111). The file is relative to the package and must be in
+     * an assets/ folder. A name belongs to one package only.
+     */
+    public function import(string $name, string $file): void
+    {
+        $package = $this->package ?? 'frootbox/core';
+
+        if (isset($this->imports[$name])) {
+            throw new ExtensionException(\sprintf('The import "%s" is registered by %s and %s. A name belongs to one package only.', $name, $this->imports[$name][1], $package));
+        }
+
+        $this->imports[$name] = [$this->file($file), $package];
+    }
+
+    /**
+     * A style or script loaded on every page of an area, e.g. "backend".
+     * The file is relative to the package.
+     */
+    public function asset(string $file, string $area): void
+    {
+        $this->assets[$area][] = $this->file($file);
+    }
+
+    /**
+     * Registers an object of a type that the core does not need to know,
+     * e.g. a screen of the backend or a brand. items() returns them.
+     *
+     * @template T of object
+     *
+     * @param class-string<T> $type
+     * @param T               $item
+     */
+    public function add(string $type, object $item): void
+    {
+        if (!$item instanceof $type) {
+            throw new ExtensionException(\sprintf('%s is no %s.', $item::class, $type));
+        }
+
+        $this->items[$type][] = $item;
+    }
+
+    /**
+     * Everything added for a type, in load order: the core first, project
+     * extensions last.
+     *
+     * @template T of object
+     *
+     * @param class-string<T> $type
+     *
+     * @return list<T>
+     */
+    public function items(string $type): array
+    {
+        return array_values(array_filter($this->items[$type] ?? [], static fn(object $item): bool => $item instanceof $type));
     }
 
     /**
@@ -223,11 +329,37 @@ final class Registry
         $this->migrations->add($namespace, $directory);
     }
 
-    public function applyRoutes(Router $router): void
+    /**
+     * Adds the routes, those of a mount below its configured path.
+     */
+    public function applyRoutes(Router $router, ?Config $config = null): void
     {
-        foreach ($this->routes as [$methods, $path, $handler, $name]) {
+        $prefixes = [];
+
+        foreach ($this->routes as [$methods, $path, $handler, $name, $mount]) {
+            if (null !== $mount) {
+                $prefix = $prefixes[$mount->configKey] ??= self::mountPath($mount, $config);
+                $path = '/' === $path || '' === $path ? $prefix : $prefix . $path;
+            }
+
             $router->add($methods, $path, $handler, $name);
         }
+    }
+
+    /**
+     * @return array<string, string> name => file
+     */
+    public function imports(): array
+    {
+        return array_map(static fn(array $import): string => $import[0], $this->imports);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function assets(string $area): array
+    {
+        return $this->assets[$area] ?? [];
     }
 
     public function applyListeners(ListenerProvider $provider): void
@@ -274,5 +406,34 @@ final class Registry
     public function sensitiveColumns(): SensitiveColumns
     {
         return $this->sensitive;
+    }
+
+    private static function mountPath(Mount $mount, ?Config $config): string
+    {
+        $path = rtrim($config?->string($mount->configKey, $mount->default) ?? $mount->default, '/');
+
+        if (1 !== preg_match(self::MOUNT_PATTERN, $path)) {
+            throw new ConfigException(\sprintf('"%s" must be a path such as "%s": a slash, then lower case a-z, 0-9 and hyphens.', $mount->configKey, $mount->default));
+        }
+
+        return $path;
+    }
+
+    /**
+     * An absolute path, or one relative to the package that is registering.
+     */
+    private function file(string $file): string
+    {
+        if (str_starts_with($file, '/')) {
+            return $file;
+        }
+
+        $root = $this->path ?? (null === $this->package ? \dirname(__DIR__, 2) : null);
+
+        if (null === $root) {
+            throw new ExtensionException(\sprintf('"%s" of %s must be an absolute path: the folder of the package is unknown.', $file, $this->package));
+        }
+
+        return $root . '/' . $file;
     }
 }

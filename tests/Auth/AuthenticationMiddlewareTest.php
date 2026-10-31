@@ -64,6 +64,14 @@ final class AuthenticationMiddlewareTest extends NotesTestCase
         self::assertSame(ActorType::Guest, $this->seen?->actor->type);
     }
 
+    public function testTheCookieTakesNoApiToken(): void
+    {
+        $token = $this->token(TokenType::Api);
+        $this->process($this->request()->withCookieParams([AuthenticationMiddleware::COOKIE => $token]));
+
+        self::assertSame(ActorType::Guest, $this->seen?->actor->type);
+    }
+
     public function testAWrongBearerTokenIsRejected(): void
     {
         try {

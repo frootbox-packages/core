@@ -13,6 +13,7 @@ use Frootbox\Core\Routing\Route;
 use Frootbox\Core\Routing\RouteMatch;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Tests\Support\TextHandler;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -74,5 +75,65 @@ final class RouterTest extends TestCase
 
         self::assertNotNull($router->match('GET', '/later'));
         self::assertCount(2, $router->routes());
+    }
+
+    public function testBuildsPathsFromNames(): void
+    {
+        $router = new Router();
+        $router->get('/cms', TextHandler::class, 'backend');
+        $router->get('/cms/pages/{id:[0-9A-Z]{26}}[/{tab}]', TextHandler::class, 'backend.page');
+
+        self::assertSame('/cms', $router->path('backend'));
+        self::assertSame('/cms?q=a%20b', $router->path('backend', ['q' => 'a b']));
+        self::assertSame('/cms/pages/01JB00000000000000000000AB', $router->path('backend.page', ['id' => '01JB00000000000000000000AB']));
+        self::assertSame('/cms/pages/01JB00000000000000000000AB/versions', $router->path('backend.page', ['id' => '01JB00000000000000000000AB', 'tab' => 'versions']));
+    }
+
+    public function testRefusesWrongParameters(): void
+    {
+        $router = new Router();
+        $router->get('/items/{id:\d+}', TextHandler::class, 'item');
+
+        $this->expectExceptionMessage('"x" does not fit the placeholder {id} of the route "item".');
+        $router->path('item', ['id' => 'x']);
+    }
+
+    public function testRefusesMissingParameters(): void
+    {
+        $router = new Router();
+        $router->get('/items/{id:\d+}', TextHandler::class, 'item');
+
+        $this->expectExceptionMessage('The route "item" (/items/{id:\d+}) needs the parameters id.');
+        $router->path('item');
+    }
+
+    public function testRefusesUnknownNames(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('There is no route named "other".');
+
+        new Router()->path('other');
+    }
+
+    public function testRefusesNamesUsedTwice(): void
+    {
+        $router = new Router();
+        $router->get('/a', TextHandler::class, 'a');
+
+        $this->expectExceptionMessage('The route name "a" is used twice: /a and /b.');
+        $router->get('/b', TextHandler::class, 'a');
+    }
+
+    public function testListsReservedSegments(): void
+    {
+        $router = new Router();
+        $router->get('/', TextHandler::class);
+        $router->get('/api/v1/{name}', TextHandler::class);
+        $router->get('/api/v1/openapi.json', TextHandler::class);
+        $router->get('/cms/login', TextHandler::class);
+        $router->get('/feed.xml', TextHandler::class);
+        $router->get('/{slug}', TextHandler::class);
+
+        self::assertSame(['api', 'cms'], $router->reservedSegments());
     }
 }

@@ -34,7 +34,7 @@ final class AssetListTest extends TestCase
             array_map(static fn(Asset $asset): array => [$asset->file, $asset->layer], $assets->styles()),
         );
         self::assertSame(['/a/teaser.js'], array_map(static fn(Asset $asset): string => $asset->file, $assets->scripts()));
-        self::assertSame('@layer reset, tokens, base, layouts, blocks, theme, project;', AssetList::layerOrder());
+        self::assertSame('@layer reset, tokens, base, layouts, blocks, theme, project;', new AssetList()->layerOrder());
     }
 
     public function testRefusesUnknownLayers(): void
@@ -43,5 +43,15 @@ final class AssetListTest extends TestCase
         $this->expectExceptionMessage('"components" is no layer.');
 
         new AssetList()->add('/a/x.css', 'components');
+    }
+
+    public function testTakesOtherLayers(): void
+    {
+        $assets = new AssetList(['reset', 'components', 'screens']);
+        $assets->add('/a/list.css', 'screens');
+        $assets->add('/a/button.css', 'components');
+
+        self::assertSame(['/a/button.css', '/a/list.css'], array_map(static fn(Asset $asset): string => $asset->file, $assets->styles()));
+        self::assertSame('@layer reset, components, screens;', $assets->layerOrder());
     }
 }

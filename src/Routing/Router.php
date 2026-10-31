@@ -10,7 +10,9 @@ namespace Frootbox\Core\Routing;
 
 use FastRoute\Dispatcher;
 use FastRoute\RouteCollector;
+use FastRoute\RouteParser\Std;
 use Frootbox\Core\Http\Exception\HttpException;
+use InvalidArgumentException;
 use Psr\Http\Server\RequestHandlerInterface;
 use UnexpectedValueException;
 
@@ -27,6 +29,9 @@ final class Router
     /** @var list<Route> */
     private array $routes = [];
 
+    /** @var array<string, Route> */
+    private array $named = [];
+
     private ?Dispatcher $dispatcher = null;
 
     /**
@@ -36,6 +41,15 @@ final class Router
     public function add(array|string $methods, string $path, string $handler, ?string $name = null): Route
     {
         $route = new Route(array_map(strtoupper(...), (array) $methods), $path, $handler, $name);
+
+        if (null !== $name) {
+            if (isset($this->named[$name])) {
+                throw new InvalidArgumentException(\sprintf('The route name "%s" is used twice: %s and %s.', $name, $this->named[$name]->path, $path));
+            }
+
+            $this->named[$name] = $route;
+        }
+
         $this->routes[] = $route;
         $this->dispatcher = null;
 
@@ -84,6 +98,121 @@ final class Router
     public function routes(): array
     {
         return $this->routes;
+    }
+
+    /**
+     * The path of a named route, e.g. path('backend.page', ['id' => 5])
+     * gives "/cms/pages/5". Parameters that are not in the route become
+     * the query string.
+     *
+     * @param array<string, int|string> $parameters
+     */
+    public function path(string $name, array $parameters = []): string
+    {
+        $route = $this->named[$name] ?? throw new InvalidArgumentException(\sprintf('There is no route named "%s".', $name));
+
+        // The variant with the most optional parts that has all its placeholders.
+        foreach (array_reverse(self::variants($route->path)) as $variant) {
+            $path = '';
+            $used = [];
+
+            foreach ($variant as $part) {
+                if (\is_string($part)) {
+                    $path .= $part;
+
+                    continue;
+                }
+
+                [$variable, $pattern] = $part;
+
+                if (!isset($parameters[$variable])) {
+                    continue 2;
+                }
+
+                $value = (string) $parameters[$variable];
+
+                if (1 !== preg_match('~^(?:' . $pattern . ')$~', $value)) {
+                    throw new InvalidArgumentException(\sprintf('"%s" does not fit the placeholder {%s} of the route "%s".', $value, $variable, $name));
+                }
+
+                $path .= rawurlencode($value);
+                $used[] = $variable;
+            }
+
+            $query = array_diff_key($parameters, array_flip($used));
+
+            return $path . ([] === $query ? '' : '?' . http_build_query($query, '', '&', \PHP_QUERY_RFC3986));
+        }
+
+        throw new InvalidArgumentException(\sprintf('The route "%s" (%s) needs the parameters %s.', $name, $route->path, implode(', ', self::variables($route->path))));
+    }
+
+    /**
+     * The first path segments of all routes, e.g. "api" and "cms". Pages
+     * directly below the start page cannot use them (decision 0114).
+     *
+     * @return list<string>
+     */
+    public function reservedSegments(): array
+    {
+        $segments = [];
+
+        foreach ($this->routes as $route) {
+            $first = self::variants($route->path)[0][0] ?? null;
+
+            if (\is_string($first) && 1 === preg_match('~^/([a-z0-9]+(?:-[a-z0-9]+)*)(?:/|$)~', $first, $match)) {
+                $segments[$match[1]] = true;
+            }
+        }
+
+        return array_keys($segments);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function variables(string $path): array
+    {
+        $variables = [];
+
+        foreach (self::variants($path) as $variant) {
+            foreach ($variant as $part) {
+                if (\is_array($part)) {
+                    $variables[$part[0]] = true;
+                }
+            }
+        }
+
+        return array_map(strval(...), array_keys($variables));
+    }
+
+    /**
+     * The variants of a route path, shortest first: text and
+     * [placeholder, pattern] for each part.
+     *
+     * @return list<list<string|array{string, string}>>
+     */
+    private static function variants(string $path): array
+    {
+        $variants = [];
+
+        foreach (new Std()->parse($path) as $variant) {
+            $parts = [];
+
+            foreach ($variant as $part) {
+                if (\is_string($part)) {
+                    $parts[] = $part;
+                } elseif (\is_array($part) && \is_string($part[0] ?? null) && \is_string($part[1] ?? null)) {
+                    $parts[] = [$part[0], $part[1]];
+                } else {
+                    throw new UnexpectedValueException(\sprintf('Unexpected part in the route "%s".', $path));
+                }
+            }
+
+            $variants[] = $parts;
+        }
+
+        return $variants;
     }
 
     private function dispatcher(): Dispatcher

@@ -23,7 +23,8 @@ use Psr\Http\Server\RequestHandlerInterface;
  *
  * - "Authorization: Bearer fbx_…" for the REST API, the app and MCP.
  *   A wrong or expired token answers 401.
- * - The session cookie for the browser. A wrong one is ignored.
+ * - The session cookie for the browser. A wrong one is ignored, and so
+ *   is an API token: those only come as Bearer (decision 0114).
  *
  * Without either the request runs as a guest. The Authentication is also
  * put on the request as an attribute. The database is only touched when a
@@ -74,7 +75,8 @@ final readonly class AuthenticationMiddleware implements MiddlewareInterface
         }
 
         $cookie = $request->getCookieParams()[self::COOKIE] ?? null;
+        $authentication = \is_string($cookie) ? $this->tokens()->authenticate($cookie) : null;
 
-        return [\is_string($cookie) ? $this->tokens()->authenticate($cookie) : null, Channel::Web];
+        return [TokenType::Session === $authentication?->token->type ? $authentication : null, Channel::Web];
     }
 }

@@ -60,7 +60,7 @@ final readonly class AssetTags
 
     private function versioned(Asset $asset): string
     {
-        return $this->public->url($asset->file) . '?v=' . (int) filemtime($asset->file);
+        return $this->public->versioned($asset->file);
     }
 
     /**

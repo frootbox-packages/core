@@ -55,6 +55,15 @@ final readonly class PublicAssets
     }
 
     /**
+     * The URL with the time of the last change, so browsers load a changed
+     * file again, e.g. "/assets/frootbox/backend/assets/build/ui.js?v=1761900000".
+     */
+    public function versioned(string $file): string
+    {
+        return $this->url($file) . '?v=' . (int) filemtime($file);
+    }
+
+    /**
      * Publishes every assets/ folder of every package again, e.g. after
      * a deployment. Returns the number of folders.
      */

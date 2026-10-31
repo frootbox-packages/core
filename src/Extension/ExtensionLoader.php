@@ -72,7 +72,7 @@ final class ExtensionLoader
             self::registerMigrations($package, $registry);
 
             if (null !== $package->extensionClass) {
-                $registry->forPackage($package->name, static fn() => self::instantiate($package)->register($registry));
+                $registry->forPackage($package->name, static fn() => self::instantiate($package)->register($registry), $package->path);
             }
         }
 
