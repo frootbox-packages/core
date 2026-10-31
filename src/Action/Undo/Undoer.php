@@ -28,6 +28,7 @@ use Frootbox\Core\Database\RecordingWriter;
 use Frootbox\Core\Database\SensitiveColumns;
 use Frootbox\Database\Rows;
 use LogicException;
+use Throwable;
 
 /**
  * Undoes an action from the log: applies its recorded changes in reverse
@@ -91,13 +92,29 @@ final readonly class Undoer
         $original = $this->catalog->get($entry->action);
         $actor = $this->context->get()->actor;
 
-        if (!$this->gate->allows($actor, $original)) {
+        if (!$this->gate->allows($actor, $original) || !$this->gate->allowsFor($actor, $original, $this->original($original->class, $entry))) {
             throw AccessDeniedException::forPermission($original->permission, $actor);
         }
 
         // Nobody undoes the work of someone who ranks above them.
         if (!$this->hierarchy->mayUndoActionsOf($entry->actorType, $entry->actorId)) {
             throw new AccessDeniedException(\sprintf('Action #%d was run by %s, who ranks above you.', $entry->id, $entry->actorName ?? $entry->actorType));
+        }
+    }
+
+    /**
+     * The original action from its logged input, so its targets are
+     * checked as they are now (decision 0118). Input that no longer fits
+     * gives an object without targets: then only roles everywhere count.
+     *
+     * @param class-string $class
+     */
+    private function original(string $class, LogEntry $entry): object
+    {
+        try {
+            return InputMapper::toObject($class, $entry->input ?? []);
+        } catch (Throwable) {
+            return new \stdClass();
         }
     }
 

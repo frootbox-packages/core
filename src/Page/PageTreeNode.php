@@ -33,5 +33,7 @@ final readonly class PageTreeNode
         public Reach $locked = Reach::None,
         /** What applies, maybe from a page above (decision 0117) */
         public PageVisibility $visibility = new PageVisibility(),
+        /** Only shown as the way to a branch of the actor (decision 0118) */
+        public bool $outside = false,
     ) {}
 }

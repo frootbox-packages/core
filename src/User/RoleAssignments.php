@@ -45,6 +45,31 @@ final class RoleAssignments extends Repository
     }
 
     /**
+     * The permission rules of the roles a user has only within a scope,
+     * one entry per assignment.
+     *
+     * @return list<array{scope: string, rules: list<string>}>
+     */
+    public function scopedRules(int $userId): array
+    {
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT a.scope, r.permissions FROM ' . Roles::TABLE . ' r INNER JOIN ' . self::TABLE . ' a ON a.role_id = r.id WHERE a.user_id = ? AND a.scope IS NOT NULL ORDER BY a.scope',
+            [$userId],
+        );
+        $result = [];
+
+        foreach ($rows as $row) {
+            $list = \is_string($row['permissions']) ? json_decode($row['permissions'], true) : null;
+
+            if (\is_string($row['scope'])) {
+                $result[] = ['scope' => $row['scope'], 'rules' => \is_array($list) ? array_values(array_filter($list, \is_string(...))) : []];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * The highest level of the roles a user has everywhere, 0 without one.
      */
     public function globalLevel(int $userId): int

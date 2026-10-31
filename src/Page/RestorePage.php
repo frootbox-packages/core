@@ -13,6 +13,8 @@ use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Schema\Pattern;
 use Frootbox\Core\Action\Schema\Range;
+use Frootbox\Core\Auth\Scope;
+use Frootbox\Core\Auth\Scoped;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Database\Ulid;
 
@@ -20,7 +22,7 @@ use Frootbox\Database\Ulid;
  * @implements Action<PageDetails>
  */
 #[AsAction('page.restore', 'Makes a new draft from an earlier version of a page, also of a deleted one')]
-final readonly class RestorePage implements Action
+final readonly class RestorePage implements Action, Scoped
 {
     public function __construct(
         #[Pattern(Ulid::PATTERN)]
@@ -28,6 +30,14 @@ final readonly class RestorePage implements Action
         #[Range(min: 1)]
         public int $version,
     ) {}
+
+    /**
+     * @return list<Scope>
+     */
+    public function scopes(): array
+    {
+        return [Scope::page($this->id)];
+    }
 
     public function handle(Revisions $revisions, PageEditor $editor): PageDetails
     {

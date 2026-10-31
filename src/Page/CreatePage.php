@@ -13,13 +13,15 @@ use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\Description;
 use Frootbox\Core\Action\Schema\Pattern;
 use Frootbox\Core\Action\Schema\Range;
+use Frootbox\Core\Auth\Scope;
+use Frootbox\Core\Auth\Scoped;
 use Frootbox\Database\Ulid;
 
 /**
  * @implements Action<PageDetails>
  */
 #[AsAction('page.create', 'Creates a page as a draft; page.publish puts it online')]
-final readonly class CreatePage implements Action
+final readonly class CreatePage implements Action, Scoped
 {
     /**
      * @param array<mixed> $translations
@@ -38,6 +40,16 @@ final readonly class CreatePage implements Action
         #[Description('Variant of the layout, left out for its default')]
         public ?string $variant = null,
     ) {}
+
+    /**
+     * The parent page; a new top page only with the permission everywhere.
+     *
+     * @return list<Scope>|null
+     */
+    public function scopes(): ?array
+    {
+        return null === $this->parentId ? null : [Scope::page($this->parentId)];
+    }
 
     public function handle(PageEditor $editor): PageDetails
     {

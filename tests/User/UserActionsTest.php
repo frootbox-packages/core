@@ -22,6 +22,7 @@ use Frootbox\Core\Auth\RolePermissions;
 use Frootbox\Core\Database\SensitiveColumns;
 use Frootbox\Core\Tests\Fixtures\Notes\CreateNote;
 use Frootbox\Core\Tests\Fixtures\Notes\DeleteNote;
+use Frootbox\Core\Tests\Fixtures\Notes\RenameNote;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\User\AssignRole;
 use Frootbox\Core\User\CreateRole;
@@ -133,11 +134,26 @@ final class UserActionsTest extends NotesTestCase
         self::assertTrue($this->runner()->run(new DeleteNote($note), $this->as($user)));
     }
 
-    public function testScopedRolesDoNotCountYet(): void
+    public function testScopedRolesCountOnlyWithinTheirScope(): void
     {
         $user = $this->createUser('jane@example.com')->user;
-        $this->runner()->run(new AssignRole($user->id, 'admin', 'page:12'));
+        $mine = $this->runner()->run(new CreateNote('Mine'))->id;
+        $other = $this->runner()->run(new CreateNote('Other'))->id;
+        $this->runner()->run(new AssignRole($user->id, 'admin', 'note:' . $mine));
+
+        self::assertSame('Renamed', $this->runner()->run(new RenameNote($mine, 'Renamed'), $this->as($user))->title);
+        $this->assertDenied(new RenameNote($other, 'Renamed'), $this->as($user));
         $this->assertDenied(new CreateNote('Scoped'), $this->as($user));
+        $this->assertDenied(new DeleteNote($mine), $this->as($user));
+
+        foreach (['note:999', 'page:12', 'nothing'] as $scope) {
+            try {
+                $this->runner()->run(new AssignRole($user->id, 'editor', $scope));
+                self::fail('Roles are given only for something that is there: ' . $scope);
+            } catch (InvalidInputException $error) {
+                self::assertArrayHasKey('/scope', $error->errors);
+            }
+        }
 
         $this->runner()->run(new AssignRole($user->id, 'admin'));
         $this->runner()->run(new CreateNote('Global'), $this->as($user));
@@ -150,13 +166,14 @@ final class UserActionsTest extends NotesTestCase
     public function testSetsTheGlobalRolesInOneGo(): void
     {
         $user = $this->createUser('jane@example.com', ['editor'])->user;
-        $this->runner()->run(new AssignRole($user->id, 'editor', 'page:01J0000000000000000000000A'));
+        $note = $this->runner()->run(new CreateNote('Scope'))->id;
+        $this->runner()->run(new AssignRole($user->id, 'editor', 'note:' . $note));
 
         $profile = $this->runner()->run(new SetRoles($user->id, ['admin', 'admin']));
-        self::assertSame([['role' => 'admin', 'scope' => null], ['role' => 'editor', 'scope' => 'page:01J0000000000000000000000A']], $profile->roles, 'Scoped roles stay.');
+        self::assertSame([['role' => 'admin', 'scope' => null], ['role' => 'editor', 'scope' => 'note:' . $note]], $profile->roles, 'Scoped roles stay.');
 
         $profile = $this->runner()->run(new SetRoles($user->id, []));
-        self::assertSame([['role' => 'editor', 'scope' => 'page:01J0000000000000000000000A']], $profile->roles);
+        self::assertSame([['role' => 'editor', 'scope' => 'note:' . $note]], $profile->roles);
     }
 
     public function testSettingRolesKeepsTheHierarchy(): void

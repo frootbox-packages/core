@@ -56,7 +56,7 @@ final readonly class Runner
         $logged = InputMapper::mask($descriptor->class, $input);
         $parentId = $this->journal->currentEntryId();
 
-        $this->check($descriptor, $input, $context, $parentId);
+        $this->check($descriptor, $input, $context, $parentId, $action);
         $started = hrtime(true);
 
         try {
@@ -89,7 +89,7 @@ final readonly class Runner
     {
         $descriptor = $this->catalog->forClass($query::class);
         $context ??= $this->context->get();
-        $this->check($descriptor, InputMapper::fromObject($query), $context, null);
+        $this->check($descriptor, InputMapper::fromObject($query), $context, null, $query);
 
         return $this->context->runAs($context, fn(): mixed => $this->invoker->call([$query, 'handle']));
     }
@@ -140,11 +140,13 @@ final readonly class Runner
     }
 
     /**
-     * Checks permission and input. A rejected action is logged.
+     * Checks permission and input, then the targets of the action if it
+     * is given (decision 0118), so bad input is 422 and not 403. A
+     * rejected action is logged.
      *
      * @param array<string, mixed> $input
      */
-    private function check(Descriptor $descriptor, array $input, Context $context, ?int $parentId): void
+    private function check(Descriptor $descriptor, array $input, Context $context, ?int $parentId, ?object $object = null): void
     {
         try {
             if (!$this->gate->allows($context->actor, $descriptor)) {
@@ -155,6 +157,10 @@ final readonly class Runner
 
             if ([] !== $errors) {
                 throw new InvalidInputException($descriptor->name, $errors);
+            }
+
+            if (null !== $object && !$this->gate->allowsFor($context->actor, $descriptor, $object)) {
+                throw AccessDeniedException::for($descriptor, $context->actor);
             }
         } catch (AccessDeniedException|InvalidInputException $error) {
             if ($descriptor->isAction()) {

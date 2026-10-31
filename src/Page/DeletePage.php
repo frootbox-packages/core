@@ -11,6 +11,8 @@ namespace Frootbox\Core\Page;
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\Pattern;
+use Frootbox\Core\Auth\Scope;
+use Frootbox\Core\Auth\Scoped;
 use Frootbox\Database\Ulid;
 
 /**
@@ -20,12 +22,22 @@ use Frootbox\Database\Ulid;
  * @implements Action<bool>
  */
 #[AsAction('page.delete', 'Deletes a page without subpages, published state and draft')]
-final readonly class DeletePage implements Action
+final readonly class DeletePage implements Action, Scoped
 {
     public function __construct(
         #[Pattern(Ulid::PATTERN)]
         public string $id,
     ) {}
+
+    /**
+     * Below the top of a branch: the top itself is deleted only from above (decision 0118).
+     *
+     * @return list<Scope>
+     */
+    public function scopes(): array
+    {
+        return [Scope::page($this->id, strict: true)];
+    }
 
     public function handle(PageEditor $editor): bool
     {

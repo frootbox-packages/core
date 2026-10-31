@@ -13,9 +13,8 @@ use Frootbox\Core\User\RoleAssignments;
 /**
  * Permissions from roles: a user may do what one of their roles allows.
  * The system may do everything, a guest nothing beyond public actions.
- *
- * Roles given only for a scope (a branch of the page tree) do not count
- * here yet. They are checked once there are pages.
+ * Roles given only within a scope, e.g. a branch of the page tree, count
+ * only there (decision 0118).
  */
 final readonly class RolePermissions implements Permissions
 {
@@ -38,5 +37,24 @@ final readonly class RolePermissions implements Permissions
         }
 
         return false;
+    }
+
+    public function scopes(Actor $actor, string $permission): array
+    {
+        if (ActorType::User !== $actor->type || null === $actor->id) {
+            return [];
+        }
+
+        $scopes = [];
+
+        foreach ($this->assignments->scopedRules($actor->id) as ['scope' => $scope, 'rules' => $rules]) {
+            $parsed = Scope::fromString($scope);
+
+            if (null !== $parsed && new PermissionRules($rules)->allows($permission)) {
+                $scopes[(string) $parsed] = $parsed;
+            }
+        }
+
+        return array_values($scopes);
     }
 }

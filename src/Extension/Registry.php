@@ -13,6 +13,8 @@ use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Action\DefinitionException;
 use Frootbox\Core\Action\Query;
 use Frootbox\Core\Action\Undo\UndoCheck;
+use Frootbox\Core\Auth\Scope;
+use Frootbox\Core\Auth\ScopeResolver;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Console\CommandInfo;
@@ -68,6 +70,9 @@ final class Registry
 
     /** @var array<string, class-string<FieldType>> */
     private array $fieldTypes = [];
+
+    /** @var array<string, class-string<ScopeResolver>> by kind */
+    private array $scopes = [];
 
     /** @var list<class-string<UndoCheck>> */
     private array $undoChecks = [];
@@ -324,6 +329,29 @@ final class Registry
         }
     }
 
+    /**
+     * A kind of scope roles can be given for, e.g. "page" for branches of
+     * the page tree (decision 0118).
+     *
+     * @param class-string<ScopeResolver> $class
+     */
+    public function scope(string $kind, string $class): void
+    {
+        if (1 !== preg_match('/' . Scope::KIND_PATTERN . '/', $kind)) {
+            throw new DefinitionException(\sprintf('The scope kind "%s" must be lowercase letters, digits and dashes.', $kind));
+        }
+
+        if (!is_subclass_of($class, ScopeResolver::class)) {
+            throw new DefinitionException(\sprintf('%s must implement %s.', $class, ScopeResolver::class));
+        }
+
+        if (isset($this->scopes[$kind]) && $this->scopes[$kind] !== $class) {
+            throw new DefinitionException(\sprintf('The scope kind "%s" is registered twice: %s and %s.', $kind, $this->scopes[$kind], $class));
+        }
+
+        $this->scopes[$kind] = $class;
+    }
+
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -401,6 +429,14 @@ final class Registry
     public function undoChecks(): array
     {
         return $this->undoChecks;
+    }
+
+    /**
+     * @return array<string, class-string<ScopeResolver>>
+     */
+    public function scopeResolvers(): array
+    {
+        return $this->scopes;
     }
 
     public function sensitiveColumns(): SensitiveColumns

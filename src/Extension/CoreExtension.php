@@ -56,6 +56,7 @@ use Frootbox\Core\Page\DiscardPage;
 use Frootbox\Core\Page\ListPageVersions;
 use Frootbox\Core\Page\LockPage;
 use Frootbox\Core\Page\MovePage;
+use Frootbox\Core\Page\PageScopes;
 use Frootbox\Core\Page\PageUndoCheck;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\RestorePage;
@@ -146,6 +147,7 @@ final class CoreExtension implements Extension
         }
 
         $registry->undoCheck(PageUndoCheck::class);
+        $registry->scope('page', PageScopes::class);
 
         foreach ([SyncUrls::class, CreateRedirect::class, UpdateRedirect::class, DeleteRedirect::class, ClearNotFound::class] as $action) {
             $registry->action($action);

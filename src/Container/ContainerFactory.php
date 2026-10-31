@@ -16,6 +16,7 @@ use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Action\Undo\UndoChecks;
 use Frootbox\Core\Auth\Permissions;
 use Frootbox\Core\Auth\RolePermissions;
+use Frootbox\Core\Auth\ScopeResolvers;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ComponentsFactory;
 use Frootbox\Core\Config\Config;
@@ -98,6 +99,7 @@ final class ContainerFactory
             SensitiveColumns::class => factory([self::class, 'createSensitiveColumns']),
             FieldTypes::class => factory([self::class, 'createFieldTypes']),
             UndoChecks::class => factory([self::class, 'createUndoChecks']),
+            ScopeResolvers::class => factory([self::class, 'createScopeResolvers']),
             ThemeChain::class => factory([self::class, 'createThemeChain']),
             Languages::class => factory([Languages::class, 'fromConfig']),
             Components::class => factory([ComponentsFactory::class, 'create']),
@@ -153,6 +155,11 @@ final class ContainerFactory
     public static function createFieldTypes(Registry $registry, ContainerInterface $container): FieldTypes
     {
         return new FieldTypes($registry->fieldTypes(), $container);
+    }
+
+    public static function createScopeResolvers(Registry $registry, ContainerInterface $container): ScopeResolvers
+    {
+        return new ScopeResolvers($registry->scopeResolvers(), $container);
     }
 
     public static function createUndoChecks(Registry $registry, ContainerInterface $container): UndoChecks
