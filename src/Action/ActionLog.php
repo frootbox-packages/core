@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Action;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Frootbox\Database\EntityMapper;
 use Frootbox\Database\Values;
@@ -119,6 +120,62 @@ final readonly class ActionLog
         );
 
         return array_map(static fn(array $row): Change => EntityMapper::hydrate(Change::class, $row), $rows);
+    }
+
+    /**
+     * Succeeded actions after $afterId that changed one of these rows and
+     * are not undone, e.g. to name what is in the way of an undo.
+     *
+     * @param array<string, list<int|string>> $rows row ids by table
+     *
+     * @return list<LogEntry> newest first
+     */
+    public function laterChangesOf(array $rows, int $afterId, ?int $exceptId = null): array
+    {
+        $query = $this->connection->createQueryBuilder()
+            ->select('DISTINCT ' . $this->quote('entry_id'))
+            ->from($this->quote(self::CHANGES))
+            ->where($this->quote('entry_id') . ' > :after')
+            ->setParameter('after', $afterId);
+
+        if (null !== $exceptId) {
+            $query->andWhere($this->quote('entry_id') . ' <> :except')->setParameter('except', $exceptId);
+        }
+
+        $matches = [];
+
+        foreach ($rows as $table => $ids) {
+            if ([] === $ids) {
+                continue;
+            }
+
+            $index = \count($matches);
+            $matches[] = \sprintf('(%s = :target%d AND %s IN (:rows%d))', $this->quote('target'), $index, $this->quote('row_id'), $index);
+            $query->setParameter('target' . $index, $table);
+            $query->setParameter('rows' . $index, array_map(strval(...), $ids), ArrayParameterType::STRING);
+        }
+
+        if ([] === $matches) {
+            return [];
+        }
+
+        $entryIds = $query->andWhere('(' . implode(' OR ', $matches) . ')')->executeQuery()->fetchFirstColumn();
+
+        if ([] === $entryIds) {
+            return [];
+        }
+
+        $entries = $this->connection->createQueryBuilder()
+            ->select('*')
+            ->from($this->quote(self::ENTRIES))
+            ->where($this->quote('id') . ' IN (:ids)')
+            ->andWhere($this->quote('status') . ' = :status')
+            ->andWhere($this->quote('undone_by') . ' IS NULL')
+            ->orderBy($this->quote('id'), 'DESC')
+            ->setParameter('ids', array_map(intval(...), array_filter($entryIds, is_numeric(...))), ArrayParameterType::INTEGER)
+            ->setParameter('status', EntryStatus::Succeeded->value);
+
+        return array_map(static fn(array $row): LogEntry => EntityMapper::hydrate(LogEntry::class, $row), $entries->executeQuery()->fetchAllAssociative());
     }
 
     /**

@@ -10,6 +10,7 @@ namespace Frootbox\Core\Tests\Page;
 
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Undo\UndoAction;
+use Frootbox\Core\Action\UndoException;
 use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Component\Instance;
 use Frootbox\Core\Extension\Extensions;
@@ -31,6 +32,7 @@ use Frootbox\Core\Page\PageStatus;
 use Frootbox\Core\Page\PageTranslation;
 use Frootbox\Core\Page\PageTranslations;
 use Frootbox\Core\Page\PageTreeNode;
+use Frootbox\Core\Page\PageUndoCheck;
 use Frootbox\Core\Page\PageVersion;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\RestorePage;
@@ -60,6 +62,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(ListPageVersions::class)]
 #[CoversClass(PageEditor::class)]
 #[CoversClass(PageReader::class)]
+#[CoversClass(PageUndoCheck::class)]
 #[CoversClass(PageData::class)]
 #[CoversClass(TranslationData::class)]
 #[CoversClass(PageDetails::class)]
@@ -231,6 +234,79 @@ final class PagesTest extends NotesTestCase
         self::assertSame([], $this->runner()->ask(new ListPageVersions($start->id)));
     }
 
+    public function testUndoKeepsOneDraftPerPage(): void
+    {
+        $start = $this->createStart();
+        $this->publish($start->id);
+        $this->runner()->run(new UpdatePage($start->id, ['de' => ['title' => 'Neu']]));
+        $this->publish($start->id);
+        $published = $this->lastEntry()->id;
+        $this->runner()->run(new RestorePage($start->id, 1));
+        $restored = $this->lastEntry()->id;
+
+        $this->assertUndoBlocked(
+            \sprintf('Action #%d cannot be undone: The page %s would have 2 draft revisions. Undo #%d (page.restore) first.', $published, $start->id, $restored),
+            $published,
+        );
+        self::assertSame('Start', $this->runner()->ask(new ShowPage($start->id))->draft?->translations['de']->title, 'Nothing was undone.');
+
+        $this->runner()->run(new UndoAction($restored));
+        $this->runner()->run(new UndoAction($published));
+        self::assertSame('Neu', $this->runner()->ask(new ShowPage($start->id))->draft->translations['de']->title);
+    }
+
+    public function testUndoKeepsParentsAndOneStartPage(): void
+    {
+        $start = $this->createStart();
+        $about = $this->createPage($start->id, 'Über uns');
+        $team = $this->createPage($about->id, 'Team');
+        $this->publish($start->id, $about->id, $team->id);
+
+        $this->runner()->run(new DeletePage($team->id));
+        $teamDeleted = $this->lastEntry()->id;
+        $this->runner()->run(new DeletePage($about->id));
+        $aboutDeleted = $this->lastEntry()->id;
+
+        $this->assertUndoBlocked(
+            \sprintf('Action #%d cannot be undone: The page %s would have no parent: %s is gone. Undo #%d (page.delete) first.', $teamDeleted, $team->id, $about->id, $aboutDeleted),
+            $teamDeleted,
+        );
+
+        $this->runner()->run(new UndoAction($aboutDeleted));
+        $this->runner()->run(new UndoAction($teamDeleted));
+        self::assertSame(['Team'], $this->titles($about->id));
+
+    }
+
+    public function testUndoKeepsSlugsUnique(): void
+    {
+        $start = $this->createStart();
+        $draft = $this->createPage($start->id, 'Entwurf');
+        $this->runner()->run(new DeletePage($draft->id));
+        $deleted = $this->lastEntry()->id;
+        $again = $this->createPage($start->id, 'Entwurf');
+        $created = $this->lastEntry()->id;
+
+        $this->assertUndoBlocked(
+            \sprintf('Action #%d cannot be undone: The pages %s and %s would have the same slug "entwurf". Undo #%d (page.create) first.', $deleted, $draft->id, $again->id, $created),
+            $deleted,
+        );
+    }
+
+    public function testUndoKeepsOneStartPage(): void
+    {
+        $first = $this->createStart();
+        $this->runner()->run(new DeletePage($first->id));
+        $deleted = $this->lastEntry()->id;
+        $second = $this->createStart();
+        $created = $this->lastEntry()->id;
+
+        $this->assertUndoBlocked(
+            \sprintf('Action #%d cannot be undone: There would be 2 start pages: %s. Undo #%d (page.create) first.', $deleted, implode(', ', [$first->id, $second->id]), $created),
+            $deleted,
+        );
+    }
+
     public function testMovesPages(): void
     {
         $start = $this->createStart();
@@ -386,6 +462,16 @@ final class PagesTest extends NotesTestCase
         self::assertIsArray($main['main'] ?? null);
 
         return array_values(array_filter($main['main'], \is_array(...)));
+    }
+
+    private function assertUndoBlocked(string $expected, int $entryId): void
+    {
+        try {
+            $this->runner()->run(new UndoAction($entryId));
+            self::fail('The undo was accepted.');
+        } catch (UndoException $error) {
+            self::assertSame($expected, $error->getMessage());
+        }
     }
 
     /**

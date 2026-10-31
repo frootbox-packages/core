@@ -13,6 +13,7 @@ use DI\ContainerBuilder;
 use Doctrine\DBAL\Connection;
 use Doctrine\Migrations\DependencyFactory;
 use Frootbox\Core\Action\Catalog;
+use Frootbox\Core\Action\Undo\UndoChecks;
 use Frootbox\Core\Auth\Permissions;
 use Frootbox\Core\Auth\RolePermissions;
 use Frootbox\Core\Component\Components;
@@ -95,6 +96,7 @@ final class ContainerFactory
             Permissions::class => get(RolePermissions::class),
             SensitiveColumns::class => factory([self::class, 'createSensitiveColumns']),
             FieldTypes::class => factory([self::class, 'createFieldTypes']),
+            UndoChecks::class => factory([self::class, 'createUndoChecks']),
             ThemeChain::class => factory([self::class, 'createThemeChain']),
             Languages::class => factory([Languages::class, 'fromConfig']),
             Components::class => factory([ComponentsFactory::class, 'create']),
@@ -142,6 +144,11 @@ final class ContainerFactory
     public static function createFieldTypes(Registry $registry, ContainerInterface $container): FieldTypes
     {
         return new FieldTypes($registry->fieldTypes(), $container);
+    }
+
+    public static function createUndoChecks(Registry $registry, ContainerInterface $container): UndoChecks
+    {
+        return new UndoChecks($registry->undoChecks(), $container);
     }
 
     /**

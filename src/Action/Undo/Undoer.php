@@ -46,6 +46,7 @@ final readonly class Undoer
         private Hierarchy $hierarchy,
         private SensitiveColumns $sensitive,
         private CurrentContext $context,
+        private UndoChecks $checks,
     ) {}
 
     /**
@@ -63,6 +64,8 @@ final readonly class Undoer
         foreach ($changes as $change) {
             $this->revert($change);
         }
+
+        $this->assertConsistent($entryId, array_reverse($changes));
 
         $this->writer->update(ActionLog::ENTRIES, $entryId, ['undone_by' => $current]);
 
@@ -129,6 +132,43 @@ final readonly class Undoer
         if ([] !== $conflicts) {
             throw UndoException::conflict($entryId, array_values(array_unique($conflicts)));
         }
+    }
+
+    /**
+     * Runs the undo checks on the reverted data; on a conflict the whole
+     * undo is rolled back with the action. Names the later actions in the
+     * way, so they can be undone first.
+     *
+     * @param list<Change> $changes
+     */
+    private function assertConsistent(int $entryId, array $changes): void
+    {
+        $reasons = [];
+
+        foreach ($this->checks->conflicts($changes) as $conflict) {
+            $later = array_map(
+                static fn(LogEntry $entry): string => \sprintf('#%d (%s)', $entry->id, $entry->action),
+                $this->log->laterChangesOf($conflict->rows, $entryId, $this->journal->rootEntryId()),
+            );
+
+            $reasons[] = [] === $later
+                ? $conflict->message
+                : \sprintf('%s Undo %s first.', $conflict->message, self::listing($later));
+        }
+
+        if ([] !== $reasons) {
+            throw UndoException::blocked($entryId, array_values(array_unique($reasons)));
+        }
+    }
+
+    /**
+     * @param non-empty-list<string> $items
+     */
+    private static function listing(array $items): string
+    {
+        $last = array_pop($items);
+
+        return [] === $items ? $last : implode(', ', $items) . ' and ' . $last;
     }
 
     private function revert(Change $change): void

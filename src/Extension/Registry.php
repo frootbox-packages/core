@@ -12,6 +12,7 @@ use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Action\DefinitionException;
 use Frootbox\Core\Action\Query;
+use Frootbox\Core\Action\Undo\UndoCheck;
 use Frootbox\Core\Console\CommandInfo;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Database\SensitiveColumns;
@@ -31,6 +32,7 @@ use Symfony\Component\Console\Command\Command;
  *     $registry->action(PublishNews::class);
  *     $registry->query(ListNews::class);
  *     $registry->fieldType(PriceType::class);
+ *     $registry->undoCheck(OrderNumbersCheck::class);
  *
  * Migrations in the folder migrations/ of an extension are found
  * automatically.
@@ -57,6 +59,9 @@ final class Registry
 
     /** @var array<string, class-string<FieldType>> */
     private array $fieldTypes = [];
+
+    /** @var list<class-string<UndoCheck>> */
+    private array $undoChecks = [];
 
     public function __construct()
     {
@@ -196,6 +201,23 @@ final class Registry
         $this->fieldTypes[$name] = $class;
     }
 
+    /**
+     * A check that runs after an action was undone and refuses the undo
+     * if it would break a rule across several rows (decision 0102).
+     *
+     * @param class-string<UndoCheck> $class
+     */
+    public function undoCheck(string $class): void
+    {
+        if (!is_subclass_of($class, UndoCheck::class)) {
+            throw new DefinitionException(\sprintf('%s must implement %s.', $class, UndoCheck::class));
+        }
+
+        if (!\in_array($class, $this->undoChecks, true)) {
+            $this->undoChecks[] = $class;
+        }
+    }
+
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -239,6 +261,14 @@ final class Registry
     public function fieldTypes(): array
     {
         return $this->fieldTypes;
+    }
+
+    /**
+     * @return list<class-string<UndoCheck>>
+     */
+    public function undoChecks(): array
+    {
+        return $this->undoChecks;
     }
 
     public function sensitiveColumns(): SensitiveColumns

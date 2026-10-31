@@ -25,4 +25,14 @@ final class UndoException extends ActionException
     {
         return new self(\sprintf('Action #%d cannot be undone, the data has changed since: %s.', $entryId, implode(', ', $rows)));
     }
+
+    /**
+     * A rule across several rows would break, see UndoCheck.
+     *
+     * @param list<string> $reasons
+     */
+    public static function blocked(int $entryId, array $reasons): self
+    {
+        return new self(\sprintf('Action #%d cannot be undone: %s', $entryId, implode(' ', $reasons)));
+    }
 }

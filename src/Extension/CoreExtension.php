@@ -43,6 +43,7 @@ use Frootbox\Core\Page\DeletePage;
 use Frootbox\Core\Page\DiscardPage;
 use Frootbox\Core\Page\ListPageVersions;
 use Frootbox\Core\Page\MovePage;
+use Frootbox\Core\Page\PageUndoCheck;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\RestorePage;
 use Frootbox\Core\Page\ShowPage;
@@ -116,6 +117,8 @@ final class CoreExtension implements Extension
         foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class] as $query) {
             $registry->query($query);
         }
+
+        $registry->undoCheck(PageUndoCheck::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListTokens::class);
