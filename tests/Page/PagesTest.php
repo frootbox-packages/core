@@ -11,6 +11,7 @@ namespace Frootbox\Core\Tests\Page;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Action\UndoException;
+use Frootbox\Core\Component\AreaSummary;
 use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Component\Instance;
 use Frootbox\Core\Component\LayoutSummary;
@@ -158,7 +159,7 @@ final class PagesTest extends NotesTestCase
             '/translations/de/content/fields' => 'Unknown fields: nope',
             '/translations/de/content/options/x' => 'is not an option of this variant. Options: none.',
             '/translations/de/content/areas/side' => 'acme/base/Page has no area "side". Areas: main.',
-            '/translations/de/content/areas/main/0/areas/left/0/block' => 'acme/site/Hero is not allowed in the area "left". Allowed: acme/base/Teaser, acme/news/List.',
+            '/translations/de/content/areas/main/0/areas/left/0/block' => 'acme/site/Hero is not allowed in the area "left". Allowed: acme/base/Teaser, acme/news/List, acme/base/Badge.',
             '/translations/de/content/areas/main/1/options/rounded' => 'must be a valid boolean.',
             '/translations/de/content/areas/main/1/fields/title' => 'must be at most 80 characters long.',
             '/translations/de/content/areas/main/2/block' => 'there is no block "acme/other/Promo".',
@@ -408,7 +409,7 @@ final class PagesTest extends NotesTestCase
     public function testListsTheLayouts(): void
     {
         self::assertEquals(
-            [new LayoutSummary(self::LAYOUT, 'Page', '', [new VariantSummary('Default', 'Page', '')])],
+            [new LayoutSummary(self::LAYOUT, 'Page', '', [new VariantSummary('Default', 'Page', '')], [new AreaSummary('main', 'Main', '', null, null, null)])],
             $this->runner()->ask(new ListLayouts()),
         );
     }

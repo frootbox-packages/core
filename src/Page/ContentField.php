@@ -42,13 +42,13 @@ final readonly class ContentField
             $component = $components->get(ComponentKind::Layout, $layout);
             $where = [];
         } else {
-            $where = self::locate($content, $block);
+            $where = ContentBlocks::locate($content, $block);
 
             if (null === $where) {
                 return ['/block' => 'There is no block with this id in the content.'];
             }
 
-            $found = self::at($content, $where);
+            $found = ContentBlocks::at($content, $where);
             $name = \is_array($found) ? $found['block'] ?? null : null;
             $component = \is_string($name) ? $components->get(ComponentKind::Block, $name) : null;
         }
@@ -60,7 +60,7 @@ final readonly class ContentField
         $segments = explode('/', $path);
         $fields = $component->fields;
         $keys = [];
-        $values = self::at($content, [...$where, 'fields']);
+        $values = ContentBlocks::at($content, [...$where, 'fields']);
 
         while (true) {
             $name = array_shift($segments);
@@ -101,7 +101,7 @@ final readonly class ContentField
      */
     public function value(array $content): mixed
     {
-        return self::at($content, [$this->root, ...$this->path]);
+        return ContentBlocks::at($content, [$this->root, ...$this->path]);
     }
 
     /**
@@ -125,52 +125,6 @@ final readonly class ContentField
     public static function same(mixed $a, mixed $b): bool
     {
         return self::sorted($a) === self::sorted($b);
-    }
-
-    /**
-     * The way to the block with this id, e.g. ["areas", "main", 1].
-     *
-     * @param array<mixed> $node
-     *
-     * @return list<string|int>|null
-     */
-    private static function locate(array $node, string $id): ?array
-    {
-        foreach (\is_array($node['areas'] ?? null) ? $node['areas'] : [] as $area => $blocks) {
-            foreach (\is_array($blocks) ? $blocks : [] as $index => $block) {
-                if (!\is_array($block)) {
-                    continue;
-                }
-
-                if ($id === ($block['id'] ?? null)) {
-                    return ['areas', $area, $index];
-                }
-
-                $inner = self::locate($block, $id);
-
-                if (null !== $inner) {
-                    return ['areas', $area, $index, ...$inner];
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param list<string|int> $keys
-     */
-    private static function at(mixed $data, array $keys): mixed
-    {
-        foreach ($keys as $key) {
-            if (!\is_array($data) || !\array_key_exists($key, $data)) {
-                return null;
-            }
-
-            $data = $data[$key];
-        }
-
-        return $data;
     }
 
     /**

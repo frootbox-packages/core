@@ -20,10 +20,10 @@ use Frootbox\Core\Field\HasSubfields;
 final readonly class DefinitionReader
 {
     /** Keys of block.yaml and layout.yaml. */
-    public const array SCHEMA_KEYS = ['title', 'description', 'fields', 'areas'];
+    public const array SCHEMA_KEYS = ['title', 'description', 'widget', 'fields', 'areas'];
 
     /** Keys of the header of views/Default.twig when there is no block.yaml. */
-    public const array FULL_KEYS = ['title', 'description', 'options', 'fields', 'areas'];
+    public const array FULL_KEYS = ['title', 'description', 'widget', 'options', 'fields', 'areas'];
 
     /** Keys of the header of any other view, including views that override. */
     public const array VARIANT_KEYS = ['title', 'description', 'options'];
@@ -35,6 +35,7 @@ final readonly class DefinitionReader
     private const array TOP = [
         'title' => ['type' => 'string', 'minLength' => 1],
         'description' => ['type' => 'string'],
+        'widget' => ['type' => 'boolean'],
         'options' => self::ANY_MAP,
         'fields' => self::ANY_MAP,
         'areas' => self::ANY_MAP,
@@ -86,6 +87,7 @@ final readonly class DefinitionReader
             $this->options($raw['options'] ?? null, $where, $errors),
             $this->fields($raw['fields'] ?? null, $where, 'fields', $errors),
             $this->areas($raw['areas'] ?? null, $package, $where, $errors),
+            true === ($raw['widget'] ?? false),
         );
     }
 

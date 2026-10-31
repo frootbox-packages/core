@@ -55,7 +55,7 @@ final class InputValidator
         // so unknown fields are checked here instead.
         unset($schema['additionalProperties']);
 
-        $data = [] === $input ? new stdClass() : Helper::toJSON($input);
+        $data = self::objects(Helper::toJSON($input), $schema);
         $schemaObject = Helper::toJSON($schema);
 
         if (!\is_object($schemaObject)) {
@@ -74,6 +74,38 @@ final class InputValidator
         }
 
         return $messages;
+    }
+
+    /**
+     * PHP has one empty array for [] and {}, e.g. for an entry of a list
+     * without values read from JSON. Where the schema expects an object,
+     * an empty array is one.
+     *
+     * @param array<mixed> $schema
+     */
+    private static function objects(mixed $data, array $schema): mixed
+    {
+        $type = $schema['type'] ?? null;
+        $object = 'object' === $type || (\is_array($type) && \in_array('object', $type, true) && !\in_array('array', $type, true));
+
+        if ([] === $data) {
+            return $object ? new stdClass() : $data;
+        }
+
+        if ($data instanceof stdClass && \is_array($schema['properties'] ?? null)) {
+            foreach ($schema['properties'] as $name => $property) {
+                if (\is_string($name) && property_exists($data, $name) && \is_array($property)) {
+                    $data->{$name} = self::objects($data->{$name}, $property);
+                }
+            }
+        }
+
+        if (\is_array($data) && \is_array($schema['items'] ?? null)) {
+            $items = $schema['items'];
+            $data = array_map(static fn(mixed $item): mixed => self::objects($item, $items), $data);
+        }
+
+        return $data;
     }
 
     /**

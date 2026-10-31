@@ -26,5 +26,7 @@ final readonly class Definition
         public array $options = [],
         public array $fields = [],
         public array $areas = [],
+        /** Only for areas that allow the block by name (decision 0124) */
+        public bool $widget = false,
     ) {}
 }

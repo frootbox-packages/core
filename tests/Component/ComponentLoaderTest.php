@@ -67,7 +67,7 @@ final class ComponentLoaderTest extends TestCase
     {
         $components = $this->components();
 
-        self::assertSame(['acme/base/Columns', 'acme/base/Teaser', 'acme/site/Hero', 'acme/news/List'], array_keys($components->blocks));
+        self::assertSame(['acme/base/Badge', 'acme/base/Columns', 'acme/base/Teaser', 'acme/site/Hero', 'acme/news/List'], array_keys($components->blocks));
         self::assertSame(['acme/base/Page'], array_keys($components->layouts));
         self::assertNull($components->block('acme/other/Promo'), 'Themes outside the chain bring no blocks.');
         self::assertSame('acme/base', $this->block($components, 'acme/base/Teaser')->package());
@@ -124,9 +124,14 @@ final class ComponentLoaderTest extends TestCase
         self::assertSame(['Default', 'Wide'], array_keys($columns->variants));
         self::assertSame('Columns', $columns->variants['Default']->title);
         self::assertSame('Left column twice as wide.', $columns->variants['Wide']->description);
-        self::assertSame(['acme/base/Teaser', 'acme/news/List'], $columns->areas['left']->allow);
+        self::assertSame(['acme/base/Teaser', 'acme/news/List', 'acme/base/Badge'], $columns->areas['left']->allow);
         self::assertTrue($columns->areas['left']->allows('acme/news/List'));
         self::assertFalse($columns->areas['left']->allows('acme/site/Hero'));
+        self::assertTrue($this->block($this->components(), 'acme/base/Badge')->widget);
+        self::assertFalse($columns->widget);
+        self::assertTrue($columns->areas['left']->allows('acme/base/Badge', true), 'A widget goes where an area names it.');
+        self::assertFalse($columns->areas['right']->allows('acme/base/Badge', true), 'An area without rules takes no widgets.');
+        self::assertTrue($columns->areas['right']->allows('acme/base/Teaser'));
         self::assertNull($columns->areas['right']->allow);
         self::assertSame('Left', $columns->areas['left']->label);
     }
@@ -184,7 +189,7 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/BadYaml/views/Default.twig: the header is not valid YAML: Malformed inline YAML string at line 3.',
             'acme/broken: blocks/Fields/views/Default.twig → areas.main.allow: "not a block" is not a block name, e.g. Column or frootbox/base/Teaser',
             'acme/broken: blocks/Fields/views/Default.twig → areas.main.max: must be at least 1.',
-            'acme/broken: blocks/Fields/views/Default.twig → colour: unknown key. Allowed: title, description, options, fields, areas',
+            'acme/broken: blocks/Fields/views/Default.twig → colour: unknown key. Allowed: title, description, widget, options, fields, areas',
             'acme/broken: blocks/Fields/views/Default.twig → fields.button.target: unknown key. Allowed: type, label, description, optional',
             'acme/broken: blocks/Fields/views/Default.twig → fields.slides.fields: is missing: the fields of each entry',
             'acme/broken: blocks/Fields/views/Default.twig → fields.text.maxLength: must be at least 1.',
@@ -196,7 +201,7 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/Fields/views/Default.twig → options.wide.default: does not fit the option',
             'acme/broken: blocks/NoDefault: views/Default.twig is missing. Every block has a variant Default.',
             'acme/broken: blocks/NoTitle/views/Default.twig → title: is required.',
-            'acme/broken: blocks/Shared/block.yaml → options: unknown key. Allowed: title, description, fields, areas',
+            'acme/broken: blocks/Shared/block.yaml → options: unknown key. Allowed: title, description, widget, fields, areas',
             'acme/broken: blocks/Shared/views/Default.twig → fields: unknown key. Allowed: title, description, options',
             'acme/broken: blocks/lowercase: folder names are PascalCase, e.g. "ImageGallery"',
         ], $errors);

@@ -2,5 +2,5 @@ title: Columns
 description: Two columns for further blocks.
 areas:
   left:
-    allow: [Teaser, acme/news/List]
+    allow: [Teaser, acme/news/List, Badge]
   right: {}

@@ -125,6 +125,7 @@ final readonly class ComponentLoader
         $description = $schema->description ?? '';
         $fields = $schema->fields ?? [];
         $areas = $schema->areas ?? [];
+        $widget = $schema->widget ?? false;
 
         // Default first, then the others by name.
         uksort($templates, static fn(string $a, string $b): int => [Variant::DEFAULT !== $a, $a] <=> [Variant::DEFAULT !== $b, $b]);
@@ -146,7 +147,7 @@ final readonly class ComponentLoader
             if (!$holdsSchema && !$hasSchemaFile && Variant::DEFAULT === $variant) {
                 // An overriding Default view: the schema still comes from the original.
                 $original = $this->reader->read($this->header($views[Variant::DEFAULT], $where . '/views/Default.twig', $errors) ?? [], DefinitionReader::FULL_KEYS, true, $package->name, $where . '/views/Default.twig', $errors);
-                [$title, $description, $fields, $areas] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas];
+                [$title, $description, $fields, $areas, $widget] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget];
             }
 
             $definition = $this->reader->read(
@@ -159,7 +160,7 @@ final readonly class ComponentLoader
             );
 
             if ($holdsSchema) {
-                [$title, $description, $fields, $areas] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas];
+                [$title, $description, $fields, $areas, $widget] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget];
             }
 
             $variants[$variant] = new Variant(
@@ -172,7 +173,12 @@ final readonly class ComponentLoader
             );
         }
 
-        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides));
+        if ($widget && ComponentKind::Layout === $kind) {
+            $errors->add($where, 'widget', 'Only blocks can be widgets.');
+            $widget = false;
+        }
+
+        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget);
     }
 
     /**

@@ -20,6 +20,7 @@ use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Cache\ClearPageCache;
+use Frootbox\Core\Component\ListBlocks;
 use Frootbox\Core\Component\ListLayouts;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
@@ -50,21 +51,29 @@ use Frootbox\Core\Navigation\NavigationUndoCheck;
 use Frootbox\Core\Navigation\PublishNavigations;
 use Frootbox\Core\Navigation\ShowNavigation;
 use Frootbox\Core\Navigation\UpdateNavigation;
+use Frootbox\Core\Page\AddBlock;
+use Frootbox\Core\Page\AddListEntry;
+use Frootbox\Core\Page\CopyBlock;
 use Frootbox\Core\Page\CreatePage;
 use Frootbox\Core\Page\DeletePage;
 use Frootbox\Core\Page\DiscardPage;
 use Frootbox\Core\Page\ListPageVersions;
 use Frootbox\Core\Page\LockPage;
+use Frootbox\Core\Page\MoveBlock;
+use Frootbox\Core\Page\MoveListEntry;
 use Frootbox\Core\Page\MovePage;
 use Frootbox\Core\Page\PageScopes;
 use Frootbox\Core\Page\PageUndoCheck;
 use Frootbox\Core\Page\PublishPages;
+use Frootbox\Core\Page\RemoveBlock;
+use Frootbox\Core\Page\RemoveListEntry;
 use Frootbox\Core\Page\RestorePage;
 use Frootbox\Core\Page\SchedulePage;
 use Frootbox\Core\Page\ShowPage;
 use Frootbox\Core\Page\ShowPageTree;
 use Frootbox\Core\Page\UnlockPage;
 use Frootbox\Core\Page\UnpublishPage;
+use Frootbox\Core\Page\UpdateBlock;
 use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\Page\UpdatePageField;
 use Frootbox\Core\Url\ClearNotFound;
@@ -139,11 +148,11 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([CreatePage::class, UpdatePage::class, UpdatePageField::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class] as $action) {
+        foreach ([CreatePage::class, UpdatePage::class, UpdatePageField::class, AddBlock::class, MoveBlock::class, CopyBlock::class, RemoveBlock::class, UpdateBlock::class, AddListEntry::class, MoveListEntry::class, RemoveListEntry::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class] as $action) {
             $registry->action($action);
         }
 
-        foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class, ListLayouts::class] as $query) {
+        foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class, ListLayouts::class, ListBlocks::class] as $query) {
             $registry->query($query);
         }
 

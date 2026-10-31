@@ -15,6 +15,7 @@ final readonly class LayoutSummary
 {
     /**
      * @param list<VariantSummary> $variants
+     * @param list<AreaSummary>    $areas
      */
     public function __construct(
         /** e.g. "acme/website/Page" */
@@ -22,6 +23,7 @@ final readonly class LayoutSummary
         public string $title,
         public string $description,
         public array $variants,
+        public array $areas = [],
     ) {}
 
     public static function of(Component $layout): self
@@ -30,10 +32,8 @@ final readonly class LayoutSummary
             $layout->name,
             $layout->title,
             $layout->description,
-            array_values(array_map(
-                static fn(Variant $variant): VariantSummary => new VariantSummary($variant->name, $variant->title, $variant->description),
-                $layout->variants,
-            )),
+            VariantSummary::all($layout->variants),
+            AreaSummary::all($layout->areas),
         );
     }
 }

@@ -240,8 +240,10 @@ final readonly class ContentValidator
             return null;
         }
 
-        if (!$area->allows($name)) {
-            $errors[$pointer . '/block'] = \sprintf('%s is not allowed in the area "%s". Allowed: %s.', $name, $area->name, implode(', ', $area->allow ?? []));
+        if (!$area->allows($name, $component->widget)) {
+            $errors[$pointer . '/block'] = null === $area->allow
+                ? \sprintf('%s is a widget and only goes into areas that allow it by name, e.g. the columns of a section.', $name)
+                : \sprintf('%s is not allowed in the area "%s". Allowed: %s.', $name, $area->name, implode(', ', $area->allow));
         }
 
         $variant = $block['variant'] ?? null;

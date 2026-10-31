@@ -26,8 +26,11 @@ final readonly class Area
         public ?int $max = null,
     ) {}
 
-    public function allows(string $block): bool
+    /**
+     * Widgets only go where the area names them (decision 0124).
+     */
+    public function allows(string $block, bool $widget = false): bool
     {
-        return null === $this->allow || \in_array($block, $this->allow, true);
+        return null === $this->allow ? !$widget : \in_array($block, $this->allow, true);
     }
 }

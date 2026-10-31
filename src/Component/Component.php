@@ -32,6 +32,8 @@ final readonly class Component
         public array $areas,
         public array $variants,
         public array $assets = [],
+        /** Goes only into areas that allow it by name (decision 0124) */
+        public bool $widget = false,
     ) {}
 
     public function package(): string

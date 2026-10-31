@@ -58,7 +58,7 @@ final class BlockCommandsTest extends TestCase
         [$exitCode, $output] = $this->console('blocks:check');
 
         self::assertSame(0, $exitCode, $output);
-        self::assertStringContainsString('4 blocks and 1 layouts with 8 templates are fine.', $output);
+        self::assertStringContainsString('5 blocks and 1 layouts with 9 templates are fine.', $output);
     }
 
     public function testReportsSchemaAndTwigErrors(): void
