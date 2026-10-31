@@ -23,7 +23,10 @@ use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\Migrator;
 use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Page\Pages;
+use Frootbox\Core\Page\PageTranslations;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Tests\Fixtures\Notes\Notes;
 use Frootbox\Core\Tests\Fixtures\Notes\NotesExtension;
 use Frootbox\Core\Tests\Fixtures\Notes\Outbox;
@@ -36,7 +39,7 @@ use PHPUnit\Framework\TestCase;
  */
 abstract class NotesTestCase extends TestCase
 {
-    private const array TABLES = ['notes', 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
+    private const array TABLES = ['notes', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
 
     protected Container $container;
 
@@ -45,17 +48,36 @@ abstract class NotesTestCase extends TestCase
     protected function setUp(): void
     {
         $this->project = TemporaryProject::create();
-        $registry = ExtensionLoader::boot(new Extensions());
+        $extensions = $this->extensions();
+        $registry = ExtensionLoader::boot($extensions);
         new NotesExtension()->register($registry);
         $registry->forPackage('acme/shop', static fn() => $registry->query(ListOrders::class));
 
-        $config = new Config(Environment::Development, ['database' => ['url' => TestDatabase::url()]]);
-        $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), new Extensions(), $registry);
+        $config = new Config(Environment::Development, ['database' => ['url' => TestDatabase::url()], ...$this->config()]);
+        $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), $extensions, $registry);
         $this->get(CurrentContext::class)->set(Context::system(Channel::Console));
 
         TestDatabase::dropTables($this->connection(), ...self::TABLES);
         $this->get(Migrator::class)->migrate();
         Outbox::$messages = [];
+    }
+
+    /**
+     * Extensions besides the notes, e.g. with blocks and layouts.
+     */
+    protected function extensions(): Extensions
+    {
+        return new Extensions();
+    }
+
+    /**
+     * More configuration, e.g. languages or the theme.
+     *
+     * @return array<string, mixed>
+     */
+    protected function config(): array
+    {
+        return [];
     }
 
     protected function tearDown(): void

@@ -88,6 +88,7 @@ final readonly class ComponentRenderer
         }
 
         return $this->service(Twig::class)->render($component->variant($instance->variant)->template, [
+            'id' => $instance->id,
             'options' => $component->variant($instance->variant)->options($instance->options),
             Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types), $depth),
         ]);

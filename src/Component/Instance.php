@@ -13,11 +13,12 @@ use InvalidArgumentException;
 /**
  * A placed block or layout with its content:
  *
- *     {"block": "frootbox/base/Teaser", "variant": "ImageLeft",
+ *     {"id": "k3x9q2mf", "block": "frootbox/base/Teaser", "variant": "ImageLeft",
  *      "options": {"imageHeight": 550}, "fields": {"title": "Hello"},
  *      "areas": {"main": [ …more blocks… ]}}
  *
- * Layouts use the key "layout" instead of "block".
+ * Layouts use the key "layout" instead of "block". The id identifies a
+ * block within its document (decision 0100); layouts have none.
  */
 final readonly class Instance
 {
@@ -32,6 +33,7 @@ final readonly class Instance
         public array $options = [],
         public array $fields = [],
         public array $areas = [],
+        public ?string $id = null,
     ) {}
 
     /**
@@ -43,6 +45,7 @@ final readonly class Instance
     {
         $name = $data[$kind->value] ?? null;
         $variant = $data['variant'] ?? null;
+        $id = $data['id'] ?? null;
 
         if (!\is_string($name)) {
             throw new InvalidArgumentException(\sprintf('A %s needs its name under "%s".', $kind->value, $kind->value));
@@ -50,6 +53,10 @@ final readonly class Instance
 
         if (null !== $variant && !\is_string($variant)) {
             throw new InvalidArgumentException('"variant" must be a name.');
+        }
+
+        if (null !== $id && !\is_string($id)) {
+            throw new InvalidArgumentException('"id" must be a string.');
         }
 
         $areas = [];
@@ -62,7 +69,7 @@ final readonly class Instance
             $areas[$area] = array_map(static fn(mixed $block): self => \is_array($block) ? self::fromArray($block) : throw new InvalidArgumentException(\sprintf('The area "%s" must be a list of blocks.', $area)), $blocks);
         }
 
-        return new self($name, $variant, self::map($data['options'] ?? [], 'options'), self::map($data['fields'] ?? [], 'fields'), $areas);
+        return new self($name, $variant, self::map($data['options'] ?? [], 'options'), self::map($data['fields'] ?? [], 'fields'), $areas, $id);
     }
 
     /**

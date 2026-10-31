@@ -31,6 +31,7 @@ use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
@@ -95,6 +96,7 @@ final class ContainerFactory
             SensitiveColumns::class => factory([self::class, 'createSensitiveColumns']),
             FieldTypes::class => factory([self::class, 'createFieldTypes']),
             ThemeChain::class => factory([self::class, 'createThemeChain']),
+            Languages::class => factory([Languages::class, 'fromConfig']),
             Components::class => factory([ComponentsFactory::class, 'create']),
             Twig::class => factory([TwigFactory::class, 'create']),
             RichText::class => factory([RichText::class, 'standard']),

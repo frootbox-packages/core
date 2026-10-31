@@ -1,0 +1,468 @@
+<?php
+
+/*
+ * SPDX-License-Identifier: LGPL-3.0-only
+ */
+
+declare(strict_types=1);
+
+namespace Frootbox\Core\Page;
+
+use Frootbox\Core\Action\InvalidInputException;
+use Frootbox\Core\Component\Components;
+use Frootbox\Core\Component\ContentValidator;
+use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Revision\RevisionStore;
+use Frootbox\Core\Support\SortKey;
+use Frootbox\Database\EntityNotFoundException;
+
+/**
+ * The work behind the page actions: checks a page against the tree, the
+ * languages and its layout, saves drafts and publishes them
+ * (decisions 0099 to 0101).
+ */
+final readonly class PageEditor
+{
+    private const array TRANSLATION_KEYS = ['title', 'slug', 'content'];
+
+    public function __construct(
+        private PageReader $reader,
+        private Pages $pages,
+        private PageTranslations $translations,
+        private RevisionStore $store,
+        private Components $components,
+        private ContentValidator $content,
+        private Languages $languages,
+    ) {}
+
+    /**
+     * Checks the page against the current pages and saves it as its draft.
+     *
+     * @throws InvalidInputException
+     */
+    public function saveDraft(string $action, string $id, PageData $data): PageDetails
+    {
+        [$checked, $errors] = $this->check($id, $data, $this->reader->nodes(), false);
+
+        if ([] !== $errors) {
+            throw new InvalidInputException($action, $errors);
+        }
+
+        $this->store->saveDraft(PageReader::TYPE, $id, $checked->toArray());
+
+        return $this->reader->details($id);
+    }
+
+    /**
+     * The current state of a page for a change: its draft or published state.
+     *
+     * @throws EntityNotFoundException
+     */
+    public function current(string $id): PageData
+    {
+        return $this->reader->draft($id) ?? $this->reader->published($id) ?? throw EntityNotFoundException::for(Pages::TABLE, $id);
+    }
+
+    /**
+     * Applies translations from an action to the current ones. A language
+     * set to null is removed; title, slug and content left out are kept:
+     *
+     *     {"de": {"title": "Über uns"}, "en": null}
+     *
+     * @param array<mixed>                   $input
+     * @param array<string, TranslationData> $current
+     *
+     * @return array<string, TranslationData>
+     *
+     * @throws InvalidInputException
+     */
+    public function translations(string $action, array $input, array $current = []): array
+    {
+        if ([] !== $input && array_is_list($input)) {
+            throw new InvalidInputException($action, ['/translations' => 'must be an object by language code, e.g. {"de": {"title": "Start"}}.']);
+        }
+
+        $errors = [];
+
+        foreach ($input as $language => $value) {
+            $language = (string) $language;
+            $at = '/translations/' . $language;
+
+            if (null === $value) {
+                unset($current[$language]);
+
+                continue;
+            }
+
+            if (!\is_array($value) || ([] !== $value && array_is_list($value))) {
+                $errors[$at] = 'must be an object with "title" and optionally "slug" and "content".';
+
+                continue;
+            }
+
+            $unknown = array_diff(array_map(strval(...), array_keys($value)), self::TRANSLATION_KEYS);
+
+            if ([] !== $unknown) {
+                $errors[$at] = \sprintf('Unknown keys: %s. Allowed: %s.', implode(', ', $unknown), implode(', ', self::TRANSLATION_KEYS));
+            }
+
+            $old = $current[$language] ?? null;
+            $title = \array_key_exists('title', $value) ? $value['title'] : $old?->title;
+            $slug = \array_key_exists('slug', $value) ? $value['slug'] ?? '' : $old->slug ?? '';
+            $content = \array_key_exists('content', $value) ? $value['content'] ?? [] : $old->content ?? [];
+
+            if (!\is_string($title)) {
+                $errors[$at . '/title'] = null === $title ? 'is required.' : 'must be a string.';
+            }
+
+            if (!\is_string($slug)) {
+                $errors[$at . '/slug'] = 'must be a string.';
+            }
+
+            if (!\is_array($content) || ([] !== $content && array_is_list($content))) {
+                $errors[$at . '/content'] = 'must be an object with "options", "fields" and "areas".';
+            }
+
+            if (\is_string($title) && \is_string($slug) && \is_array($content)) {
+                $map = [];
+
+                foreach ($content as $key => $item) {
+                    $map[(string) $key] = $item;
+                }
+
+                $current[$language] = new TranslationData($title, $slug, $map);
+            }
+        }
+
+        if ([] !== $errors) {
+            throw new InvalidInputException($action, $errors);
+        }
+
+        return $current;
+    }
+
+    /**
+     * A sort key for the page at a place among the children of a parent:
+     * 0 is the first place, null the last.
+     */
+    public function position(string $id, ?string $parentId, ?int $index): string
+    {
+        $siblings = array_values(array_filter(
+            PageReader::children($this->reader->nodes(), $parentId),
+            static fn(PageNode $node): bool => $node->id !== $id,
+        ));
+        $index = null === $index ? \count($siblings) : min(max(0, $index), \count($siblings));
+        $before = $index > 0 ? $siblings[$index - 1]->data->position : null;
+        $after = $siblings[$index]->data->position ?? null;
+
+        // Restored pages can share a key with a sibling; then the new one goes after both.
+        if (null !== $before && null !== $after && strcmp($before, $after) >= 0) {
+            $after = null;
+        }
+
+        return SortKey::between($before, $after);
+    }
+
+    /**
+     * Publishes the drafts of several pages as one change. Parents that
+     * are only drafts must be part of the list.
+     *
+     * @param list<string> $ids
+     *
+     * @return list<PageDetails>
+     *
+     * @throws InvalidInputException
+     */
+    public function publish(string $action, array $ids): array
+    {
+        $ids = array_values(array_unique($ids));
+
+        if ([] === $ids) {
+            throw new InvalidInputException($action, ['/ids' => 'needs at least one page id.']);
+        }
+
+        $errors = [];
+        $drafts = [];
+
+        foreach ($ids as $index => $id) {
+            $draft = $this->reader->draft($id);
+
+            if (null === $draft) {
+                $errors['/ids/' . $index] = \sprintf('The page %s has no draft to publish.', $id);
+            } else {
+                $drafts[$id] = $draft;
+            }
+        }
+
+        $nodes = $this->reader->nodesAfterPublishing($ids);
+
+        foreach ($drafts as $id => $draft) {
+            $at = '/ids/' . array_search($id, $ids, true);
+
+            if (null !== $draft->parentId && !isset($nodes[$draft->parentId])) {
+                $errors[$at] = \sprintf('The parent page %s is not published. Publish both together: {"ids": ["%s", "%s"]}.', $draft->parentId, $draft->parentId, $id);
+
+                continue;
+            }
+
+            [$checked, $found] = $this->check($id, $draft, $nodes, true);
+            $drafts[$id] = $checked;
+
+            foreach ($found as $pointer => $message) {
+                $errors[$at . $pointer] = $message;
+            }
+        }
+
+        if ([] !== $errors) {
+            throw new InvalidInputException($action, $errors);
+        }
+
+        foreach ($this->parentsFirst($drafts, $nodes) as $id => $data) {
+            $this->store->saveDraft(PageReader::TYPE, $id, $data->toArray());
+            $this->write($id, $data);
+            $this->store->publish(PageReader::TYPE, $id);
+        }
+
+        return array_map($this->reader->details(...), $ids);
+    }
+
+    /**
+     * Removes the draft. A page that was never published is gone then.
+     *
+     * @return PageDetails|null null if the page is gone
+     *
+     * @throws InvalidInputException
+     */
+    public function discard(string $action, string $id): ?PageDetails
+    {
+        if (null === $this->reader->draft($id)) {
+            throw new InvalidInputException($action, ['/id' => 'The page has no draft.']);
+        }
+
+        $published = $this->reader->published($id);
+
+        if (null === $published) {
+            $this->assertNoChildren($action, $id);
+        }
+
+        $this->store->discard(PageReader::TYPE, $id);
+
+        return null === $published ? null : $this->reader->details($id);
+    }
+
+    /**
+     * Deletes the published state and the draft right away. The versions
+     * stay and can be restored.
+     *
+     * @throws EntityNotFoundException
+     * @throws InvalidInputException
+     */
+    public function delete(string $action, string $id): void
+    {
+        if (!isset($this->reader->nodes()[$id])) {
+            throw EntityNotFoundException::for(Pages::TABLE, $id);
+        }
+
+        $this->assertNoChildren($action, $id);
+
+        foreach ($this->translations->of($id) as $translation) {
+            $this->translations->delete($translation->id);
+        }
+
+        $this->pages->delete($id);
+        $this->store->discard(PageReader::TYPE, $id);
+        $this->store->archive(PageReader::TYPE, $id);
+    }
+
+    /**
+     * Checks a page against the other pages, the languages and its layout,
+     * and fills in slugs and block ids.
+     *
+     * @param array<string, PageNode> $nodes
+     *
+     * @return array{PageData, array<string, string>} The page, and messages by JSON pointer
+     */
+    private function check(string $id, PageData $data, array $nodes, bool $complete): array
+    {
+        $errors = $this->checkParent($id, $data->parentId, $nodes);
+        $layout = $this->components->layout($data->layout);
+        $variant = $data->variant;
+
+        if (null === $layout) {
+            $errors['/layout'] = \sprintf('There is no layout "%s".', $data->layout);
+        } elseif (null !== $variant && !isset($layout->variants[$variant])) {
+            $errors['/variant'] = \sprintf('%s has no variant "%s". Variants: %s.', $layout->name, $variant, implode(', ', array_keys($layout->variants)));
+            $variant = null;
+        }
+
+        if ([] === $data->translations) {
+            $errors['/translations'] = 'needs at least one language, e.g. {"de": {"title": "Start"}}.';
+        }
+
+        $siblings = array_filter($nodes, static fn(PageNode $node): bool => $node->id !== $id && $node->data->parentId === $data->parentId);
+        $translations = [];
+
+        foreach ($data->translations as $language => $translation) {
+            $at = '/translations/' . $language;
+
+            if (!$this->languages->has($language)) {
+                $errors[$at] = \sprintf('"%s" is not a language of the website. Languages: %s.', $language, implode(', ', $this->languages->codes()));
+
+                continue;
+            }
+
+            $title = trim($translation->title);
+            $slug = null === $data->parentId ? '' : ('' === $translation->slug ? Slug::fromTitle($title) : $translation->slug);
+
+            if ('' === $title || mb_strlen($title) > 255) {
+                $errors[$at . '/title'] = '' === $title ? 'must not be empty.' : 'must be at most 255 characters.';
+            }
+
+            if (null !== $data->parentId) {
+                $error = $this->checkSlug($slug, $language, $siblings);
+
+                if (null !== $error) {
+                    $errors[$at . '/slug'] = $error;
+                }
+            }
+
+            $content = $translation->content;
+
+            if (null !== $layout) {
+                [$content, $found] = $this->content->check($layout, $variant, $translation->content, $complete);
+
+                foreach ($found as $pointer => $message) {
+                    $errors[$at . '/content' . ('/' === $pointer ? '' : $pointer)] = $message;
+                }
+            }
+
+            $translations[$language] = new TranslationData($title, $slug, $content);
+        }
+
+        return [new PageData($data->parentId, $data->position, $data->layout, $data->variant, $translations), $errors];
+    }
+
+    /**
+     * @param array<string, PageNode> $nodes
+     *
+     * @return array<string, string>
+     */
+    private function checkParent(string $id, ?string $parentId, array $nodes): array
+    {
+        if (null === $parentId) {
+            foreach ($nodes as $node) {
+                if ($node->id !== $id && null === $node->data->parentId) {
+                    return ['/parentId' => \sprintf('is required: there already is a start page (%s), and every other page has a parent.', $node->id)];
+                }
+            }
+
+            return [];
+        }
+
+        if (!isset($nodes[$parentId])) {
+            return ['/parentId' => \sprintf('There is no page %s.', $parentId)];
+        }
+
+        // Walk up from the new parent; meeting the page itself would make a loop.
+        $seen = [];
+
+        for ($current = $parentId; null !== $current && !isset($seen[$current]); $current = $nodes[$current]->data->parentId ?? null) {
+            if ($current === $id) {
+                return ['/parentId' => 'must not be the page itself or one of its subpages.'];
+            }
+
+            $seen[$current] = true;
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, PageNode> $siblings
+     */
+    private function checkSlug(string $slug, string $language, array $siblings): ?string
+    {
+        if ('' === $slug) {
+            return 'is required: the title has no letters or digits to make one from.';
+        }
+
+        if (!Slug::isValid($slug)) {
+            return \sprintf('must be lower case a-z, 0-9 and hyphens, at most %d characters, e.g. "about-us".', Slug::MAX_LENGTH);
+        }
+
+        foreach ($siblings as $sibling) {
+            $other = $sibling->data->translations[$language] ?? null;
+
+            if (null !== $other && $other->slug === $slug) {
+                return \sprintf('is already used by the page "%s" (%s) next to it.', $other->title, $sibling->id);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @throws InvalidInputException
+     */
+    private function assertNoChildren(string $action, string $id): void
+    {
+        $children = PageReader::children($this->reader->nodes(), $id);
+
+        if ([] !== $children) {
+            throw new InvalidInputException($action, ['/id' => \sprintf('The page has %d subpages. Delete or move them first.', \count($children))]);
+        }
+    }
+
+    /**
+     * Writes the published state into pages and page_translations.
+     */
+    private function write(string $id, PageData $data): void
+    {
+        $values = ['parentId' => $data->parentId, 'position' => $data->position, 'layout' => $data->layout, 'variant' => $data->variant];
+
+        if (null === $this->pages->fetchById($id)) {
+            $this->pages->insert(['id' => $id, ...$values]);
+        } else {
+            $this->pages->update($id, $values);
+        }
+
+        $existing = $this->translations->of($id);
+
+        foreach ($data->translations as $language => $translation) {
+            $row = ['title' => $translation->title, 'slug' => $translation->slug, 'content' => $translation->content];
+
+            if (isset($existing[$language])) {
+                $this->translations->update($existing[$language]->id, $row);
+            } else {
+                $this->translations->insert(['pageId' => $id, 'language' => $language, ...$row]);
+            }
+        }
+
+        foreach (array_diff_key($existing, $data->translations) as $removed) {
+            $this->translations->delete($removed->id);
+        }
+    }
+
+    /**
+     * @param array<string, PageData> $drafts
+     * @param array<string, PageNode> $nodes
+     *
+     * @return array<string, PageData>
+     */
+    private function parentsFirst(array $drafts, array $nodes): array
+    {
+        $depth = static function (string $id) use ($nodes): int {
+            $level = 0;
+
+            for ($current = $nodes[$id]->data->parentId ?? null; null !== $current && $level < 1000; $current = $nodes[$current]->data->parentId ?? null) {
+                ++$level;
+            }
+
+            return $level;
+        };
+
+        uksort($drafts, static fn(string $a, string $b): int => $depth($a) <=> $depth($b));
+
+        return $drafts;
+    }
+}

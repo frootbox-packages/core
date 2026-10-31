@@ -38,6 +38,16 @@ use Frootbox\Core\Field\Types\RichTextType;
 use Frootbox\Core\Field\Types\TextType;
 use Frootbox\Core\Http\WelcomeHandler;
 use Frootbox\Core\Install\InstallCommand;
+use Frootbox\Core\Page\CreatePage;
+use Frootbox\Core\Page\DeletePage;
+use Frootbox\Core\Page\DiscardPage;
+use Frootbox\Core\Page\ListPageVersions;
+use Frootbox\Core\Page\MovePage;
+use Frootbox\Core\Page\PublishPages;
+use Frootbox\Core\Page\RestorePage;
+use Frootbox\Core\Page\ShowPage;
+use Frootbox\Core\Page\ShowPageTree;
+use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\User\AssignRole;
 use Frootbox\Core\User\CreateRole;
 use Frootbox\Core\User\CreateUser;
@@ -97,6 +107,14 @@ final class CoreExtension implements Extension
 
         foreach ([SignIn::class, SignOut::class, ChangePassword::class, CreateToken::class, RevokeToken::class] as $action) {
             $registry->action($action);
+        }
+
+        foreach ([CreatePage::class, UpdatePage::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class] as $action) {
+            $registry->action($action);
+        }
+
+        foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class] as $query) {
+            $registry->query($query);
         }
 
         $registry->query(ShowAccount::class);

@@ -106,11 +106,16 @@ final readonly class Undoer
     private function assertUnchanged(int $entryId, array $changes): void
     {
         $conflicts = [];
+        $checked = [];
 
+        // $changes runs from the newest to the oldest. A row changed several
+        // times by the action must match its last change only.
         foreach ($changes as $change) {
-            if (ChangeKind::Action === $change->kind || null === $change->rowId) {
+            if (ChangeKind::Action === $change->kind || null === $change->rowId || isset($checked[$change->target][$change->rowId])) {
                 continue;
             }
+
+            $checked[$change->target][$change->rowId] = true;
 
             $expected = ChangeKind::Delete === $change->kind ? null : $change->newValues;
 

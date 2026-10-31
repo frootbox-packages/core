@@ -105,7 +105,8 @@ final class FieldTypes
             }
         }
 
-        $schema = ['type' => 'object', 'properties' => $properties, 'additionalProperties' => false];
+        // An empty "properties" would turn into a JSON list, which is no schema.
+        $schema = ['type' => 'object', ...([] === $properties ? [] : ['properties' => $properties]), 'additionalProperties' => false];
 
         return [] === $required ? $schema : [...$schema, 'required' => $required];
     }
