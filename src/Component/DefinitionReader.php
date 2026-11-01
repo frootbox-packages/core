@@ -56,6 +56,7 @@ final readonly class DefinitionReader
         'label' => ['type' => 'string'],
         'description' => ['type' => 'string'],
         'optional' => ['type' => 'boolean'],
+        'placeholder' => ['type' => 'string'],
     ];
 
     private const array AREA = [
@@ -194,6 +195,7 @@ final readonly class DefinitionReader
                 true === ($definition['optional'] ?? false),
                 $settings,
                 $subfields,
+                self::string($definition['placeholder'] ?? null) ?? '',
             );
         }
 

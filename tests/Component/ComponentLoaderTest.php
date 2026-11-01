@@ -190,7 +190,7 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/Fields/views/Default.twig → areas.main.allow: "not a block" is not a block name, e.g. Column or frootbox/base/Teaser',
             'acme/broken: blocks/Fields/views/Default.twig → areas.main.max: must be at least 1.',
             'acme/broken: blocks/Fields/views/Default.twig → colour: unknown key. Allowed: title, description, widget, options, fields, areas',
-            'acme/broken: blocks/Fields/views/Default.twig → fields.button.target: unknown key. Allowed: type, label, description, optional',
+            'acme/broken: blocks/Fields/views/Default.twig → fields.button.target: unknown key. Allowed: type, label, description, optional, placeholder',
             'acme/broken: blocks/Fields/views/Default.twig → fields.slides.fields: is missing: the fields of each entry',
             'acme/broken: blocks/Fields/views/Default.twig → fields.text.maxLength: must be at least 1.',
             'acme/broken: blocks/Fields/views/Default.twig → fields.text.multiline: must be true or false.',

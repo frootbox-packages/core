@@ -25,11 +25,12 @@ final readonly class FieldSummary
         public string $description,
         public bool $optional,
         public array $fields,
+        public string $placeholder = '',
     ) {}
 
     public static function of(Field $field): self
     {
-        return new self($field->name, $field->type, $field->label, $field->description, $field->optional, self::all($field->fields));
+        return new self($field->name, $field->type, $field->label, $field->description, $field->optional, self::all($field->fields), $field->placeholder);
     }
 
     /**

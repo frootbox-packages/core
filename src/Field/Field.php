@@ -16,7 +16,8 @@ final readonly class Field
 {
     /**
      * @param array<string, mixed> $settings Further keys of its type, e.g. maxLength
-     * @param array<string, Field> $fields   Fields of each entry, for list fields
+     * @param array<string, Field> $fields      Fields of each entry, for list fields
+     * @param string               $placeholder Shown in the empty field while editing, never to visitors (decision 0142)
      */
     public function __construct(
         public string $name,
@@ -26,6 +27,7 @@ final readonly class Field
         public bool $optional = false,
         public array $settings = [],
         public array $fields = [],
+        public string $placeholder = '',
     ) {}
 
     public function setting(string $key, mixed $default = null): mixed

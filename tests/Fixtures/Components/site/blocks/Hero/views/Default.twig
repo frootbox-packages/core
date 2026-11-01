@@ -5,8 +5,9 @@ fields:
   slides:
     type: list
     max: 5
+    start: 2
     fields:
-      title: { type: headline }
+      title: { type: headline, placeholder: Slide title }
       link: { type: link, optional: true }
 #}
 <div class="hero">{{ field('intro') }}<ul>{% for slide in field('slides') %}<li>{{ slide.field('title') }}{{ slide.field('link') }}</li>{% endfor %}</ul>{{ field('slides')|length }}</div>

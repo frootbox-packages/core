@@ -91,9 +91,16 @@ final class BlockActionsTest extends NotesTestCase
 
         $first = $this->runner()->run(new AddBlock($this->page, 'de', 'acme/base/Teaser', 'main'));
         self::assertSame($first->block, $this->text('areas/main/0/id'), 'Without "after" it goes to the start.');
+        self::assertSameJson(['id' => $first->block, 'block' => 'acme/base/Teaser'], $this->valueAt('areas/main/0'), 'Without lists nothing is added.');
 
         $inside = $this->runner()->run(new AddBlock($this->page, 'de', 'acme/base/Badge', 'left', $this->columns, $this->fresh));
         self::assertSame($inside->block, $this->text('areas/main/1/areas/left/1/id'), 'A widget goes where the area names it.');
+
+        // A new block begins with the start entries of its lists (decision 0142), values given win.
+        $hero = $this->runner()->run(new AddBlock($this->page, 'de', 'acme/site/Hero', 'main'));
+        self::assertSameJson(['id' => $hero->block, 'block' => 'acme/site/Hero', 'fields' => ['slides' => [[], []]]], $this->valueAt('areas/main/0'));
+        $this->runner()->run(new AddBlock($this->page, 'de', 'acme/site/Hero', 'main', fields: ['slides' => [['title' => 'Eins']]]));
+        self::assertSameJson([['title' => 'Eins']], $this->valueAt('areas/main/0/fields/slides'));
 
         $this->assertInvalid(['/area' => '"Badge" is a widget and only goes into areas that allow it by name.'], new AddBlock($this->page, 'de', 'acme/base/Badge', 'main'));
         $this->assertInvalid(['/area' => 'The area "Left" does not take "Hero".'], new AddBlock($this->page, 'de', 'acme/site/Hero', 'left', $this->columns));
@@ -236,6 +243,7 @@ final class BlockActionsTest extends NotesTestCase
         self::assertTrue($blocks['acme/base/Teaser']->variants[1]->options[0]->default);
         self::assertSame('list', $blocks['acme/site/Hero']->fields[1]->type);
         self::assertSame(['title', 'link'], array_column(array_map(get_object_vars(...), $blocks['acme/site/Hero']->fields[1]->fields), 'name'));
+        self::assertSame('Slide title', $blocks['acme/site/Hero']->fields[1]->fields[0]->placeholder, 'The panel shows it in the empty input.');
     }
 
     protected function extensions(): Extensions

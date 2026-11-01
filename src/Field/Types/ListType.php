@@ -22,6 +22,7 @@ use Frootbox\Core\View\Scope;
  *     slides:
  *       type: list
  *       max: 10
+ *       start: 3
  *       fields:
  *         title: { type: headline }
  */
@@ -35,6 +36,8 @@ final readonly class ListType implements HasSubfields, ReferencesMedia
         return [
             'min' => ['type' => 'integer', 'minimum' => 0],
             'max' => ['type' => 'integer', 'minimum' => 1],
+            // Entries a new block begins with (decision 0142), else min
+            'start' => ['type' => 'integer', 'minimum' => 0],
         ];
     }
 

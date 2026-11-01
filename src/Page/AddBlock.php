@@ -17,6 +17,7 @@ use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ContentValidator;
+use Frootbox\Core\Field\StartValues;
 use Frootbox\Database\Ulid;
 
 /**
@@ -79,8 +80,11 @@ final readonly class AddBlock implements Action, Scoped
             $block['options'] = $this->options;
         }
 
-        if ([] !== $this->fields) {
-            $block['fields'] = $this->fields;
+        // Lists begin with their start entries, unless the input brings values (decision 0142).
+        $fields = [...StartValues::of($components->block($this->name)->fields ?? []), ...$this->fields];
+
+        if ([] !== $fields) {
+            $block['fields'] = $fields;
         }
 
         $details = $blocks->insert($list, $index, $block)->save($editor, $this->id, $page, $this->language);
