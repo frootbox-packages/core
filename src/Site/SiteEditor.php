@@ -167,7 +167,7 @@ final readonly class SiteEditor
         $this->usages->site();
 
         // Media become public with the published fields, as with pages (decision 0126).
-        $this->media->publish(MediaReferences::merge($this->references->inFieldsByLanguage($fields, $stored)));
+        $this->media->makePublic(MediaReferences::merge($this->references->inFieldsByLanguage($fields, $stored)));
 
         return $this->details();
     }

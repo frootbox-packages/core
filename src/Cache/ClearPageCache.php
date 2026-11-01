@@ -11,20 +11,22 @@ namespace Frootbox\Core\Cache;
 use Frootbox\Core\Action\ActionExecuted;
 use Frootbox\Core\Action\ActionLog;
 use Frootbox\Core\Auth\AccessTokens;
+use Frootbox\Core\Media\MediaUsages;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Revision\RevisionStatus;
 use Frootbox\Core\Url\NotFoundLog;
 
 /**
  * Clears the page cache after an action that changed what visitors see:
- * every table except drafts, sign-ins and logs (decision 0107). A
+ * every table except drafts, sign-ins, logs and the index of where media
+ * are used, which follows the content (decisions 0107, 0146). A
  * revision counts once it is or was published, e.g. the design, which
  * lives only there (decision 0127).
  */
 final readonly class ClearPageCache
 {
     /** Tables that never change a published page. */
-    public const array IGNORED = [Revisions::TABLE, AccessTokens::TABLE, NotFoundLog::TABLE];
+    public const array IGNORED = [Revisions::TABLE, AccessTokens::TABLE, NotFoundLog::TABLE, MediaUsages::TABLE];
 
     public function __construct(
         private PageCache $cache,

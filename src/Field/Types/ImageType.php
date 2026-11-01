@@ -12,7 +12,7 @@ use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\ReferencesMedia;
 use Frootbox\Core\Media\Media;
-use Frootbox\Core\Media\MediaTexts;
+use Frootbox\Core\Media\MediaDrafts;
 use Frootbox\Core\Media\MediaUrls;
 use Frootbox\Core\Media\Medium;
 use Frootbox\Core\View\Delivery;
@@ -29,7 +29,8 @@ use Twig\Markup;
  * Settings: "ratio" cuts it around its focus point, e.g. "16:9"; "sizes"
  * tells the browser how wide it is shown, e.g. "(min-width: 60rem) 50vw,
  * 100vw". {{ field('image') }} gives a <picture> with modern formats and
- * all widths; a deleted medium gives nothing.
+ * all widths; a deleted medium gives nothing. The editing mode shows the
+ * draft of the medium, visitors the published state (decision 0147).
  */
 #[AsFieldType('image', 'An image from the media library')]
 final readonly class ImageType implements ReferencesMedia
@@ -84,6 +85,8 @@ final readonly class ImageType implements ReferencesMedia
         if (null === $medium || !\is_array($value)) {
             return '';
         }
+
+        $medium = $this->service(MediaDrafts::class)->seen($medium);
 
         $urls = $this->service(MediaUrls::class);
         $ratio = self::ratio($field, $medium);
@@ -164,7 +167,7 @@ final readonly class ImageType implements ReferencesMedia
 
         $language = $this->service(Delivery::class)->contentLanguage()->code;
 
-        return $this->service(MediaTexts::class)->of($medium->id)[$language]->alt ?? '';
+        return $this->service(MediaDrafts::class)->seenTexts($medium->id)[$language]['alt'] ?? '';
     }
 
     /**

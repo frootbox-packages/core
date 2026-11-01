@@ -10,14 +10,16 @@ namespace Frootbox\Core\Media;
 
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Revision\RevisionStore;
 use Frootbox\Core\Support\Message;
 use Frootbox\Database\EntityNotFoundException;
 use Frootbox\Database\Ulid;
 
 /**
- * What the media actions do (decision 0126). Texts, tags, folder and
- * focus point have no draft; a new focus point gives a new version, so
- * the sizes are generated anew.
+ * What the media actions do (decision 0126). A public medium keeps
+ * changes to texts and focus point in a draft until they are published
+ * (decision 0147); folder and tags count at once. A new focus point
+ * gives a new version, so the sizes are generated anew.
  */
 final readonly class MediaEditor
 {
@@ -33,6 +35,8 @@ final readonly class MediaEditor
         private MediaFiles $files,
         private MediaUrls $urls,
         private Languages $languages,
+        private MediaDrafts $drafts,
+        private RevisionStore $store,
     ) {}
 
     /**
@@ -117,32 +121,97 @@ final readonly class MediaEditor
             throw new InvalidInputException($action, $errors);
         }
 
-        $values = [];
+        $focus = null === $focusX || null === $focusY ? null : [(int) round($focusX * 1000), (int) round($focusY * 1000)];
 
+        // Folder and tags no visitor sees: they count at once.
         if (null !== $folderId) {
-            $values['folderId'] = '' === $folderId ? null : $folderId;
+            $medium = $this->media->update($id, ['folderId' => '' === $folderId ? null : $folderId]);
         }
 
-        if (null !== $focusX && null !== $focusY) {
-            $x = (int) round($focusX * 1000);
-            $y = (int) round($focusY * 1000);
-
-            if ($x !== $medium->focusX || $y !== $medium->focusY) {
-                $values += ['focusX' => $x, 'focusY' => $y, 'version' => $medium->version + 1];
-                $this->files->removePublic($id);
-            }
+        if (null !== $tags) {
+            $this->saveTags($id, $cleanTags);
         }
 
-        if ([] !== $values) {
-            $medium = $this->media->update($id, $values);
+        $draft = $this->drafts->of($id);
+
+        if ($medium->public || null !== $draft) {
+            $this->saveDraft($medium, $draft ?? $this->drafts->start($medium), $focus, null === $texts ? [] : $cleanTexts);
+
+            return $this->details($medium);
+        }
+
+        // Nobody sees a medium that is not public yet: no draft needed.
+        if (null !== $focus && ($focus[0] !== $medium->focusX || $focus[1] !== $medium->focusY)) {
+            $medium = $this->media->update($id, ['focusX' => $focus[0], 'focusY' => $focus[1], 'version' => $medium->version + 1]);
+            $this->files->removePublic($id);
         }
 
         if (null !== $texts) {
             $this->saveTexts($id, $cleanTexts);
         }
 
-        if (null !== $tags) {
-            $this->saveTags($id, $cleanTags);
+        return $this->details($medium);
+    }
+
+    /**
+     * Puts the drafts of media online (decision 0147).
+     *
+     * @param list<string> $ids
+     *
+     * @return list<MediumDetails>
+     *
+     * @throws InvalidInputException
+     */
+    public function publishDrafts(string $action, array $ids): array
+    {
+        $errors = [];
+        $found = [];
+
+        foreach ($ids as $index => $id) {
+            $medium = $this->media->fetchById($id);
+            $draft = null === $medium ? null : $this->drafts->of($id);
+
+            if (null === $medium) {
+                $errors['/ids/' . $index] = 'There is no medium with this id.';
+            } elseif (null === $draft) {
+                $errors['/ids/' . $index] = 'The medium has no changes to publish.';
+            } else {
+                $found[$id] = [$medium, $draft];
+            }
+        }
+
+        if ([] !== $errors) {
+            throw new InvalidInputException($action, $errors);
+        }
+
+        $published = [];
+
+        foreach ($found as $id => [$medium, $draft]) {
+            if ($draft['version'] !== $medium->version) {
+                $this->files->removePublic($id);
+            }
+
+            $medium = $this->media->update($id, ['focusX' => $draft['focusX'], 'focusY' => $draft['focusY'], 'version' => $draft['version']]);
+            $this->saveTexts($id, $draft['texts']);
+            $this->store->publish(MediaDrafts::TYPE, $id);
+            $published[] = $this->details($medium);
+        }
+
+        return $published;
+    }
+
+    /**
+     * Removes the draft of a medium; visitors saw it never.
+     *
+     * @throws InvalidInputException
+     * @throws EntityNotFoundException
+     */
+    public function discard(string $action, string $id): MediumDetails
+    {
+        $medium = $this->media->getById($id);
+
+        if (!$this->store->discard(MediaDrafts::TYPE, $id)) {
+            throw new InvalidInputException($action, ['/id' => 'The medium has no changes to discard.']);
         }
 
         return $this->details($medium);
@@ -166,6 +235,7 @@ final readonly class MediaEditor
             $this->tags->delete($tag->id);
         }
 
+        $this->store->discard(MediaDrafts::TYPE, $id);
         $this->media->delete($id);
         $this->files->removePublic($id);
 
@@ -178,7 +248,7 @@ final readonly class MediaEditor
      *
      * @param list<string> $ids Unknown ids are left out
      */
-    public function publish(array $ids): void
+    public function makePublic(array $ids): void
     {
         if ([] === $ids) {
             return;
@@ -256,13 +326,14 @@ final readonly class MediaEditor
         $this->folders->delete($id);
     }
 
+    /**
+     * The medium as the media library shows it: with its draft.
+     */
     public function details(Medium $medium, bool $existing = false): MediumDetails
     {
-        $texts = [];
-
-        foreach ($this->texts->of($medium->id) as $language => $text) {
-            $texts[$language] = ['alt' => $text->alt, 'title' => $text->title];
-        }
+        $draft = $this->drafts->of($medium->id);
+        $texts = $this->drafts->texts($medium->id, true);
+        $medium = null === $draft ? $medium : MediaDrafts::apply($medium, $draft);
 
         $formats = $this->urls->formats($medium);
         $preview = \in_array('webp', $formats, true) ? 'webp' : $formats[\count($formats) - 1];
@@ -283,7 +354,75 @@ final readonly class MediaEditor
             $this->urls->url($medium, min(480, $medium->width), 0, $preview),
             $medium->createdAt,
             $existing,
+            null !== $draft,
         );
+    }
+
+    /**
+     * Applies changes to the draft of a medium. A draft equal to the
+     * published state is removed, as with the fields of the website.
+     *
+     * @param array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>} $draft
+     * @param array{int, int}|null                                                                                 $focus
+     * @param array<string, array{alt?: string, title?: string}>                                                   $texts
+     */
+    private function saveDraft(Medium $medium, array $draft, ?array $focus, array $texts): void
+    {
+        if (null !== $focus) {
+            [$draft['focusX'], $draft['focusY']] = $focus;
+        }
+
+        foreach ($texts as $language => $text) {
+            $draft['texts'][$language] = [
+                'alt' => $text['alt'] ?? $draft['texts'][$language]['alt'] ?? '',
+                'title' => $text['title'] ?? $draft['texts'][$language]['title'] ?? '',
+            ];
+        }
+
+        $moved = $draft['focusX'] !== $medium->focusX || $draft['focusY'] !== $medium->focusY;
+        // New sizes need a new address; going back to the old point needs none.
+        $draft['version'] = $moved ? $medium->version + 1 : $medium->version;
+        $published = $this->drafts->start($medium);
+
+        if (!$moved && self::sameTexts($draft['texts'], $published['texts'])) {
+            $this->store->discard(MediaDrafts::TYPE, $medium->id);
+
+            return;
+        }
+
+        $this->store->saveDraft(MediaDrafts::TYPE, $medium->id, $draft);
+    }
+
+    /**
+     * @param array<string, array{alt: string, title: string}> $one
+     * @param array<string, array{alt: string, title: string}> $other
+     */
+    private static function sameTexts(array $one, array $other): bool
+    {
+        $one = self::filled($one);
+        $other = self::filled($other);
+        ksort($one);
+        ksort($other);
+
+        return $one === $other;
+    }
+
+    /**
+     * @param array<string, array{alt: string, title: string}> $texts
+     *
+     * @return array<string, array{alt: string, title: string}> Without empty languages
+     */
+    private static function filled(array $texts): array
+    {
+        $filled = [];
+
+        foreach ($texts as $language => $text) {
+            if ('' !== $text['alt'] || '' !== $text['title']) {
+                $filled[$language] = $text;
+            }
+        }
+
+        return $filled;
     }
 
     /**

@@ -240,7 +240,7 @@ final readonly class PageEditor
         }
 
         // Media become public with the first published page that uses them.
-        $this->media->publish($media);
+        $this->media->makePublic($media);
 
         $this->addresses->sync();
 

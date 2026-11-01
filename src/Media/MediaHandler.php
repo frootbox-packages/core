@@ -20,8 +20,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 /**
  * Generates a size of an image on its first request (decision 0126). A
  * public medium is written to public/media/, so the web server delivers it
- * from then on. A medium that is not public yet is only shown to those who
- * may see the media library, and never written.
+ * from then on. A medium that is not public yet, and the version of a
+ * draft (decision 0147), are only shown to those who may see the media
+ * library, and never written.
  */
 final readonly class MediaHandler implements RequestHandlerInterface
 {
@@ -43,6 +44,7 @@ final readonly class MediaHandler implements RequestHandlerInterface
         private Catalog $catalog,
         private CurrentContext $context,
         private ResponseFactoryInterface $responses,
+        private MediaDrafts $drafts,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -66,6 +68,15 @@ final readonly class MediaHandler implements RequestHandlerInterface
         $height = (int) $match['height'];
         $extension = $match['extension'];
         $medium = $this->media->fetchById($id);
+        $draft = false;
+
+        // Another version than the published one can only be the draft.
+        if (null !== $medium && $medium->version !== $version) {
+            $medium = $this->drafts->current($medium);
+            $draft = true;
+        }
+
+        $private = null !== $medium && (!$medium->public || $draft);
 
         if (
             null === $medium
@@ -74,7 +85,7 @@ final readonly class MediaHandler implements RequestHandlerInterface
             || !MediaUrls::allows($medium, $width)
             || !\in_array($extension, $this->urls->formats($medium), true)
             || ($height > 0 && $height > $width * 4)
-            || (!$medium->public && !$this->gate->allows($this->context->get()->actor, $this->catalog->get('media.show')))
+            || ($private && !$this->gate->allows($this->context->get()->actor, $this->catalog->get('media.show')))
         ) {
             throw HttpException::notFound($path);
         }
@@ -87,13 +98,13 @@ final readonly class MediaHandler implements RequestHandlerInterface
 
         $contents = $this->images->render($original, $width, $height, $medium->focusX, $medium->focusY, $extension);
 
-        if ($medium->public) {
+        if (!$private) {
             $this->files->writePublic($id . '/' . $version . '/' . $file, $contents);
         }
 
         $response = $this->responses->createResponse()
             ->withHeader('Content-Type', self::TYPES[$extension])
-            ->withHeader('Cache-Control', $medium->public ? 'public, max-age=31536000, immutable' : 'private, no-store')
+            ->withHeader('Cache-Control', $private ? 'private, no-store' : 'public, max-age=31536000, immutable')
             ->withHeader('X-Content-Type-Options', 'nosniff');
         $response->getBody()->write($contents);
 

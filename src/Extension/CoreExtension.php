@@ -55,12 +55,14 @@ use Frootbox\Core\Media\CreateMediaFolder;
 use Frootbox\Core\Media\CreateMedium;
 use Frootbox\Core\Media\DeleteMediaFolder;
 use Frootbox\Core\Media\DeleteMedium;
+use Frootbox\Core\Media\DiscardMedium;
 use Frootbox\Core\Media\ListMedia;
 use Frootbox\Core\Media\ListMediaFolders;
 use Frootbox\Core\Media\ListMediumUsages;
 use Frootbox\Core\Media\MediaHandler;
 use Frootbox\Core\Media\MediaPruneCommand;
 use Frootbox\Core\Media\MediaUsagesCommand;
+use Frootbox\Core\Media\PublishMedia;
 use Frootbox\Core\Media\RebuildMediaUsages;
 use Frootbox\Core\Media\ShowMedium;
 use Frootbox\Core\Media\UpdateMediaFolder;
@@ -207,7 +209,7 @@ final class CoreExtension implements Extension
 
         $registry->listen(ActionExecuted::class, ClearPageCache::class);
 
-        foreach ([CreateMedium::class, UpdateMedium::class, DeleteMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class, RebuildMediaUsages::class] as $action) {
+        foreach ([CreateMedium::class, UpdateMedium::class, DeleteMedium::class, PublishMedia::class, DiscardMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class, RebuildMediaUsages::class] as $action) {
             $registry->action($action);
         }
 

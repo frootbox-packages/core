@@ -19,7 +19,7 @@ use Frootbox\Database\Where;
 /**
  * @implements Query<MediaPage>
  */
-#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts or only those used nowhere')]
+#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere or only those with a draft')]
 final readonly class ListMedia implements Query, Scoped
 {
     public function __construct(
@@ -30,6 +30,8 @@ final readonly class ListMedia implements Query, Scoped
         public ?string $search = null,
         #[Description('Only media that no page and no field of the website uses, neither in a draft nor published')]
         public bool $unused = false,
+        #[Description('Only media with a draft that is not published yet')]
+        public bool $changed = false,
         #[Range(1)]
         public int $page = 1,
         #[Range(1, 200)]
@@ -47,7 +49,7 @@ final readonly class ListMedia implements Query, Scoped
         return [];
     }
 
-    public function handle(Media $media, MediaTexts $texts, MediaTags $tags, MediaEditor $editor, UsageIndex $usages): MediaPage
+    public function handle(Media $media, MediaTexts $texts, MediaTags $tags, MediaEditor $editor, UsageIndex $usages, MediaDrafts $drafts): MediaPage
     {
         $where = [];
 
@@ -73,6 +75,10 @@ final readonly class ListMedia implements Query, Scoped
             if ([] !== $used) {
                 $where['id not in'] = $used;
             }
+        }
+
+        if ($this->changed) {
+            $where['id in'] = $drafts->ids();
         }
 
         $result = $media->paginate(['where' => $where, 'order' => ['createdAt' => 'desc', 'id' => 'desc']], $this->page, $this->perPage);

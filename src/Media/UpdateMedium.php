@@ -19,7 +19,7 @@ use Frootbox\Core\Auth\Scoped;
 /**
  * @implements Action<MediumDetails>
  */
-#[AsAction('media.update', 'Changes folder, focus point, texts or tags of a medium; what is left out stays')]
+#[AsAction('media.update', 'Changes folder, focus point, texts or tags of a medium; what is left out stays. Folder and tags count at once; focus point and texts of a public medium go into its draft until media.publish')]
 final readonly class UpdateMedium implements Action, Scoped
 {
     /**

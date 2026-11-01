@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Tests\Media;
 
+use DateTimeImmutable;
 use Frootbox\Core\Action\AccessDeniedException;
 use Frootbox\Core\Action\Channel;
 use Frootbox\Core\Action\Context;
@@ -15,8 +16,10 @@ use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Application;
+use Frootbox\Core\Auth\AccessToken;
 use Frootbox\Core\Auth\AccessTokens;
 use Frootbox\Core\Auth\Actor;
+use Frootbox\Core\Auth\Authentication;
 use Frootbox\Core\Auth\TokenType;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Field\Types\ImageType;
@@ -26,10 +29,12 @@ use Frootbox\Core\Media\CreateMediaFolder;
 use Frootbox\Core\Media\CreateMedium;
 use Frootbox\Core\Media\DeleteMediaFolder;
 use Frootbox\Core\Media\DeleteMedium;
+use Frootbox\Core\Media\DiscardMedium;
 use Frootbox\Core\Media\Images;
 use Frootbox\Core\Media\ListMedia;
 use Frootbox\Core\Media\ListMediaFolders;
 use Frootbox\Core\Media\Media;
+use Frootbox\Core\Media\MediaDrafts;
 use Frootbox\Core\Media\MediaEditor;
 use Frootbox\Core\Media\MediaFiles;
 use Frootbox\Core\Media\MediaHandler;
@@ -37,6 +42,7 @@ use Frootbox\Core\Media\MediaPruneCommand;
 use Frootbox\Core\Media\MediaReferences;
 use Frootbox\Core\Media\MediaUrls;
 use Frootbox\Core\Media\MediumDetails;
+use Frootbox\Core\Media\PublishMedia;
 use Frootbox\Core\Media\ShowMedium;
 use Frootbox\Core\Media\UpdateMediaFolder;
 use Frootbox\Core\Media\UpdateMedium;
@@ -44,11 +50,14 @@ use Frootbox\Core\Media\UploadHandler;
 use Frootbox\Core\Media\UploadReceiver;
 use Frootbox\Core\Media\Uploads;
 use Frootbox\Core\Page\CreatePage;
+use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Page\PageHandler;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Tests\Support\NotesTestCase;
+use Frootbox\Core\Url\Urls;
 use Frootbox\Core\User\CreateUser;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\UploadedFile;
@@ -67,6 +76,9 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(DeleteMediaFolder::class)]
 #[CoversClass(ListMediaFolders::class)]
 #[CoversClass(MediaEditor::class)]
+#[CoversClass(MediaDrafts::class)]
+#[CoversClass(PublishMedia::class)]
+#[CoversClass(DiscardMedium::class)]
 #[CoversClass(Images::class)]
 #[CoversClass(MediaUrls::class)]
 #[CoversClass(MediaFiles::class)]
@@ -148,6 +160,7 @@ final class MediaTest extends NotesTestCase
         self::assertSame($sub->id, $updated->folderId);
         self::assertSame(['x' => 0.25, 'y' => 1.0], $updated->focus);
         self::assertSame(2, $updated->version, 'A new focus point gives new addresses.');
+        self::assertFalse($updated->draft, 'Nobody sees a medium that is not public: it needs no draft.');
         self::assertSame(['de' => ['alt' => 'Bohnen', 'title' => '']], $updated->texts);
         self::assertSame(['Bohne'], $updated->tags);
 
@@ -222,10 +235,71 @@ final class MediaTest extends NotesTestCase
         self::assertSame(404, $this->deliver($urls->url($model, 640, 0, 'gif'))->getStatusCode());
         self::assertSame(200, $this->deliver($urls->url($model, 1200, 0, 'jpg'))->getStatusCode());
 
-        // A new focus point gives a new version, the old files are gone.
+        // A new focus point of a public medium waits in its draft (decision 0147).
         $this->runner()->run(new UpdateMedium($medium->id, focusX: 0.1, focusY: 0.5));
-        self::assertSame(404, $this->deliver($url)->getStatusCode());
+        self::assertSame(200, $this->deliver($url)->getStatusCode(), 'Visitors still get the published version.');
+        $this->runner()->run(new PublishMedia([$medium->id]));
+        self::assertSame(404, $this->deliver($url)->getStatusCode(), 'Published, it gives a new version; the old files are gone.');
         self::assertDirectoryDoesNotExist($this->get(MediaFiles::class)->public($medium->id));
+    }
+
+    public function testChangesOfAPublicMediumWaitInTheDraft(): void
+    {
+        $folder = $this->runner()->run(new CreateMediaFolder('Kaffee'));
+        $medium = $this->medium('hafen.jpg', 1200, 800, texts: ['de' => ['alt' => 'Alt', 'title' => '']]);
+        $other = $this->medium('anderes.jpg', 400, 300);
+        $this->publishWith($medium->id);
+        $id = $medium->id;
+
+        $changed = $this->runner()->run(new UpdateMedium($id, folderId: $folder->id, focusX: 0.2, focusY: 0.5, texts: ['de' => ['alt' => 'Neu']], tags: ['hafen']));
+        self::assertTrue($changed->draft);
+        self::assertSame(2, $changed->version, 'The draft has new sizes.');
+        self::assertSame(['x' => 0.2, 'y' => 0.5], $changed->focus);
+        self::assertSame('Neu', $changed->texts['de']['alt']);
+        self::assertSame($folder->id, $changed->folderId, 'Folder and tags count at once.');
+        self::assertSame(['hafen'], $changed->tags);
+
+        $stored = $this->get(Media::class)->getById($id);
+        self::assertSame([1, 500, $folder->id], [$stored->version, $stored->focusX, $stored->folderId]);
+        self::assertMatchesRegularExpression('#<img src="/media/' . $id . '/1/[^>]+ alt="Alt"#', $this->startPage(false), 'Visitors see the published state.');
+        self::assertMatchesRegularExpression('#<img src="/media/' . $id . '/2/[^>]+ alt="Neu"#', $this->startPage(true), 'The editing mode shows the draft.');
+        self::assertSame([$id], array_map(static fn(MediumDetails $item): string => $item->id, $this->runner()->ask(new ListMedia(changed: true))->items));
+
+        // The sizes of the draft only for those who may see the library, never written.
+        self::assertSame(404, $this->deliver($changed->preview)->getStatusCode());
+        $response = $this->deliver($changed->preview, $this->token(['editor']));
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('private, no-store', $response->getHeaderLine('Cache-Control'));
+        self::assertFileDoesNotExist($this->get(MediaFiles::class)->public(substr($changed->preview, \strlen(MediaUrls::PREFIX))));
+        self::assertSame(200, $this->deliver($this->get(MediaUrls::class)->url($stored, 640, 0, 'webp'))->getStatusCode());
+
+        // Back to the published state, the draft is gone.
+        $back = $this->runner()->run(new UpdateMedium($id, focusX: 0.5, focusY: 0.5, texts: ['de' => ['alt' => 'Alt']]));
+        self::assertFalse($back->draft);
+        self::assertSame(1, $back->version);
+
+        $this->runner()->run(new UpdateMedium($id, focusX: 0.2, focusY: 0.5, texts: ['de' => ['alt' => 'Neu']]));
+        $this->assertInvalid(fn() => $this->runner()->run(new PublishMedia([$id, $other->id])), '/ids/1');
+
+        $published = $this->runner()->run(new PublishMedia([$id]))[0];
+        self::assertFalse($published->draft);
+        self::assertSame(2, $published->version);
+        self::assertSame(200, $this->get(Media::class)->getById($id)->focusX);
+        self::assertMatchesRegularExpression('#<img src="/media/' . $id . '/2/[^>]+ alt="Neu"#', $this->startPage(false));
+
+        $this->runner()->run(new UndoAction($this->lastEntry()->id));
+        self::assertSame(1, $this->get(Media::class)->getById($id)->version, 'Undo brings the published state back.');
+        self::assertTrue($this->runner()->ask(new ShowMedium($id))->draft, 'And the draft.');
+
+        $discarded = $this->runner()->run(new DiscardMedium($id));
+        self::assertFalse($discarded->draft);
+        self::assertSame(['x' => 0.5, 'y' => 0.5], $discarded->focus);
+        self::assertSame('Alt', $discarded->texts['de']['alt']);
+        $this->assertInvalid(fn() => $this->runner()->run(new DiscardMedium($id)), '/id');
+
+        $this->runner()->run(new UpdateMedium($id, texts: ['de' => ['alt' => 'Weg']]));
+        $this->runner()->run(new DeleteMedium($id));
+        self::assertNull($this->get(Revisions::class)->draft(MediaDrafts::TYPE, $id), 'Deleting takes the draft along.');
     }
 
     public function testCutsAroundTheFocusPoint(): void
@@ -343,6 +417,27 @@ final class MediaTest extends NotesTestCase
             ['block' => 'acme/media/Gallery', 'fields' => ['cover' => ['media' => $id]]],
         ]]]]]))->id;
         $this->runner()->run(new PublishPages([$page]));
+    }
+
+    /**
+     * The start page as a guest or in the editing mode of an editor.
+     */
+    private function startPage(bool $editing): string
+    {
+        $this->get(Urls::class)->clear();
+        $request = new Psr17Factory()->createServerRequest('GET', 'https://example.org/');
+
+        if ($editing) {
+            $user = $this->runner()->run(new CreateUser('media' . ++$this->users . '@example.com', 'User', roles: ['editor']), Context::system())->user;
+            $token = new AccessToken(1, $user->id, TokenType::Session, null, null, null, new DateTimeImmutable());
+            $request = $request->withCookieParams([EditMode::COOKIE => '1'])->withAttribute(Authentication::class, new Authentication(Actor::user($user->id, $user->name), $token));
+        }
+
+        try {
+            return (string) $this->get(PageHandler::class)->handle($request)->getBody();
+        } finally {
+            $this->get(EditMode::class)->set(false);
+        }
     }
 
     protected function extensions(): Extensions
