@@ -15,6 +15,7 @@ use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Media\MediaEditor;
 use Frootbox\Core\Media\MediaReferences;
+use Frootbox\Core\Media\UsageIndex;
 use Frootbox\Core\Revision\RevisionStore;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Support\SortKey;
@@ -42,6 +43,7 @@ final readonly class PageEditor
         private Router $router,
         private MediaReferences $references,
         private MediaEditor $media,
+        private UsageIndex $usages,
     ) {}
 
     /**
@@ -58,6 +60,7 @@ final readonly class PageEditor
         }
 
         $this->store->saveDraft(PageReader::TYPE, $id, $checked->toArray());
+        $this->usages->page($id);
 
         return $this->reader->details($id);
     }
@@ -232,6 +235,7 @@ final readonly class PageEditor
             $this->store->saveDraft(PageReader::TYPE, $id, $data->toArray());
             $this->write($id, $data);
             $this->store->publish(PageReader::TYPE, $id);
+            $this->usages->page($id);
             array_push($media, ...$this->references->inPage($data));
         }
 
@@ -263,6 +267,7 @@ final readonly class PageEditor
         }
 
         $this->store->discard(PageReader::TYPE, $id);
+        $this->usages->page($id);
 
         return null === $published ? null : $this->reader->details($id);
     }
@@ -289,6 +294,7 @@ final readonly class PageEditor
         $this->pages->delete($id);
         $this->store->discard(PageReader::TYPE, $id);
         $this->store->archive(PageReader::TYPE, $id);
+        $this->usages->page($id);
         $this->addresses->sync();
     }
 
@@ -321,6 +327,7 @@ final readonly class PageEditor
 
             $this->pages->delete($branchId);
             $this->store->archive(PageReader::TYPE, $branchId);
+            $this->usages->page($branchId);
         }
 
         $this->addresses->sync();

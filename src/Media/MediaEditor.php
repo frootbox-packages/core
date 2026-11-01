@@ -54,6 +54,16 @@ final readonly class MediaEditor
             throw new InvalidInputException($action, $errors);
         }
 
+        $hash = $this->uploads->hash($upload);
+        $same = null === $hash ? null : $this->media->fetchOne(['where' => ['hash' => $hash]]);
+
+        // The same file is already in the library: no second copy (decision 0146).
+        if (null !== $same) {
+            $this->uploads->remove($upload);
+
+            return $this->details($same, existing: true);
+        }
+
         $id = Ulid::generate();
         $facts = $this->images->prepare($path, $this->files->original($id));
 
@@ -73,6 +83,7 @@ final readonly class MediaEditor
             'focusY' => 500,
             'version' => 1,
             'public' => false,
+            'hash' => $hash,
         ]);
 
         $this->saveTexts($id, $texts);
@@ -245,7 +256,7 @@ final readonly class MediaEditor
         $this->folders->delete($id);
     }
 
-    public function details(Medium $medium): MediumDetails
+    public function details(Medium $medium, bool $existing = false): MediumDetails
     {
         $texts = [];
 
@@ -271,6 +282,7 @@ final readonly class MediaEditor
             $this->tags->of($medium->id),
             $this->urls->url($medium, min(480, $medium->width), 0, $preview),
             $medium->createdAt,
+            $existing,
         );
     }
 

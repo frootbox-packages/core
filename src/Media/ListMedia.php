@@ -19,7 +19,7 @@ use Frootbox\Database\Where;
 /**
  * @implements Query<MediaPage>
  */
-#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag or a search in file names and texts')]
+#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts or only those used nowhere')]
 final readonly class ListMedia implements Query, Scoped
 {
     public function __construct(
@@ -28,6 +28,8 @@ final readonly class ListMedia implements Query, Scoped
         public ?string $tag = null,
         #[Description('Part of the file name, alternative text or title')]
         public ?string $search = null,
+        #[Description('Only media that no page and no field of the website uses, neither in a draft nor published')]
+        public bool $unused = false,
         #[Range(1)]
         public int $page = 1,
         #[Range(1, 200)]
@@ -45,7 +47,7 @@ final readonly class ListMedia implements Query, Scoped
         return [];
     }
 
-    public function handle(Media $media, MediaTexts $texts, MediaTags $tags, MediaEditor $editor): MediaPage
+    public function handle(Media $media, MediaTexts $texts, MediaTags $tags, MediaEditor $editor, UsageIndex $usages): MediaPage
     {
         $where = [];
 
@@ -63,6 +65,14 @@ final readonly class ListMedia implements Query, Scoped
             $like = '%' . $search . '%';
             $found = self::ids($texts->fetch(['where' => [Where::any(['alt like' => $like], ['title like' => $like])]])->all());
             $where[] = Where::any(['fileName like' => $like], ['id' => $found]);
+        }
+
+        if ($this->unused) {
+            $used = $usages->used();
+
+            if ([] !== $used) {
+                $where['id not in'] = $used;
+            }
         }
 
         $result = $media->paginate(['where' => $where, 'order' => ['createdAt' => 'desc', 'id' => 'desc']], $this->page, $this->perPage);

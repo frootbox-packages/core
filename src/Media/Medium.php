@@ -15,6 +15,8 @@ use Frootbox\Database\Entity;
  * An image of the media library (decision 0126). The original lies in
  * storage/media/<id>; the focus point is in thousandths of width and
  * height. The version grows with every change that alters the sizes.
+ * The hash is the SHA-256 of the uploaded file, none for media from
+ * before decision 0146.
  */
 final readonly class Medium extends Entity
 {
@@ -30,6 +32,7 @@ final readonly class Medium extends Entity
         public int $focusY,
         public int $version,
         public bool $public,
+        public ?string $hash,
         public ?DateTimeImmutable $createdAt,
         public ?DateTimeImmutable $updatedAt,
     ) {}

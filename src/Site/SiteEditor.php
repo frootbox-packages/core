@@ -16,6 +16,9 @@ use Frootbox\Core\Component\FieldSummary;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Media\MediaEditor;
+use Frootbox\Core\Media\MediaReferences;
+use Frootbox\Core\Media\UsageIndex;
 use Frootbox\Core\Page\ContentField;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Revision\RevisionStore;
@@ -40,6 +43,9 @@ final readonly class SiteEditor
         private Languages $languages,
         private FieldTypes $types,
         private InputValidator $validator,
+        private MediaReferences $references,
+        private MediaEditor $media,
+        private UsageIndex $usages,
     ) {}
 
     public function details(): SiteDetails
@@ -158,6 +164,10 @@ final readonly class SiteEditor
         }
 
         $this->store->publish(SiteFields::TYPE, $theme->name);
+        $this->usages->site();
+
+        // Media become public with the published fields, as with pages (decision 0126).
+        $this->media->publish(MediaReferences::merge($this->references->inFieldsByLanguage($fields, $stored)));
 
         return $this->details();
     }
@@ -172,6 +182,8 @@ final readonly class SiteEditor
         if (!$this->store->discard(SiteFields::TYPE, $theme->name)) {
             throw new InvalidInputException($action, ['' => 'The fields of the website have no changes to discard.']);
         }
+
+        $this->usages->site();
 
         return $this->details();
     }
@@ -218,6 +230,8 @@ final readonly class SiteEditor
         } else {
             $this->store->saveDraft(SiteFields::TYPE, $theme->name, ['languages' => $languages]);
         }
+
+        $this->usages->site();
     }
 
     /**

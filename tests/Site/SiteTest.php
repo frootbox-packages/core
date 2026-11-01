@@ -63,7 +63,7 @@ final class SiteTest extends NotesTestCase
         self::assertSame('acme/site', $site->theme);
         self::assertFalse($site->draft);
         self::assertNull($site->version);
-        self::assertSame(['brand', 'address', 'links'], array_map(static fn(FieldSummary $field): string => $field->name, $site->fields));
+        self::assertSame(['brand', 'address', 'links', 'logo'], array_map(static fn(FieldSummary $field): string => $field->name, $site->fields));
         self::assertSame(['Name', 'Address'], [$site->fields[0]->label, $site->fields[1]->label]);
         self::assertSame(['de' => [], 'en' => []], $site->values);
     }

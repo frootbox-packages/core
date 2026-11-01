@@ -18,6 +18,7 @@ theme:
       optional: true
       fields:
         text: { type: headline, label: Text }
+    logo: { type: image, label: Logo, optional: true }
   navigations:
     main: Main navigation
     footer: Footer

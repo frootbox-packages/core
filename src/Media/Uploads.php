@@ -14,7 +14,9 @@ use RuntimeException;
 /**
  * Files on their way into the media library (decision 0126): an upload
  * endpoint keeps the file here under a token, media.create takes the
- * token. Uploads that nobody takes are removed after a day.
+ * token. Uploads that nobody takes are removed after a day. Each upload
+ * knows the SHA-256 of its bytes, so the same file is found again
+ * (decision 0146).
  */
 final readonly class Uploads
 {
@@ -45,7 +47,8 @@ final readonly class Uploads
             throw new RuntimeException('Could not keep the upload.');
         }
 
-        file_put_contents($target . '.json', json_encode(['name' => self::cleanName($name)], \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
+        $meta = ['name' => self::cleanName($name), 'hash' => (string) hash_file('sha256', $target)];
+        file_put_contents($target . '.json', json_encode($meta, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
 
         return $token;
     }
@@ -69,11 +72,24 @@ final readonly class Uploads
      */
     public function name(string $token): string
     {
-        $path = $this->path($token);
-        $meta = null === $path ? false : @file_get_contents($path . '.json');
-        $data = false === $meta ? null : json_decode($meta, true);
+        $name = $this->meta($token)['name'] ?? null;
 
-        return \is_array($data) && \is_string($data['name'] ?? null) ? $data['name'] : 'image';
+        return \is_string($name) ? $name : 'image';
+    }
+
+    /**
+     * The SHA-256 of the uploaded bytes.
+     */
+    public function hash(string $token): ?string
+    {
+        $hash = $this->meta($token)['hash'] ?? null;
+        $path = $this->path($token);
+
+        if (\is_string($hash) && 1 === preg_match('/^[0-9a-f]{64}$/', $hash)) {
+            return $hash;
+        }
+
+        return null === $path ? null : (string) hash_file('sha256', $path);
     }
 
     public function remove(string $token): void
@@ -116,6 +132,18 @@ final readonly class Uploads
         $name = trim((string) preg_replace('/[\\x00-\\x1f\\x7f]/u', '', basename(str_replace('\\', '/', $name))));
 
         return '' === $name ? 'image' : mb_substr($name, 0, 200);
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private function meta(string $token): array
+    {
+        $path = $this->path($token);
+        $meta = null === $path ? false : @file_get_contents($path . '.json');
+        $data = false === $meta ? null : json_decode($meta, true);
+
+        return \is_array($data) ? $data : [];
     }
 
     private function folder(): string

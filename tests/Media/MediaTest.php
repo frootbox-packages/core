@@ -100,6 +100,30 @@ final class MediaTest extends NotesTestCase
         $this->assertInvalid(fn() => $this->runner()->run(new CreateMedium($token)), '/upload');
     }
 
+    public function testTheSameFileGivesTheMediumThatIsThereAlready(): void
+    {
+        $file = $this->image(300, 200);
+        $copy = $file . '.copy';
+        copy($file, $copy);
+        $hash = hash_file('sha256', $file);
+        $first = $this->runner()->run(new CreateMedium($this->receive($file, 'hafen.jpg')['upload'], texts: ['de' => ['alt' => 'Der Hafen', 'title' => '']]));
+        $folder = $this->runner()->run(new CreateMediaFolder('Andere'));
+        $token = $this->receive($copy, 'hafen-kopie.jpg')['upload'];
+
+        $again = $this->runner()->run(new CreateMedium($token, $folder->id, ['de' => ['alt' => 'Anders', 'title' => '']], ['neu']));
+
+        self::assertFalse($first->existing);
+        self::assertTrue($again->existing);
+        self::assertSame($first->id, $again->id);
+        self::assertSame('hafen.jpg', $again->fileName, 'The medium keeps its name, folder, texts and tags.');
+        self::assertNull($again->folderId);
+        self::assertSame(['de' => ['alt' => 'Der Hafen', 'title' => '']], $again->texts);
+        self::assertSame([], $again->tags);
+        self::assertSame(1, $this->get(Media::class)->count());
+        self::assertNull($this->get(Uploads::class)->path($token), 'The upload is used up.');
+        self::assertSame($hash, $this->get(Media::class)->getById($first->id)->hash, 'The hash is the one of the uploaded bytes.');
+    }
+
     public function testRefusesFilesThatAreNoImages(): void
     {
         $file = tempnam(sys_get_temp_dir(), 'fb');
@@ -373,6 +397,9 @@ final class MediaTest extends NotesTestCase
     {
         $image = imagecreatetruecolor($width, $height);
         imagefilledrectangle($image, 0, 0, intdiv($width, 2), $height, (int) imagecolorallocate($image, 200, 120, 40));
+        // Each image differs, or the library would find it again (decision 0146).
+        imagefilledrectangle($image, 0, 0, 3, 3, (int) imagecolorallocate($image, random_int(0, 255), random_int(0, 255), random_int(0, 255)));
+        imagefilledrectangle($image, $width - 4, $height - 4, $width - 1, $height - 1, (int) imagecolorallocate($image, random_int(0, 255), random_int(0, 255), random_int(0, 255)));
         $file = $this->get(ProjectPaths::class)->var('test-' . bin2hex(random_bytes(4)) . '.' . $type);
         @mkdir(\dirname($file), 0o775, true);
         'png' === $type ? imagepng($image, $file) : imagejpeg($image, $file, 90);

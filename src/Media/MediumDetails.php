@@ -13,6 +13,8 @@ use DateTimeImmutable;
 /**
  * A medium as queries and actions give it: with focus point as shares
  * of 0 to 1, texts by language, tags and the address of a preview.
+ * Existing is true when media.create found the same file in the library
+ * and gave that medium instead of a new one (decision 0146).
  */
 final readonly class MediumDetails
 {
@@ -36,5 +38,6 @@ final readonly class MediumDetails
         public array $tags,
         public string $preview,
         public ?DateTimeImmutable $createdAt,
+        public bool $existing = false,
     ) {}
 }
