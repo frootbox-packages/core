@@ -80,6 +80,33 @@ final class InstallCommandTest extends TestCase
         $this->assertSignsIn('jane@example.com', 'correct horse battery');
     }
 
+    public function testTakesTheAdminFromTheEnvironment(): void
+    {
+        [$exitCode, $output] = $this->install([], env: [
+            InstallCommand::EMAIL_VARIABLE => 'jane@example.com',
+            InstallCommand::NAME_VARIABLE => 'Jane Doe',
+            InstallCommand::PASSWORD_VARIABLE => 'correct horse battery',
+        ]);
+
+        self::assertSame(0, $exitCode, $output);
+        self::assertStringContainsString('Superuser: jane@example.com', $output);
+        $this->assertSignsIn('jane@example.com', 'correct horse battery');
+        self::assertSame('Jane Doe', $this->users(Application::fromProjectRoot($this->project->root, []))->findByEmail('jane@example.com')?->name);
+    }
+
+    public function testPrefersTheOptionsOverTheEnvironment(): void
+    {
+        [$exitCode, $output] = $this->install(['--admin-email' => 'john@example.com', '--admin-name' => 'John Doe'], env: [
+            InstallCommand::EMAIL_VARIABLE => 'jane@example.com',
+            InstallCommand::NAME_VARIABLE => 'Jane Doe',
+        ]);
+
+        self::assertSame(0, $exitCode, $output);
+        $users = $this->users(Application::fromProjectRoot($this->project->root, []));
+        self::assertSame('John Doe', $users->findByEmail('john@example.com')?->name);
+        self::assertNull($users->findByEmail('jane@example.com'));
+    }
+
     public function testAsksWhenInteractive(): void
     {
         QuestionHelper::disableStty();

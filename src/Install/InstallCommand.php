@@ -37,12 +37,18 @@ use UnexpectedValueException;
  *     php bin/frootbox install
  *     php bin/frootbox install --no-interaction --admin-email jane@example.com
  *
- * Works before .env exists. Without questions, the password comes from
- * FROOTBOX_ADMIN_PASSWORD or is generated and shown once.
+ * Works before .env exists. Email, name and password of the superuser can
+ * also come from FROOTBOX_ADMIN_EMAIL, FROOTBOX_ADMIN_NAME and
+ * FROOTBOX_ADMIN_PASSWORD; the options win over the variables. Without
+ * questions and without the variable, the password is generated and shown once.
  */
 #[AsCommand(name: 'install', description: 'Sets up this installation: configuration, database and the first superuser')]
 final class InstallCommand extends Command
 {
+    public const string EMAIL_VARIABLE = 'FROOTBOX_ADMIN_EMAIL';
+
+    public const string NAME_VARIABLE = 'FROOTBOX_ADMIN_NAME';
+
     public const string PASSWORD_VARIABLE = 'FROOTBOX_ADMIN_PASSWORD';
 
     /**
@@ -60,8 +66,8 @@ final class InstallCommand extends Command
         $this
             ->addOption('env', null, InputOption::VALUE_REQUIRED, 'prod for live operation, dev for development', Environment::Production->value)
             ->addOption('database-url', null, InputOption::VALUE_REQUIRED, 'e.g. pdo-mysql://user:secret@localhost:3306/frootbox, by default SQLite in storage/')
-            ->addOption('admin-email', null, InputOption::VALUE_REQUIRED, 'Email of the first superuser')
-            ->addOption('admin-name', null, InputOption::VALUE_REQUIRED, 'Name of the first superuser, by default the part before the @');
+            ->addOption('admin-email', null, InputOption::VALUE_REQUIRED, 'Email of the first superuser, by default from ' . self::EMAIL_VARIABLE)
+            ->addOption('admin-name', null, InputOption::VALUE_REQUIRED, 'Name of the first superuser, by default from ' . self::NAME_VARIABLE . ' or the part before the @');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -181,12 +187,14 @@ final class InstallCommand extends Command
     private function askAdmin(InputInterface $input, SymfonyStyle $io, array $env): array
     {
         $email = self::text($input->getOption('admin-email'));
+        $email = '' === $email ? self::text($env[self::EMAIL_VARIABLE] ?? '') : $email;
         $name = self::text($input->getOption('admin-name'));
+        $name = '' === $name ? self::text($env[self::NAME_VARIABLE] ?? '') : $name;
 
         if ('' === $email) {
             $email = $input->isInteractive()
                 ? self::text($io->ask('Email of the superuser'))
-                : throw new InstallException('Set --admin-email for the first superuser.');
+                : throw new InstallException(\sprintf('Set --admin-email or %s for the first superuser.', self::EMAIL_VARIABLE));
         }
 
         $default = (string) strstr($email, '@', true);
