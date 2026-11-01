@@ -233,7 +233,14 @@ final class MediaTest extends NotesTestCase
 
         $html = (string) $this->get(PageHandler::class)->handle(new Psr17Factory()->createServerRequest('GET', 'https://example.org/'))->getBody();
 
-        self::assertMatchesRegularExpression('#<picture><source type="image/webp" srcset="/media/' . $cover->id . '/1/cover-160x90-[0-9a-f]{16}\.webp 160w, #', $html);
+        // AVIF only where the image driver writes it (decision 0126), then WebP.
+        $formats = $this->get(MediaUrls::class)->modernFormats();
+        self::assertContains('webp', $formats);
+        $sources = array_map(
+            static fn(string $format): string => '<source type="image/' . $format . '" srcset="/media/' . $cover->id . '/1/cover-160x90-[0-9a-f]{16}\.' . $format . ' 160w, [^"]+" sizes="50vw">',
+            $formats,
+        );
+        self::assertMatchesRegularExpression('#<picture>' . implode('', $sources) . '<img #', $html);
         self::assertStringContainsString(' 1920w" sizes="50vw">', $html);
         self::assertMatchesRegularExpression('#<img src="/media/' . $cover->id . '/1/cover-960x540-[0-9a-f]{16}\.jpg" srcset="[^"]+" sizes="50vw" width="960" height="540" alt="Aus der Bibliothek" loading="lazy" decoding="async">#', $html);
         self::assertMatchesRegularExpression('#<img src="/media/' . $inList->id . '/1/liste-320x0-[0-9a-f]{16}\.png" srcset="[^"]+" sizes="100vw" width="320" height="240" alt="Eigener Text"#', $html);

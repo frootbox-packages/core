@@ -128,6 +128,31 @@ abstract class NotesTestCase extends TestCase
         return $this->get(Connection::class);
     }
 
+    /**
+     * Same values and types as JSON, whatever the order of keys in objects.
+     * MySQL stores JSON columns in its own key order, SQLite and MariaDB
+     * keep the order they got.
+     */
+    protected static function assertSameJson(mixed $expected, mixed $actual, string $message = ''): void
+    {
+        self::assertSame(self::sortedKeys($expected), self::sortedKeys($actual), $message);
+    }
+
+    private static function sortedKeys(mixed $value): mixed
+    {
+        if (!\is_array($value)) {
+            return $value;
+        }
+
+        $value = array_map(self::sortedKeys(...), $value);
+
+        if (!array_is_list($value)) {
+            ksort($value);
+        }
+
+        return $value;
+    }
+
     protected function lastEntry(): LogEntry
     {
         $entry = $this->get(ActionLog::class)->recent(1)[0] ?? null;

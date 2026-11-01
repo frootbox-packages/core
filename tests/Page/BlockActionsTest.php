@@ -86,7 +86,7 @@ final class BlockActionsTest extends NotesTestCase
 
         self::assertNotNull($added->block);
         self::assertSame($added->block, $this->text('areas/main/1/id'));
-        self::assertSame(['id' => $added->block, 'block' => 'acme/base/Teaser', 'variant' => 'ImageLeft', 'options' => ['rounded' => false], 'fields' => ['title' => 'Neu']], $this->valueAt('areas/main/1'));
+        self::assertSameJson(['id' => $added->block, 'block' => 'acme/base/Teaser', 'variant' => 'ImageLeft', 'options' => ['rounded' => false], 'fields' => ['title' => 'Neu']], $this->valueAt('areas/main/1'));
         self::assertSame($this->lastEntry()->id, $added->entry);
 
         $first = $this->runner()->run(new AddBlock($this->page, 'de', 'acme/base/Teaser', 'main'));
