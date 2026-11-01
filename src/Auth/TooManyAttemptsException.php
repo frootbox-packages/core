@@ -20,12 +20,12 @@ final class TooManyAttemptsException extends ActionException
     /**
      * @param int $retryAfter seconds to wait
      */
-    public function __construct(public readonly int $retryAfter)
+    public function __construct(public readonly int $retryAfter, ?Message $message = null)
     {
         $minutes = max(1, (int) ceil($retryAfter / 60));
 
-        parent::__construct(1 === $minutes
+        parent::__construct($message ?? (1 === $minutes
             ? new Message('Too many failed attempts. Try again in a minute.')
-            : new Message('Too many failed attempts. Try again in {minutes} minutes.', ['minutes' => $minutes]));
+            : new Message('Too many failed attempts. Try again in {minutes} minutes.', ['minutes' => $minutes])));
     }
 }

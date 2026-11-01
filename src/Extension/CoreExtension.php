@@ -20,6 +20,13 @@ use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Cache\ClearPageCache;
+use Frootbox\Core\Comment\CountComments;
+use Frootbox\Core\Comment\CreateComment;
+use Frootbox\Core\Comment\DeleteComment;
+use Frootbox\Core\Comment\ListComments;
+use Frootbox\Core\Comment\ReopenComment;
+use Frootbox\Core\Comment\ReplyToComment;
+use Frootbox\Core\Comment\ResolveComment;
 use Frootbox\Core\Component\ListBlockGroups;
 use Frootbox\Core\Component\ListBlocks;
 use Frootbox\Core\Component\ListLayouts;
@@ -258,6 +265,14 @@ final class CoreExtension implements Extension
         $registry->query(ListPreviews::class);
         $registry->sensitive(PreviewLinks::TABLE, 'token');
         $registry->sensitive(PreviewLinks::TABLE, 'token_hash');
+
+        // Comments in the preview and the editing mode (decision 0156).
+        foreach ([CreateComment::class, ReplyToComment::class, ResolveComment::class, ReopenComment::class, DeleteComment::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ListComments::class);
+        $registry->query(CountComments::class);
 
         $registry->get(MediaHandler::ROUTE, MediaHandler::class, 'media');
         $registry->get(Previews::ROUTE, PreviewHandler::class, 'previews');
