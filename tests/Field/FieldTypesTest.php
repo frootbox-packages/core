@@ -13,6 +13,7 @@ use Frootbox\Core\Action\Schema\InputValidator;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Field\AsFieldType;
+use Frootbox\Core\Field\Blank;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\FieldTypeName;
@@ -28,6 +29,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(FieldTypes::class)]
+#[CoversClass(Blank::class)]
 #[CoversClass(FieldTypeName::class)]
 #[CoversClass(AsFieldType::class)]
 #[CoversClass(Field::class)]
@@ -95,6 +97,28 @@ final class FieldTypesTest extends TestCase
         $schemaErrors = new InputValidator()->errors($this->types->schemaFor($this->fields), $values);
         self::assertArrayHasKey('/title', $schemaErrors);
         self::assertArrayHasKey('/slides/2/title', $schemaErrors, 'A missing field is reported at the field.');
+    }
+
+    public function testPublishingSkipsBlankEntries(): void
+    {
+        $values = ['title' => 'ok', 'slides' => [['title' => 'ok'], [], ['link' => ['url' => '/x']], ['title' => '  ']]];
+        $errors = new InputValidator()->errors($this->types->schemaForPublishing($this->fields, $values), $values);
+
+        self::assertArrayNotHasKey('/slides/1/title', $errors, 'An entry nobody filled is left out (decision 0144).');
+        self::assertArrayNotHasKey('/slides/3/title', $errors, 'Spaces are no value.');
+        self::assertArrayHasKey('/slides/2/title', $errors, 'A started entry needs its required fields.');
+        self::assertSame(['/slides/2/title'], array_keys($errors));
+
+        // A list with a minimum checks as many blank entries as it lacks, the first ones.
+        $fields = ['items' => new Field('items', 'list', 'Items', settings: ['min' => 2], fields: ['title' => new Field('title', 'headline', 'Title')])];
+        $values = ['items' => [[], ['title' => 'ok'], [], []]];
+        $errors = new InputValidator()->errors($this->types->schemaForPublishing($fields, $values), $values);
+        self::assertSame(['/items/0/title'], array_keys($errors), 'They are marked on the page.');
+
+        $values = ['items' => [[]]];
+        $errors = new InputValidator()->errors($this->types->schemaForPublishing($fields, $values), $values);
+        self::assertArrayHasKey('/items', $errors, 'Too few entries stay an error of the list.');
+        self::assertArrayHasKey('/items/0/title', $errors);
     }
 
     public function testKnowsItsTypes(): void

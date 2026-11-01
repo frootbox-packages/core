@@ -244,6 +244,8 @@ final class BlockActionsTest extends NotesTestCase
         self::assertSame('list', $blocks['acme/site/Hero']->fields[1]->type);
         self::assertSame(['title', 'link'], array_column(array_map(get_object_vars(...), $blocks['acme/site/Hero']->fields[1]->fields), 'name'));
         self::assertSame('Slide title', $blocks['acme/site/Hero']->fields[1]->fields[0]->placeholder, 'The panel shows it in the empty input.');
+        self::assertSame([null, 5], [$blocks['acme/site/Hero']->fields[1]->min, $blocks['acme/site/Hero']->fields[1]->max], 'The bar knows the bounds of a list (decision 0145).');
+        self::assertNull($blocks['acme/site/Hero']->fields[0]->max);
     }
 
     protected function extensions(): Extensions

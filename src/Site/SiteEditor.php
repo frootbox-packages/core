@@ -142,14 +142,13 @@ final readonly class SiteEditor
         $draft = $this->revisions->draft(SiteFields::TYPE, $theme->name)
             ?? throw new InvalidInputException($action, ['' => 'The fields of the website have no changes to publish.']);
         $fields = $this->site->fields();
-        $schema = $this->types->schemaFor($fields);
         $stored = SiteFields::languages($draft);
         $errors = [];
 
         foreach ($this->languages->codes() as $code) {
             $values = $this->site->merged($stored, $code);
 
-            foreach ($this->validator->errors($schema, $values) + $this->types->validate($fields, $values) as $pointer => $message) {
+            foreach ($this->validator->errors($this->types->schemaForPublishing($fields, $values), $values) + $this->types->validate($fields, $values) as $pointer => $message) {
                 $errors['/languages/' . $code . ('/' === $pointer ? '' : $pointer)] = $message;
             }
         }

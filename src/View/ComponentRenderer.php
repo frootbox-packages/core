@@ -122,7 +122,7 @@ final readonly class ComponentRenderer
             Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types, $marking ? $this->markup : null), $depth, $assets),
         ]);
 
-        return $marking ? $this->markup->unwrap($html, keepRoot: ComponentKind::Block === $kind) : $html;
+        return $marking ? $this->markup->unwrap($html, keepRoot: ComponentKind::Block === $kind) : EmptyElements::remove($html);
     }
 
     /**

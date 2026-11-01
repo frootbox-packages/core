@@ -13,6 +13,7 @@ use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Action\UndoException;
 use Frootbox\Core\Component\AreaSummary;
 use Frootbox\Core\Component\ContentValidator;
+use Frootbox\Core\Component\FieldSummary;
 use Frootbox\Core\Component\Instance;
 use Frootbox\Core\Component\LayoutSummary;
 use Frootbox\Core\Component\ListLayouts;
@@ -420,7 +421,7 @@ final class PagesTest extends NotesTestCase
     public function testListsTheLayouts(): void
     {
         self::assertEquals(
-            [new LayoutSummary(self::LAYOUT, 'Page', '', [new VariantSummary('Default', 'Page', '')], [new AreaSummary('main', 'Main', '', null, null, null)])],
+            [new LayoutSummary(self::LAYOUT, 'Page', '', [new VariantSummary('Default', 'Page', '')], [new AreaSummary('main', 'Main', '', null, null, null)], [new FieldSummary('heading', 'headline', 'Heading', '', false, [])])],
             $this->runner()->ask(new ListLayouts()),
         );
     }

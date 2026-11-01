@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Field;
 
 use Frootbox\Core\Action\DefinitionException;
+use Frootbox\Core\Component\ContentValidator;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
 
@@ -109,6 +110,47 @@ final class FieldTypes
         $schema = ['type' => 'object', ...([] === $properties ? [] : ['properties' => $properties]), 'additionalProperties' => false];
 
         return [] === $required ? $schema : [...$schema, 'required' => $required];
+    }
+
+    /**
+     * The schema for publishing these values (decision 0144): entries of
+     * lists that are still blank are left out of the check, unless the
+     * list needs them to reach its "min". Then the first blank ones are
+     * checked, so their fields can be marked.
+     *
+     * @param array<string, Field> $fields
+     * @param array<mixed>         $values
+     *
+     * @return array<string, mixed>
+     */
+    public function schemaForPublishing(array $fields, array $values): array
+    {
+        $schema = $this->schemaFor($fields);
+        $properties = \is_array($schema['properties'] ?? null) ? $schema['properties'] : [];
+
+        foreach ($fields as $name => $field) {
+            $entries = $values[$name] ?? null;
+
+            if ([] === $field->fields || !\is_array($entries) || !array_is_list($entries) || !\is_array($properties[$name] ?? null)) {
+                continue;
+            }
+
+            $items = $this->schemaFor($field->fields);
+            $missing = ($field->intSetting('min') ?? 0) - \count(array_filter($entries, static fn(mixed $entry): bool => !Blank::is($entry)));
+            $prefix = [];
+
+            foreach ($entries as $entry) {
+                if (Blank::is($entry) && $missing-- <= 0) {
+                    $prefix[] = ContentValidator::withoutMinimums($items);
+                } else {
+                    $prefix[] = \is_array($entry) ? $this->schemaForPublishing($field->fields, $entry) : $items;
+                }
+            }
+
+            $properties[$name] = [...$properties[$name], 'prefixItems' => $prefix];
+        }
+
+        return [] === $properties ? $schema : [...$schema, 'properties' => $properties];
     }
 
     /**

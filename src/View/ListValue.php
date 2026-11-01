@@ -42,6 +42,14 @@ final readonly class ListValue implements IteratorAggregate, Countable, Stringab
         return new self(array_map(static fn(int $index, Scope $entry): Scope => $entry->within($markup, $path . $index . '/'), array_keys($this->entries), $this->entries));
     }
 
+    /**
+     * Only the entries with a value, for visitors (decision 0144).
+     */
+    public function withoutBlank(): self
+    {
+        return new self(array_values(array_filter($this->entries, static fn(Scope $entry): bool => !$entry->isBlank())));
+    }
+
     public function count(): int
     {
         return \count($this->entries);

@@ -22,6 +22,7 @@ use Frootbox\Core\Field\Types\TextType;
 use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Tests\Support\TemporaryProject;
 use Frootbox\Core\View\ComponentRenderer;
+use Frootbox\Core\View\EmptyElements;
 use Frootbox\Core\View\FileLoader;
 use Frootbox\Core\View\Frame;
 use Frootbox\Core\View\ListValue;
@@ -38,6 +39,7 @@ use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 
 #[CoversClass(ComponentRenderer::class)]
+#[CoversClass(EmptyElements::class)]
 #[CoversClass(ViewExtension::class)]
 #[CoversClass(TwigFactory::class)]
 #[CoversClass(FileLoader::class)]
@@ -122,6 +124,23 @@ final class ComponentRendererTest extends TestCase
             . '</main>' . "\n",
             $html,
         );
+    }
+
+    public function testLeavesOutEmptyFieldsAndBlankEntries(): void
+    {
+        $html = $this->renderer()->block(['block' => 'acme/site/Hero', 'fields' => [
+            'slides' => [['title' => 'First'], [], ['title' => ' ']],
+        ]]);
+
+        self::assertSame('<div class="hero"><ul><li>First</li></ul>1</div>' . "\n", $html, 'Visitors get neither marks nor blank entries (decision 0144).');
+
+        self::assertSame(
+            '<section><ul><li><h3>Title</h3></li></ul></section>',
+            EmptyElements::remove('<section><header class="head"><h2>' . EmptyElements::MARK . '</h2> <p>' . EmptyElements::MARK . "</p>\n</header><ul><li><h3>Title</h3><p>" . EmptyElements::MARK . '</p></li></ul></section>'),
+            'An element goes with its empty field, and so does one that only held such elements.',
+        );
+        self::assertSame('<img alt="">x', EmptyElements::remove('<img alt="' . EmptyElements::MARK . '">x&lt;!--fb:empty--&gt;'), 'Marks elsewhere are dropped.');
+        self::assertSame('<p>Text</p>', EmptyElements::remove('<p>Text</p>'));
     }
 
     public function testLeavesOutUnknownBlocksInProduction(): void

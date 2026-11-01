@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\View;
 
+use Frootbox\Core\Field\Blank;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
 use Twig\Markup;
@@ -49,11 +50,22 @@ final readonly class Scope
         $output = $this->types->get($field->type)->output($this->values[$name] ?? null, $field);
 
         return match (true) {
+            // For visitors an empty field leaves out its element, a list its blank entries (decision 0144).
+            null === $this->markup && $output instanceof ListValue => $output->withoutBlank(),
+            null === $this->markup && ('' === $output || ($output instanceof Markup && '' === (string) $output)) => EmptyElements::mark(),
             null === $this->markup => $output,
             $output instanceof ListValue => $output->within($this->markup, $this->path . $name . '/'),
             \is_string($output) || $output instanceof Markup => $this->markup->field($this->path . $name, $field, $output, $this->values[$name] ?? null),
             default => $output,
         };
+    }
+
+    /**
+     * Whether none of the fields holds a value, e.g. a new list entry.
+     */
+    public function isBlank(): bool
+    {
+        return Blank::is($this->values);
     }
 
     /**

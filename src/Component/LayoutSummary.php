@@ -16,6 +16,7 @@ final readonly class LayoutSummary
     /**
      * @param list<VariantSummary> $variants
      * @param list<AreaSummary>    $areas
+     * @param list<FieldSummary>   $fields For the bounds of its lists on the page (decision 0145)
      */
     public function __construct(
         /** e.g. "acme/website/Page" */
@@ -24,6 +25,7 @@ final readonly class LayoutSummary
         public string $description,
         public array $variants,
         public array $areas = [],
+        public array $fields = [],
     ) {}
 
     public static function of(Component $layout): self
@@ -34,6 +36,7 @@ final readonly class LayoutSummary
             $layout->description,
             VariantSummary::all($layout->variants),
             AreaSummary::all($layout->areas),
+            FieldSummary::all($layout->fields),
         );
     }
 }

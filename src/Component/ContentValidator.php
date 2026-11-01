@@ -142,8 +142,8 @@ final readonly class ContentValidator
             $values[(string) $name] = $value;
         }
 
-        $schema = $this->types->schemaFor($component->fields);
-        $found = $this->validator->errors($complete ? $schema : self::withoutMinimums($schema), $values)
+        $schema = $complete ? $this->types->schemaForPublishing($component->fields, $values) : self::withoutMinimums($this->types->schemaFor($component->fields));
+        $found = $this->validator->errors($schema, $values)
             + $this->types->validate($component->fields, $values);
 
         foreach ($found as $path => $message) {
