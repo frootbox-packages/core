@@ -17,9 +17,12 @@ use Frootbox\Database\Ulid;
 
 /**
  * What the media actions do (decision 0126). A public medium keeps
- * changes to texts and focus point in a draft until they are published
- * (decision 0147); folder and tags count at once. A new focus point
- * gives a new version, so the sizes are generated anew.
+ * changes to file, texts and focus point in a draft until they are
+ * published (decision 0147); folder and tags count at once. A new file
+ * or focus point gives a new version, so the sizes are generated anew.
+ *
+ * @phpstan-import-type Draft from MediaDrafts
+ * @phpstan-import-type DraftFile from MediaDrafts
  */
 final readonly class MediaEditor
 {
@@ -59,7 +62,7 @@ final readonly class MediaEditor
         }
 
         $hash = $this->uploads->hash($upload);
-        $same = null === $hash ? null : $this->media->fetchOne(['where' => ['hash' => $hash]]);
+        $same = null === $hash ? null : $this->withHash($hash);
 
         // The same file is already in the library: no second copy (decision 0146).
         if (null !== $same) {
@@ -154,6 +157,79 @@ final readonly class MediaEditor
     }
 
     /**
+     * Gives the medium a new file (decisions 0146, 0147): same id, new
+     * original, the focus point stays. A public medium gets it in its
+     * draft. Uploading the published file again takes a new file out of
+     * the draft.
+     *
+     * @throws InvalidInputException
+     * @throws EntityNotFoundException
+     */
+    public function replace(string $action, string $id, string $upload): MediumDetails
+    {
+        $medium = $this->media->getById($id);
+        $path = $this->uploads->path($upload);
+
+        if (null === $path) {
+            throw new InvalidInputException($action, ['/upload' => 'There is no upload with this token (any more). Upload the file first.']);
+        }
+
+        $draft = $this->drafts->of($id);
+        $hash = $this->uploads->hash($upload);
+
+        if (null !== $hash && $hash === ($draft['file']['hash'] ?? $medium->hash)) {
+            throw new InvalidInputException($action, ['/upload' => 'The medium has this file already.']);
+        }
+
+        $other = null === $hash ? null : $this->withHash($hash);
+
+        if (null !== $other && $other->id !== $id) {
+            throw new InvalidInputException($action, ['/upload' => new Message('The file is in the media library already, as "{name}".', ['name' => $other->fileName])]);
+        }
+
+        if (null !== $draft && null !== $draft['file'] && $hash === $medium->hash) {
+            $this->files->release($draft['file']['name']);
+            $draft['file'] = null;
+            $this->uploads->remove($upload);
+            $this->saveDraft($medium, $draft, null, []);
+
+            return $this->details($medium);
+        }
+
+        $name = MediaFiles::newName($id);
+        $facts = $this->images->prepare($path, $this->files->original($name));
+
+        if ($facts instanceof Message) {
+            @unlink($this->files->original($name));
+
+            throw new InvalidInputException($action, ['/upload' => $facts]);
+        }
+
+        $file = ['name' => $name, 'fileName' => $this->uploads->name($upload), ...$facts, 'hash' => $hash];
+        $this->uploads->remove($upload);
+
+        if ($medium->public || null !== $draft) {
+            $draft ??= $this->drafts->start($medium);
+
+            if (null !== $draft['file']) {
+                $this->files->release($draft['file']['name']);
+            }
+
+            $draft['file'] = $file;
+            $this->saveDraft($medium, $draft, null, []);
+
+            return $this->details($medium);
+        }
+
+        // Nobody sees a medium that is not public yet: no draft needed.
+        $this->files->release($medium->original());
+        $medium = $this->media->update($id, [...self::fileValues($file), 'version' => $medium->version + 1]);
+        $this->files->removePublic($id);
+
+        return $this->details($medium);
+    }
+
+    /**
      * Puts the drafts of media online (decision 0147).
      *
      * @param list<string> $ids
@@ -191,7 +267,14 @@ final readonly class MediaEditor
                 $this->files->removePublic($id);
             }
 
-            $medium = $this->media->update($id, ['focusX' => $draft['focusX'], 'focusY' => $draft['focusY'], 'version' => $draft['version']]);
+            $values = ['focusX' => $draft['focusX'], 'focusY' => $draft['focusY'], 'version' => $draft['version']];
+
+            if (null !== $draft['file']) {
+                $this->files->release($medium->original());
+                $values += self::fileValues($draft['file']);
+            }
+
+            $medium = $this->media->update($id, $values);
             $this->saveTexts($id, $draft['texts']);
             $this->store->publish(MediaDrafts::TYPE, $id);
             $published[] = $this->details($medium);
@@ -209,23 +292,29 @@ final readonly class MediaEditor
     public function discard(string $action, string $id): MediumDetails
     {
         $medium = $this->media->getById($id);
+        $file = $this->drafts->of($id)['file'] ?? null;
 
         if (!$this->store->discard(MediaDrafts::TYPE, $id)) {
             throw new InvalidInputException($action, ['/id' => 'The medium has no changes to discard.']);
+        }
+
+        if (null !== $file) {
+            $this->files->release($file['name']);
         }
 
         return $this->details($medium);
     }
 
     /**
-     * Removes the medium and its generated files. The original stays until
+     * Removes the medium and its generated files. The originals stay until
      * media:prune, so undo can bring the medium back.
      *
      * @throws EntityNotFoundException
      */
     public function delete(string $id): void
     {
-        $this->media->getById($id);
+        $medium = $this->media->getById($id);
+        $file = $this->drafts->of($id)['file'] ?? null;
 
         foreach ($this->texts->fetch(['where' => ['mediaId' => $id]]) as $text) {
             $this->texts->delete($text->id);
@@ -238,9 +327,11 @@ final readonly class MediaEditor
         $this->store->discard(MediaDrafts::TYPE, $id);
         $this->media->delete($id);
         $this->files->removePublic($id);
+        $this->files->release($medium->original());
 
-        // The original stays for undo; media:prune counts its age from now.
-        @touch($this->files->original($id));
+        if (null !== $file) {
+            $this->files->release($file['name']);
+        }
     }
 
     /**
@@ -362,9 +453,9 @@ final readonly class MediaEditor
      * Applies changes to the draft of a medium. A draft equal to the
      * published state is removed, as with the fields of the website.
      *
-     * @param array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>} $draft
-     * @param array{int, int}|null                                                                                 $focus
-     * @param array<string, array{alt?: string, title?: string}>                                                   $texts
+     * @param Draft                                              $draft
+     * @param array{int, int}|null                               $focus
+     * @param array<string, array{alt?: string, title?: string}> $texts
      */
     private function saveDraft(Medium $medium, array $draft, ?array $focus, array $texts): void
     {
@@ -379,18 +470,52 @@ final readonly class MediaEditor
             ];
         }
 
-        $moved = $draft['focusX'] !== $medium->focusX || $draft['focusY'] !== $medium->focusY;
-        // New sizes need a new address; going back to the old point needs none.
-        $draft['version'] = $moved ? $medium->version + 1 : $medium->version;
+        $resized = null !== $draft['file'] || $draft['focusX'] !== $medium->focusX || $draft['focusY'] !== $medium->focusY;
+        // New sizes need a new address; going back to the old ones needs none.
+        $draft['version'] = $resized ? $medium->version + 1 : $medium->version;
         $published = $this->drafts->start($medium);
 
-        if (!$moved && self::sameTexts($draft['texts'], $published['texts'])) {
+        if (!$resized && self::sameTexts($draft['texts'], $published['texts'])) {
             $this->store->discard(MediaDrafts::TYPE, $medium->id);
 
             return;
         }
 
         $this->store->saveDraft(MediaDrafts::TYPE, $medium->id, $draft);
+    }
+
+    /**
+     * The medium with this file, published or in a draft (decisions 0146, 0147).
+     */
+    private function withHash(string $hash): ?Medium
+    {
+        $medium = $this->media->fetchOne(['where' => ['hash' => $hash]]);
+
+        if (null !== $medium) {
+            return $medium;
+        }
+
+        $id = $this->drafts->idWithHash($hash);
+
+        return null === $id ? null : $this->media->fetchById($id);
+    }
+
+    /**
+     * @param DraftFile $file
+     *
+     * @return array<string, mixed> The columns of a medium for its file
+     */
+    private static function fileValues(array $file): array
+    {
+        return [
+            'file' => $file['name'],
+            'fileName' => $file['fileName'],
+            'type' => $file['type'],
+            'size' => $file['size'],
+            'width' => $file['width'],
+            'height' => $file['height'],
+            'hash' => $file['hash'],
+        ];
     }
 
     /**

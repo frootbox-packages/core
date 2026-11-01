@@ -43,6 +43,7 @@ use Frootbox\Core\Media\MediaReferences;
 use Frootbox\Core\Media\MediaUrls;
 use Frootbox\Core\Media\MediumDetails;
 use Frootbox\Core\Media\PublishMedia;
+use Frootbox\Core\Media\ReplaceMedium;
 use Frootbox\Core\Media\ShowMedium;
 use Frootbox\Core\Media\UpdateMediaFolder;
 use Frootbox\Core\Media\UpdateMedium;
@@ -88,6 +89,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(MediaHandler::class)]
 #[CoversClass(MediaReferences::class)]
 #[CoversClass(MediaPruneCommand::class)]
+#[CoversClass(ReplaceMedium::class)]
 #[CoversClass(ImageType::class)]
 final class MediaTest extends NotesTestCase
 {
@@ -302,6 +304,102 @@ final class MediaTest extends NotesTestCase
         self::assertNull($this->get(Revisions::class)->draft(MediaDrafts::TYPE, $id), 'Deleting takes the draft along.');
     }
 
+    public function testReplacesTheFileOfAMediumThatIsNotPublicAtOnce(): void
+    {
+        $medium = $this->medium('hafen.jpg', 1200, 800);
+        $other = $this->medium('anderes.jpg', 300, 200);
+        $id = $medium->id;
+        $this->runner()->run(new UpdateMedium($id, focusX: 0.2, focusY: 0.3));
+        $first = $this->get(MediaFiles::class)->original($id);
+        $file = $this->image(600, 900, 'png');
+        copy($file, $file . '.copy');
+        copy($file, $file . '.other');
+
+        $replaced = $this->runner()->run(new ReplaceMedium($id, $this->receive($file, 'neu.png')['upload']));
+        $entry = $this->lastEntry();
+        self::assertSame($id, $replaced->id);
+        self::assertFalse($replaced->draft, 'Nobody sees it yet: no draft needed.');
+        self::assertSame(['neu.png', 'image/png', 600, 900, 3], [$replaced->fileName, $replaced->type, $replaced->width, $replaced->height, $replaced->version]);
+        self::assertSame(['x' => 0.2, 'y' => 0.3], $replaced->focus, 'The focus point stays (decision 0147).');
+        $stored = $this->get(Media::class)->getById($id);
+        self::assertNotNull($stored->file);
+        self::assertFileExists($this->get(MediaFiles::class)->original($stored->original()));
+        self::assertFileExists($first, 'The old original stays for undo.');
+        self::assertSame(200, $this->deliver($replaced->preview, $this->token(['editor']))->getStatusCode());
+
+        $this->assertInvalid(fn() => $this->runner()->run(new ReplaceMedium($id, $this->receive($file . '.copy', 'neu.png')['upload'])), '/upload');
+        $this->assertInvalid(fn() => $this->runner()->run(new ReplaceMedium($other->id, $this->receive($file . '.other', 'x.png')['upload'])), '/upload');
+
+        $this->runner()->run(new UndoAction($entry->id));
+        $back = $this->get(Media::class)->getById($id);
+        self::assertSame(['hafen.jpg', 1200, null], [$back->fileName, $back->width, $back->file]);
+
+        // The replacing file is used nowhere now; media:prune takes it once undo is over.
+        $unused = $this->get(MediaFiles::class)->original($stored->file);
+        touch($unused, time() - 32 * 86400);
+        touch($first, time() - 32 * 86400);
+        $tester = new CommandTester($this->get(MediaPruneCommand::class));
+        $tester->execute([]);
+        self::assertFileDoesNotExist($unused);
+        self::assertFileExists($first);
+        self::assertStringContainsString('1 original(s)', $tester->getDisplay());
+    }
+
+    public function testReplacingAPublicMediumWaitsInTheDraft(): void
+    {
+        $raw = $this->image(1200, 800);
+        copy($raw, $raw . '.copy');
+        $id = $this->runner()->run(new CreateMedium($this->receive($raw, 'hafen.jpg')['upload'], texts: ['de' => ['alt' => 'Hafen', 'title' => '']]))->id;
+        $this->publishWith($id);
+        $first = $this->get(MediaFiles::class)->original($id);
+        $file = $this->image(800, 800);
+        copy($file, $file . '.copy');
+
+        $replaced = $this->runner()->run(new ReplaceMedium($id, $this->receive($file, 'neu.jpg')['upload']));
+        self::assertTrue($replaced->draft);
+        self::assertSame(['neu.jpg', 800, 2], [$replaced->fileName, $replaced->width, $replaced->version]);
+        self::assertSame(['hafen.jpg', 1, null], [$this->get(Media::class)->getById($id)->fileName, $this->get(Media::class)->getById($id)->version, $this->get(Media::class)->getById($id)->file]);
+        self::assertMatchesRegularExpression('#<img src="/media/' . $id . '/1/hafen-#', $this->startPage(false), 'Visitors see the published file.');
+        self::assertMatchesRegularExpression('#<img src="/media/' . $id . '/2/neu-[^>]+ alt="Hafen"#', $this->startPage(true), 'The editing mode shows the new one.');
+        self::assertSame(404, $this->deliver($replaced->preview)->getStatusCode());
+        self::assertSame(200, $this->deliver($replaced->preview, $this->token(['editor']))->getStatusCode());
+
+        // The file in the draft is found again as well.
+        $again = $this->runner()->run(new CreateMedium($this->receive($file . '.copy', 'kopie.jpg')['upload']));
+        self::assertTrue($again->existing);
+        self::assertSame($id, $again->id);
+
+        // The published file again takes the new one out of the draft.
+        $draftFile = $this->get(MediaDrafts::class)->of($id)['file']['name'] ?? '';
+        $undone = $this->runner()->run(new ReplaceMedium($id, $this->receive($raw . '.copy', 'hafen.jpg')['upload']));
+        self::assertFalse($undone->draft);
+        self::assertSame(['hafen.jpg', 1], [$undone->fileName, $undone->version]);
+        self::assertFileExists($this->get(MediaFiles::class)->original($draftFile), 'It stays for undo.');
+
+        $this->runner()->run(new ReplaceMedium($id, $this->receive($this->image(500, 400), 'zweites.jpg')['upload']));
+        $this->runner()->run(new PublishMedia([$id]));
+        $live = $this->get(Media::class)->getById($id);
+        self::assertSame(['zweites.jpg', 500, 2], [$live->fileName, $live->width, $live->version]);
+        self::assertNotNull($live->file);
+        self::assertMatchesRegularExpression('#<img src="/media/' . $id . '/2/zweites-[^>]+ alt="Hafen"#', $this->startPage(false));
+        self::assertFileExists($first, 'The replaced original stays for undo.');
+
+        $this->runner()->run(new ReplaceMedium($id, $this->receive($this->image(300, 300), 'drittes.jpg')['upload']));
+        $third = $this->get(MediaDrafts::class)->of($id)['file']['name'] ?? '';
+        $this->runner()->run(new DiscardMedium($id));
+        self::assertFileExists($this->get(MediaFiles::class)->original($third));
+
+        foreach ([$first, $this->get(MediaFiles::class)->original($draftFile), $this->get(MediaFiles::class)->original($third), $this->get(MediaFiles::class)->original($live->original())] as $old) {
+            touch($old, time() - 32 * 86400);
+        }
+
+        new CommandTester($this->get(MediaPruneCommand::class))->execute([]);
+        self::assertFileDoesNotExist($first);
+        self::assertFileDoesNotExist($this->get(MediaFiles::class)->original($third));
+        self::assertFileExists($this->get(MediaFiles::class)->original($live->original()), 'The published file stays, however old.');
+        self::assertSame(200, $this->deliver($this->get(MediaUrls::class)->url($live, 320, 0, 'webp'))->getStatusCode());
+    }
+
     public function testCutsAroundTheFocusPoint(): void
     {
         self::assertSame([800, 800, 0, 0], Images::crop(1200, 800, 1.0, 0, 500));
@@ -385,7 +483,7 @@ final class MediaTest extends NotesTestCase
         $tester->execute([]);
         self::assertFileDoesNotExist($original);
         self::assertFileExists($this->get(MediaFiles::class)->original($kept->id));
-        self::assertStringContainsString('files of 1 deleted', $tester->getDisplay());
+        self::assertStringContainsString('1 original(s)', $tester->getDisplay());
     }
 
     public function testUploadsThroughTheApi(): void

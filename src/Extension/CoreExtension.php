@@ -67,6 +67,7 @@ use Frootbox\Core\Media\MediaPruneCommand;
 use Frootbox\Core\Media\MediaUsagesCommand;
 use Frootbox\Core\Media\PublishMedia;
 use Frootbox\Core\Media\RebuildMediaUsages;
+use Frootbox\Core\Media\ReplaceMedium;
 use Frootbox\Core\Media\ShowMedium;
 use Frootbox\Core\Media\UpdateMediaFolder;
 use Frootbox\Core\Media\UpdateMedium;
@@ -212,7 +213,7 @@ final class CoreExtension implements Extension
 
         $registry->listen(ActionExecuted::class, ClearPageCache::class);
 
-        foreach ([CreateMedium::class, UpdateMedium::class, DeleteMedium::class, PublishMedia::class, DiscardMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class, RebuildMediaUsages::class] as $action) {
+        foreach ([CreateMedium::class, UpdateMedium::class, ReplaceMedium::class, DeleteMedium::class, PublishMedia::class, DiscardMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class, RebuildMediaUsages::class] as $action) {
             $registry->action($action);
         }
 

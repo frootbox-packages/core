@@ -16,19 +16,22 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Removes uploads older than a day and originals of deleted media once
- * their deletion can no longer be undone (actions.undo_days, default 30).
+ * Removes uploads older than a day and originals that no medium and no
+ * draft uses any more once that can no longer be undone
+ * (actions.undo_days, default 30): those of deleted media and replaced
+ * files (decision 0147).
  * For a daily cron job:
  *
  *     0 3 * * * php /path/to/project/bin/frootbox media:prune
  */
-#[AsCommand(name: 'media:prune', description: 'Removes old uploads and the files of deleted media')]
+#[AsCommand(name: 'media:prune', description: 'Removes old uploads and originals no longer used')]
 final class MediaPruneCommand extends Command
 {
     public function __construct(
         private readonly Uploads $uploads,
         private readonly MediaFiles $files,
         private readonly Media $media,
+        private readonly MediaDrafts $drafts,
         private readonly Config $config,
     ) {
         parent::__construct();
@@ -38,9 +41,21 @@ final class MediaPruneCommand extends Command
     {
         $days = $this->config->int('actions.undo_days', 30);
         $uploads = $this->uploads->prune();
-        $originals = $this->files->pruneOriginals(fn(string $id): bool => null !== $this->media->fetchById($id), ($days + 1) * 86400);
+        $ids = [];
+        $used = array_fill_keys($this->drafts->originals(), true);
 
-        new SymfonyStyle($input, $output)->success(\sprintf('Removed %d upload(s) and the files of %d deleted medium/media.', $uploads, $originals));
+        foreach ($this->media->fetch() as $medium) {
+            $ids[$medium->id] = true;
+            $used[$medium->original()] = true;
+        }
+
+        $originals = $this->files->pruneOriginals(
+            static fn(string $name): bool => isset($used[$name]),
+            static fn(string $id): bool => isset($ids[$id]),
+            ($days + 1) * 86400,
+        );
+
+        new SymfonyStyle($input, $output)->success(\sprintf('Removed %d upload(s) and %d original(s) no longer used.', $uploads, $originals));
 
         return Command::SUCCESS;
     }

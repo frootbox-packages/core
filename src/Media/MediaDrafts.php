@@ -17,11 +17,19 @@ use Frootbox\Core\Revision\Revisions;
  * see as a revision "media" until they are published:
  *
  *     {"version": 3, "focusX": 250, "focusY": 500,
- *      "texts": {"de": {"alt": "…", "title": "…"}}}
+ *      "texts": {"de": {"alt": "…", "title": "…"}},
+ *      "file": {"name": "01J…-a1b2c3d4", "fileName": "kaffee.jpg",
+ *               "type": "image/jpeg", "size": 81234, "width": 1600,
+ *               "height": 900, "hash": "…"}}
  *
- * The version is the one of the published medium, one more once the
- * sizes differ (a new focus point). Guests see the published state, the
- * editing mode and the media library the draft.
+ * "file" is null as long as the file stays; a new one (media.replace)
+ * keeps its own original. The version is the one of the published
+ * medium, one more once the sizes differ (a new file or focus point).
+ * Guests see the published state, the editing mode and the media
+ * library the draft.
+ *
+ * @phpstan-type DraftFile array{name: string, fileName: string, type: string, size: int, width: int, height: int, hash: string|null}
+ * @phpstan-type Draft array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>, file: DraftFile|null}
  */
 final readonly class MediaDrafts
 {
@@ -34,7 +42,7 @@ final readonly class MediaDrafts
     ) {}
 
     /**
-     * @return array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>}|null
+     * @return Draft|null
      */
     public function of(string $id): ?array
     {
@@ -56,11 +64,11 @@ final readonly class MediaDrafts
     /**
      * The published state as the start of a draft.
      *
-     * @return array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>}
+     * @return Draft
      */
     public function start(Medium $medium): array
     {
-        return ['version' => $medium->version, 'focusX' => $medium->focusX, 'focusY' => $medium->focusY, 'texts' => $this->published($medium->id)];
+        return ['version' => $medium->version, 'focusX' => $medium->focusX, 'focusY' => $medium->focusY, 'texts' => $this->published($medium->id), 'file' => null];
     }
 
     /**
@@ -106,32 +114,69 @@ final readonly class MediaDrafts
     }
 
     /**
-     * @param array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>} $draft
+     * @param Draft $draft
      */
     public static function apply(Medium $medium, array $draft): Medium
     {
+        $file = $draft['file'];
+
         return new Medium(
-            $medium->id,
-            $medium->folderId,
-            $medium->fileName,
-            $medium->type,
-            $medium->size,
-            $medium->width,
-            $medium->height,
-            $draft['focusX'],
-            $draft['focusY'],
-            $draft['version'],
-            $medium->public,
-            $medium->hash,
-            $medium->createdAt,
-            $medium->updatedAt,
+            id: $medium->id,
+            folderId: $medium->folderId,
+            fileName: $file['fileName'] ?? $medium->fileName,
+            type: $file['type'] ?? $medium->type,
+            size: $file['size'] ?? $medium->size,
+            width: $file['width'] ?? $medium->width,
+            height: $file['height'] ?? $medium->height,
+            focusX: $draft['focusX'],
+            focusY: $draft['focusY'],
+            version: $draft['version'],
+            public: $medium->public,
+            hash: null === $file ? $medium->hash : $file['hash'],
+            createdAt: $medium->createdAt,
+            updatedAt: $medium->updatedAt,
+            file: null === $file ? $medium->file : $file['name'],
         );
+    }
+
+    /**
+     * The medium whose draft has a file with this hash.
+     */
+    public function idWithHash(string $hash): ?string
+    {
+        foreach ($this->revisions->drafts(self::TYPE) as $revision) {
+            if ($hash === (self::clean($revision->data)['file']['hash'] ?? null)) {
+                return $revision->entityId;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Names of the originals that drafts use.
+     *
+     * @return list<string>
+     */
+    public function originals(): array
+    {
+        $names = [];
+
+        foreach ($this->revisions->drafts(self::TYPE) as $revision) {
+            $file = self::clean($revision->data)['file'];
+
+            if (null !== $file) {
+                $names[] = $file['name'];
+            }
+        }
+
+        return $names;
     }
 
     /**
      * @param array<mixed> $data
      *
-     * @return array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>}
+     * @return Draft
      */
     private static function clean(array $data): array
     {
@@ -146,11 +191,24 @@ final readonly class MediaDrafts
             }
         }
 
+        $file = $data['file'] ?? null;
+        $int = static fn(mixed $value): int => \is_int($value) ? $value : 0;
+        $text = static fn(mixed $value): string => \is_string($value) ? $value : '';
+
         return [
             'version' => \is_int($data['version'] ?? null) ? $data['version'] : 1,
             'focusX' => \is_int($data['focusX'] ?? null) ? $data['focusX'] : 500,
             'focusY' => \is_int($data['focusY'] ?? null) ? $data['focusY'] : 500,
             'texts' => $texts,
+            'file' => !\is_array($file) || !\is_string($file['name'] ?? null) ? null : [
+                'name' => $file['name'],
+                'fileName' => $text($file['fileName'] ?? null),
+                'type' => $text($file['type'] ?? null),
+                'size' => $int($file['size'] ?? null),
+                'width' => $int($file['width'] ?? null),
+                'height' => $int($file['height'] ?? null),
+                'hash' => \is_string($file['hash'] ?? null) ? $file['hash'] : null,
+            ],
         ];
     }
 

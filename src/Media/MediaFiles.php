@@ -12,15 +12,41 @@ use Frootbox\Core\ProjectPaths;
 
 /**
  * Where the files of media lie (decision 0075): originals in
- * storage/media/, generated sizes in public/media/<id>/.
+ * storage/media/, generated sizes in public/media/<id>/. The first
+ * original of a medium is named by its id, each replacing one by the id
+ * and a random part (decision 0147).
  */
 final readonly class MediaFiles
 {
     public function __construct(private ProjectPaths $paths) {}
 
-    public function original(string $id): string
+    /**
+     * @param string $name The id for the first file of a medium, see Medium::original()
+     */
+    public function original(string $name): string
     {
-        return $this->paths->storage('media/' . $id);
+        return $this->paths->storage('media/' . $name);
+    }
+
+    /**
+     * A name for another original of the medium.
+     */
+    public static function newName(string $id): string
+    {
+        return $id . '-' . bin2hex(random_bytes(4));
+    }
+
+    /**
+     * An original no medium or draft uses any more stays for undo;
+     * media:prune counts its age from now.
+     */
+    public function release(string $name): void
+    {
+        $file = $this->original($name);
+
+        if (is_file($file)) {
+            @touch($file);
+        }
     }
 
     /**
@@ -59,14 +85,16 @@ final readonly class MediaFiles
     }
 
     /**
-     * Originals that no medium owns any more and that are older than the
-     * given number of seconds.
+     * Originals that no medium and no draft uses any more and that are
+     * older than the given number of seconds. The generated files go with
+     * the original of a medium that is gone.
      *
-     * @param callable(string): bool $owned Whether a medium has this id
+     * @param callable(string): bool $used   Whether a medium or a draft uses the original of this name
+     * @param callable(string): bool $exists Whether a medium has this id
      *
      * @return int How many were removed
      */
-    public function pruneOriginals(callable $owned, int $age, ?int $now = null): int
+    public function pruneOriginals(callable $used, callable $exists, int $age, ?int $now = null): int
     {
         $now ??= time();
         $removed = 0;
@@ -74,9 +102,16 @@ final readonly class MediaFiles
         $files = glob($this->paths->storage('media/*'));
 
         foreach (false === $files ? [] : $files as $file) {
-            if (is_file($file) && filemtime($file) < $now - $age && !$owned(basename($file))) {
+            $name = basename($file);
+
+            if (is_file($file) && filemtime($file) < $now - $age && !$used($name)) {
                 @unlink($file);
-                $this->removePublic(basename($file));
+                $id = explode('-', $name, 2)[0];
+
+                if (!$exists($id)) {
+                    $this->removePublic($id);
+                }
+
                 ++$removed;
             }
         }

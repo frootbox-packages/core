@@ -90,7 +90,7 @@ final readonly class MediaHandler implements RequestHandlerInterface
             throw HttpException::notFound($path);
         }
 
-        $original = $this->files->original($id);
+        $original = $this->files->original($medium->original());
 
         if (!is_file($original)) {
             throw HttpException::notFound($path);
