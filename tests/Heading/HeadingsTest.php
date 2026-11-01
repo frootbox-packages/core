@@ -142,6 +142,7 @@ final class HeadingsTest extends TestCase
         self::assertStringContainsString('<main id="content"><h1 class="fb-visually-hidden">Our page</h1><figure>', $html);
         self::assertStringContainsString('.fb-visually-hidden{position:absolute', implode('', $assets->inlineStyles()));
         self::assertStringNotContainsString('<h2', $html, 'An empty heading leaves nothing behind.');
+        self::assertStringNotContainsString('class="hero"', $html, 'Like an empty field it takes its element along.');
 
         $assets = new AssetList();
         self::assertStringNotContainsString('fb-visually-hidden', $this->page('acme/outline/OnePage', [], [$this->block('Hero', ['title' => 'Hi'])], assets: $assets));

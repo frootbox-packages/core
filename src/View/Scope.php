@@ -89,7 +89,8 @@ final readonly class Scope
      * The field as a heading at the level that fits where it stands
      * (decision 0129), e.g. {{ heading('title', 0, {class: 'hero__title'}) }}.
      * Rank 0 is the main heading of the block, 1 and deeper are below it.
-     * An empty field gives nothing and does not count; in the editing mode
+     * An empty field gives nothing and does not count, the element around
+     * it goes if it holds nothing else; in the editing mode
      * its placeholder shows at the level it would get.
      *
      * @param array<mixed> $attributes
@@ -106,8 +107,9 @@ final readonly class Scope
 
         $empty = self::isEmpty($plain);
 
+        // Like an empty field: the element around goes if it holds nothing else (decision 0144).
         if ($empty && (null === $this->markup || $this->markup->anchors)) {
-            return new Markup('', 'UTF-8');
+            return EmptyElements::mark();
         }
 
         $level = $empty ? $headings->level($rank) : $headings->take($rank, $plain instanceof Markup ? (string) $plain : Html::escape($plain), $this->path . $name);
