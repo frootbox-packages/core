@@ -166,14 +166,15 @@ final class DesignTest extends NotesTestCase
         self::assertTrue($this->runner()->ask(new ShowDesign())->draft, 'Undoing the publication brings the draft back.');
     }
 
-    public function testEditorsMayChangeTheDesign(): void
+    public function testOnlyAdministratorsChangeTheDesignOfTheWholeWebsite(): void
     {
-        $editor = $this->context(['editor']);
-        $this->runner()->run(new UpdateDesign(['radius' => '6px']), $editor);
-        $this->runner()->run(new PublishDesign(), $editor);
+        $admin = $this->context(['admin']);
+        $this->runner()->run(new UpdateDesign(['radius' => '6px']), $admin);
+        $this->runner()->run(new PublishDesign(), $admin);
 
+        // Decision 0138: editors change pages, not the look of every page.
         $this->expectException(AccessDeniedException::class);
-        $this->runner()->run(new UpdateDesign(['radius' => '8px']), $this->context([]));
+        $this->runner()->run(new UpdateDesign(['radius' => '8px']), $this->context(['editor']));
     }
 
     public function testComparesColours(): void
