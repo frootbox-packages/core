@@ -10,6 +10,7 @@ namespace Frootbox\Core\Site;
 
 use Doctrine\DBAL\Exception\TableNotFoundException;
 use Frootbox\Core\Action\ActionException;
+use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Auth\Authentication;
 use Frootbox\Core\Config\Config;
@@ -33,7 +34,8 @@ use Throwable;
  *
  * - A link with ?fb-preview=<token> keeps the token in a cookie and
  *   leads to the same address without it. With a valid cookie the
- *   request carries PreviewAccess, so pages show the draft, read only.
+ *   request carries PreviewAccess, so pages show the draft, read only,
+ *   and its context the link, for comments (decision 0156).
  *   ?fb-preview=0 ends the preview.
  * - While a password protects the website, pages need a signed-in user,
  *   a valid preview or the cookie of the password; everyone else gets
@@ -85,6 +87,7 @@ final readonly class SiteAccessMiddleware implements MiddlewareInterface
 
         if (null !== $preview) {
             $request = $request->withAttribute(PreviewAccess::class, $preview);
+            $handler = $this->withPreview($handler, $preview->linkId);
         }
 
         $protection = $this->protection();
@@ -184,6 +187,26 @@ final readonly class SiteAccessMiddleware implements MiddlewareInterface
         $first = explode('/', ltrim($path, '/'), 2)[0];
 
         return '' !== $first && \in_array($first, $this->router->reservedSegments(), true);
+    }
+
+    /**
+     * Runs the request with the link in the context, for actions with
+     * preview: true such as comment.create (decision 0156).
+     */
+    private function withPreview(RequestHandlerInterface $handler, string $linkId): RequestHandlerInterface
+    {
+        return new readonly class ($handler, $this->service(CurrentContext::class), $linkId) implements RequestHandlerInterface {
+            public function __construct(
+                private RequestHandlerInterface $handler,
+                private CurrentContext $context,
+                private string $linkId,
+            ) {}
+
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                return $this->context->runAs($this->context->get()->withPreview($this->linkId), fn(): ResponseInterface => $this->handler->handle($request));
+            }
+        };
     }
 
     private function protection(): SiteProtection

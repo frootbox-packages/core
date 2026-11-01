@@ -108,6 +108,9 @@ final readonly class PageHandler implements RequestHandlerInterface
                 // A page in a fallback language has no content of its own to change (decision 0122).
                 $marking = !$resolution->page->isFallback() && $this->mayChange($request, $resolution->page->id);
                 $this->service(EditMode::class)->set(true, $marking, $marking && $this->mayChangeSite($request));
+            } elseif ($preview) {
+                // Light marks, so the customer can comment on a block or field (decision 0156).
+                $this->service(EditMode::class)->set(true, anchors: true);
             }
 
             $html = $this->render($resolution->page, $request);

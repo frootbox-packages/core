@@ -87,7 +87,12 @@ final class SiteFields
             $this->fields(),
             $this->values($language, $this->editMode->active()),
             $this->types,
-            $this->editMode->markingSite() ? $this->markup->forSite() : null,
+            match (true) {
+                $this->editMode->markingSite() => $this->markup->forSite(),
+                // Light marks in a preview, to comment on (decision 0156).
+                $this->editMode->anchors() => $this->markup->forPreview()->forSite(),
+                default => null,
+            },
         );
     }
 

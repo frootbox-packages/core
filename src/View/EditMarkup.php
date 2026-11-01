@@ -22,23 +22,42 @@ use Twig\Markup;
  *     <fb-field data-fb-field="address" data-fb-type="text" data-fb-label="Address" data-fb-optional data-fb-site tabindex="0">…</fb-field>
  *     <section data-fb-block="01J…" data-fb-name="acme/website/Teaser" data-fb-title="Teaser" data-fb-area="main">…</section>
  *     <fb-area data-fb-area="main" data-fb-empty></fb-area>
+ *
+ * In a preview only light marks to comment on (decision 0156): blocks as
+ * above, fields with path and label on the element they are alone in,
+ * no <fb-field> left, nothing for empty fields and areas.
  */
 final readonly class EditMarkup
 {
     /** Up to the first tag of a rendered block, after comments. */
     private const string ROOT = '/^\s*(?:<!--.*?-->\s*)*</s';
 
+    /** A field that was not moved onto its element. */
+    private const string WRAPPER = '~<fb-field\s[^>]*>((?:(?!</?fb-field[\s>]).)*)</fb-field>~s';
+
     /**
-     * @param bool $site For the fields of the website rather than of the page (decision 0128)
+     * @param bool $site    For the fields of the website rather than of the page (decision 0128)
+     * @param bool $anchors Only light marks for comments in a preview (decision 0156)
      */
-    public function __construct(private bool $site = false) {}
+    public function __construct(
+        private bool $site = false,
+        public bool $anchors = false,
+    ) {}
 
     /**
      * The markup for fields of the website, saved with site.update-field.
      */
     public function forSite(): self
     {
-        return new self(true);
+        return new self(true, $this->anchors);
+    }
+
+    /**
+     * Only light marks for comments in a preview (decision 0156).
+     */
+    public function forPreview(): self
+    {
+        return new self($this->site, true);
     }
 
     /**
@@ -49,6 +68,16 @@ final readonly class EditMarkup
      */
     public function field(string $path, Field $field, string|Markup $output, mixed $value = null): Markup
     {
+        if ($this->anchors) {
+            return new Markup(\sprintf(
+                '<fb-field data-fb-field="%s" data-fb-label="%s"%s>%s</fb-field>',
+                Html::escape($path),
+                Html::escape($field->label),
+                $this->site ? ' data-fb-site' : '',
+                $output instanceof Markup ? (string) $output : Html::escape($output),
+            ), 'UTF-8');
+        }
+
         return new Markup(\sprintf(
             '<fb-field data-fb-field="%s" data-fb-type="%s" data-fb-label="%s"%s%s%s tabindex="0"%s>%s</fb-field>',
             Html::escape($path),
@@ -91,6 +120,20 @@ final readonly class EditMarkup
             $html,
             flags: \PREG_OFFSET_CAPTURE,
         ) ?? $html;
+    }
+
+    /**
+     * Removes the fields that could not be moved onto their element, so a
+     * preview keeps the structure visitors get (decision 0156).
+     */
+    public function strip(string $html): string
+    {
+        do {
+            $before = $html;
+            $html = preg_replace(self::WRAPPER, '$1', $html) ?? $before;
+        } while ($html !== $before);
+
+        return $html;
     }
 
     /**

@@ -31,6 +31,7 @@ use Frootbox\Core\Page\PageOutline;
 use Frootbox\Core\Page\PageResolver;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\UpdatePage;
+use Frootbox\Core\Preview\PreviewAccess;
 use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\Url\DraftAddresses;
@@ -174,6 +175,24 @@ final class EditModeTest extends NotesTestCase
         self::assertStringContainsString('<li><fb-field data-fb-field="slides/0/title" data-fb-type="headline" data-fb-label="Title" data-fb-placeholder="Slide title" tabindex="0" data-fb-value="&quot;Eins&quot;">Eins</fb-field><fb-field data-fb-field="slides/0/link"', $html);
         self::assertStringContainsString('data-fb-field="slides/1/title"', $html);
         self::assertStringContainsString('<fb-area data-fb-area="main" data-fb-empty></fb-area>', $this->html('/ueber-uns', $this->admin));
+    }
+
+    public function testMarksLightlyInAPreview(): void
+    {
+        $this->get(Urls::class)->clear();
+        $this->get(PageOutline::class)->clear();
+        $request = new ServerRequest('GET', 'https://example.org/')->withAttribute(PreviewAccess::class, new PreviewAccess('01JPREVIEW0000000000000000', new DateTimeImmutable('+1 day')));
+        $html = (string) $this->get(PageHandler::class)->handle($request)->getBody();
+
+        self::assertTrue($this->get(EditMode::class)->anchors());
+        self::assertMatchesRegularExpression('/<article data-fb-block="[0-9a-z]{8}" data-fb-name="acme\/base\/Teaser" data-fb-title="Teaser" data-fb-area="main" class="site-teaser"/', $html);
+        self::assertStringContainsString('<h3 data-fb-field="title" data-fb-label="Title">Frisch geröstet</h3>', $html, 'A field alone in its element marks the element.');
+        self::assertStringContainsString('<li data-fb-field="slides/0/title" data-fb-label="Title">Eins</li>', $html, 'With the position as stored.');
+        self::assertStringNotContainsString('data-fb-field="text"', $html, 'An empty field leaves out its element, as for visitors.');
+
+        foreach (['<fb-field', '<fb-area', 'data-fb-type', 'data-fb-value', 'data-fb-placeholder', 'tabindex'] as $edit) {
+            self::assertStringNotContainsString($edit, $html);
+        }
     }
 
     public function testMarksOnlyWhatTheUserMayChange(): void

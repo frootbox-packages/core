@@ -126,7 +126,14 @@ final class PreviewLinksTest extends NotesTestCase
         $start = $this->deliver('/', self::token($link));
         self::assertSame(200, $start->getStatusCode());
         self::assertStringContainsString('Willkommen im Entwurf', (string) $start->getBody());
-        self::assertStringNotContainsString('data-fb-', (string) $start->getBody(), 'Read only, without markup.');
+        $body = (string) $start->getBody();
+
+        // Read only: light marks to comment on, nothing for editing (decision 0156).
+        self::assertStringContainsString('data-fb-field="heading" data-fb-label=', $body);
+
+        foreach (['<fb-field', '<fb-area', 'data-fb-type', 'data-fb-value', 'data-fb-placeholder', 'tabindex', 'fb-editor-bar'] as $edit) {
+            self::assertStringNotContainsString($edit, $body);
+        }
         self::assertSame('private, no-store', $start->getHeaderLine('Cache-Control'));
         self::assertSame('noindex, nofollow', $start->getHeaderLine('X-Robots-Tag'));
         self::assertSame('same-origin', $start->getHeaderLine('Referrer-Policy'));

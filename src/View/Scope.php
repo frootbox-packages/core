@@ -49,10 +49,15 @@ final readonly class Scope
         $field = $this->definition($name);
         $output = $this->types->get($field->type)->output($this->values[$name] ?? null, $field);
 
+        // A preview shows what visitors see, with light marks (decision 0156).
+        $visitor = null === $this->markup || $this->markup->anchors;
+
         return match (true) {
             // For visitors an empty field leaves out its element, a list its blank entries (decision 0144).
             null === $this->markup && $output instanceof ListValue => $output->withoutBlank(),
-            null === $this->markup && ('' === $output || ($output instanceof Markup && '' === (string) $output)) => EmptyElements::mark(),
+            // The paths first, so they keep the stored positions.
+            $visitor && $output instanceof ListValue => $output->within($this->markup, $this->path . $name . '/')->withoutBlank(),
+            $visitor && ('' === $output || ($output instanceof Markup && '' === (string) $output)) => EmptyElements::mark(),
             null === $this->markup => $output,
             $output instanceof ListValue => $output->within($this->markup, $this->path . $name . '/'),
             \is_string($output) || $output instanceof Markup => $this->markup->field($this->path . $name, $field, $output, $this->values[$name] ?? null),

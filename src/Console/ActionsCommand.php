@@ -56,6 +56,7 @@ final class ActionsCommand extends Command
                 match (true) {
                     $descriptor->public => 'public',
                     $descriptor->signedIn => 'signed in',
+                    $descriptor->preview => $descriptor->permission . ', preview links',
                     default => $descriptor->permission,
                 },
                 $descriptor->description,

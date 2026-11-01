@@ -79,11 +79,12 @@ final readonly class ComponentRenderer
         $language = null !== $delivery && $delivery->isFallback() ? $delivery->contentLanguage()->code : null;
         $html = '';
         $marking = $this->editMode->marking();
+        $marked = $marking || $this->editMode->anchors();
 
         foreach ($frame->instance->areas[$name] ?? [] as $block) {
             $rendered = $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets);
             $rendered = null === $language ? $rendered : self::withLanguage($rendered, $language);
-            $component = $marking ? $this->service(Components::class)->get(ComponentKind::Block, $block->name) : null;
+            $component = $marked ? $this->service(Components::class)->get(ComponentKind::Block, $block->name) : null;
             $html .= null === $component ? $rendered : $this->markup->block($rendered, $block, $component, $name);
         }
 
@@ -115,14 +116,23 @@ final readonly class ComponentRenderer
 
         $assets?->addComponent($component);
 
-        $marking = $this->editMode->marking();
+        $markup = match (true) {
+            $this->editMode->marking() => $this->markup,
+            $this->editMode->anchors() => $this->markup->forPreview(),
+            default => null,
+        };
         $html = $this->service(Twig::class)->render($component->variant($instance->variant)->template, [
             'id' => $instance->id,
             'options' => $component->variant($instance->variant)->options($instance->options),
-            Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types, $marking ? $this->markup : null), $depth, $assets),
+            Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types, $markup), $depth, $assets),
         ]);
 
-        return $marking ? $this->markup->unwrap($html, keepRoot: ComponentKind::Block === $kind) : EmptyElements::remove($html);
+        return match (true) {
+            null === $markup => EmptyElements::remove($html),
+            // A preview: the page as visitors get it, with light marks (decision 0156).
+            $markup->anchors => $markup->strip($markup->unwrap(EmptyElements::remove($html), keepRoot: ComponentKind::Block === $kind)),
+            default => $markup->unwrap($html, keepRoot: ComponentKind::Block === $kind),
+        };
     }
 
     /**

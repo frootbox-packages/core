@@ -33,6 +33,7 @@ final class Descriptor
         public readonly bool $signedIn,
         public readonly bool $undoable,
         public readonly string $class,
+        public readonly bool $preview = false,
     ) {}
 
     /**
@@ -63,6 +64,10 @@ final class Descriptor
             throw new DefinitionException(\sprintf('%s cannot be public and signedIn at once.', $class));
         }
 
+        if ($info->preview && ($info->public || $info->signedIn)) {
+            throw new DefinitionException(\sprintf('%s cannot be for preview links and public or signedIn at once.', $class));
+        }
+
         if (!$reflection->hasMethod('handle') || !$reflection->getMethod('handle')->isPublic() || $reflection->getMethod('handle')->isStatic()) {
             throw new DefinitionException(\sprintf('%s needs a public method handle().', $class));
         }
@@ -76,6 +81,7 @@ final class Descriptor
             $info->signedIn,
             $info instanceof AsAction && $info->undoable,
             $class,
+            $info->preview,
         );
     }
 

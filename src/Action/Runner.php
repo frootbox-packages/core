@@ -11,6 +11,7 @@ namespace Frootbox\Core\Action;
 use Doctrine\DBAL\Connection;
 use Frootbox\Core\Action\Schema\InputMapper;
 use Frootbox\Core\Action\Schema\InputValidator;
+use Frootbox\Core\Auth\ActorType;
 use Frootbox\Core\Auth\Gate;
 use Invoker\InvokerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -148,8 +149,11 @@ final readonly class Runner
      */
     private function check(Descriptor $descriptor, array $input, Context $context, ?int $parentId, ?object $object = null): void
     {
+        // Guests with a valid preview link, checked by the SiteAccessMiddleware (decision 0156).
+        $preview = $descriptor->preview && ActorType::Guest === $context->actor->type && null !== $context->previewLinkId;
+
         try {
-            if (!$this->gate->allows($context->actor, $descriptor)) {
+            if (!$preview && !$this->gate->allows($context->actor, $descriptor)) {
                 throw AccessDeniedException::for($descriptor, $context->actor);
             }
 
@@ -159,7 +163,7 @@ final readonly class Runner
                 throw new InvalidInputException($descriptor->name, $errors);
             }
 
-            if (null !== $object && !$this->gate->allowsFor($context->actor, $descriptor, $object)) {
+            if (!$preview && null !== $object && !$this->gate->allowsFor($context->actor, $descriptor, $object)) {
                 throw AccessDeniedException::for($descriptor, $context->actor);
             }
         } catch (AccessDeniedException|InvalidInputException $error) {

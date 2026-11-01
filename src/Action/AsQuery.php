@@ -22,6 +22,7 @@ final readonly class AsQuery
      * @param string|null $permission  Needed permission, by default the name
      * @param bool        $public      Anyone may run it
      * @param bool        $signedIn    Every signed-in user may run it
+     * @param bool        $preview     Guests with a valid preview link may run it as well (decision 0156)
      */
     public function __construct(
         public string $name,
@@ -29,5 +30,6 @@ final readonly class AsQuery
         public ?string $permission = null,
         public bool $public = false,
         public bool $signedIn = false,
+        public bool $preview = false,
     ) {}
 }
