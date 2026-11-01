@@ -83,19 +83,29 @@ final readonly class LinkType implements FieldType
         }
 
         $href = \is_string($value['target'] ?? null) ? $this->urls()->href($value['target']) : (\is_string($value['url'] ?? null) ? trim($value['url']) : null);
-        $text = \is_string($value['text'] ?? null) && '' !== $value['text'] ? $value['text'] : ($href ?? '');
+        $own = \is_string($value['text'] ?? null) && '' !== $value['text'];
 
         if (null === $href) {
-            return $text;
+            return $own ? $value['text'] : '';
         }
 
         $newWindow = true === ($value['newWindow'] ?? false);
 
-        return new Markup(Html::element('a', Html::escape($text), [
+        return new Markup(Html::element('a', Html::escape($own ? $value['text'] : self::shown($href)), [
             'href' => $href,
             'target' => $newWindow ? '_blank' : null,
             'rel' => $newWindow ? 'noopener noreferrer' : null,
+            // An address, phone number or e-mail runs from left to right, also in Arabic (decision 0133).
+            'dir' => $own ? null : 'ltr',
         ]), 'UTF-8');
+    }
+
+    /**
+     * What a link without text shows: the address, without "mailto:" and "tel:".
+     */
+    private static function shown(string $href): string
+    {
+        return (string) preg_replace('/^(mailto|tel):/i', '', $href);
     }
 
     private function urls(): Urls

@@ -121,6 +121,14 @@ final class FieldTypesTest extends TestCase
         self::assertArrayHasKey('/items/0/title', $errors);
     }
 
+    public function testALinkWithoutTextShowsItsAddressFromLeftToRight(): void
+    {
+        self::assertSame('<a href="mailto:info@example.org" dir="ltr">info@example.org</a>', $this->link(['url' => 'mailto:info@example.org']));
+        self::assertSame('<a href="tel:+4940123" dir="ltr">+4940123</a>', $this->link(['url' => 'tel:+4940123']));
+        self::assertSame('<a href="https://example.org" dir="ltr">https://example.org</a>', $this->link(['url' => 'https://example.org']));
+        self::assertSame('<a href="tel:+4940123">اتصل بنا</a>', $this->link(['url' => 'tel:+4940123', 'text' => 'اتصل بنا']), 'Own text keeps the direction around it.');
+    }
+
     public function testKnowsItsTypes(): void
     {
         self::assertSame(['headline', 'text', 'richtext', 'link', 'list', 'image'], $this->types->names());
@@ -192,5 +200,16 @@ final class FieldTypesTest extends TestCase
         }
 
         return $current;
+    }
+
+    /**
+     * @param array<string, string> $value
+     */
+    private function link(array $value): string
+    {
+        $output = $this->types->get('link')->output($value, new Field('link', 'link', 'Link'));
+        self::assertInstanceOf(\Stringable::class, $output);
+
+        return (string) $output;
     }
 }

@@ -119,7 +119,7 @@ final class ComponentRendererTest extends TestCase
 
         self::assertSame(
             '<main><h1>Home</h1><div class="columns wide"><ul class="news"></ul>' . "\n"
-            . '|<div class="hero">Line one<br>' . "\n" . 'Line &lt;two&gt;<ul><li>First<a href="/first">/first</a></li><li>Second</li></ul>2</div>' . "\n"
+            . '|<div class="hero">Line one<br>' . "\n" . 'Line &lt;two&gt;<ul><li>First<a href="/first" dir="ltr">/first</a></li><li>Second</li></ul>2</div>' . "\n"
             . '<!-- Frootbox: unknown block acme/other/Promo --></div>' . "\n"
             . '</main>' . "\n",
             $html,
