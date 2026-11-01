@@ -238,6 +238,7 @@ final readonly class PageHandler implements RequestHandlerInterface
             $page->isStart() ? $site : $page->translation->title . ' – ' . $site,
             // A fallback points search engines to the original.
             $urls->absolute($page->target(), $page->isFallback() ? $page->contentLanguage : $page->language, $base),
+            $languages->get($page->language)->direction->value,
         );
 
         if (null !== $this->service(PageOutline::class)->excludedFromSearchEnginesBy($page->id)) {

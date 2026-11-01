@@ -76,8 +76,9 @@ final readonly class Document
         $lines = [...$lines, $this->tags->styles($assets), ...$head->tags(), $this->tags->scripts($assets)];
 
         return \sprintf(
-            "<!doctype html>\n<html lang=\"%s\">\n<head>\n%s\n</head>\n<body>\n%s\n</body>\n</html>\n",
+            "<!doctype html>\n<html lang=\"%s\" dir=\"%s\">\n<head>\n%s\n</head>\n<body>\n%s\n</body>\n</html>\n",
             Html::escape($head->language),
+            Html::escape($head->direction),
             implode("\n", array_filter($lines, static fn(string $line): bool => '' !== $line)),
             $body,
         );

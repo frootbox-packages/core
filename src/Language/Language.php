@@ -14,10 +14,13 @@ namespace Frootbox\Core\Language;
  */
 final readonly class Language
 {
+    public Direction $direction;
+
     /**
      * @param string      $prefix   The first path segment, e.g. "en"; empty for none
      * @param string|null $domain   A host of its own, e.g. "example.com"
-     * @param string|null $fallback The language whose content is shown where a page has no translation
+     * @param string|null    $fallback  The language whose content is shown where a page has no translation
+     * @param Direction|null $direction From the code if not given, e.g. right to left for "ar" (decision 0133)
      */
     public function __construct(
         public string $code,
@@ -25,7 +28,10 @@ final readonly class Language
         public string $prefix = '',
         public ?string $domain = null,
         public ?string $fallback = null,
-    ) {}
+        ?Direction $direction = null,
+    ) {
+        $this->direction = $direction ?? Direction::of($code);
+    }
 
     /**
      * The path of a page path in this language: "/en/about-us" for

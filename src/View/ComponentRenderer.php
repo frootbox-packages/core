@@ -100,9 +100,15 @@ final readonly class ComponentRenderer
             ));
         }
 
-        // Content from a fallback language gets its language marked for screen readers (decision 0105).
+        // Content from a fallback language gets its language marked for screen
+        // readers (decision 0105), and its direction where it differs (0133).
         $delivery = 0 === $frame->depth ? $this->service(Delivery::class) : null;
-        $language = null !== $delivery && $delivery->isFallback() ? $delivery->contentLanguage()->code : null;
+        [$language, $direction] = [null, null];
+
+        if (null !== $delivery && $delivery->isFallback()) {
+            $language = $delivery->contentLanguage();
+            $direction = $language->direction === $delivery->language()->direction ? null : $language->direction->value;
+        }
         $html = '';
         $marking = $this->editMode->marking();
         $marked = $marking || $this->editMode->anchors();
@@ -111,7 +117,7 @@ final readonly class ComponentRenderer
 
         foreach ($frame->instance->areas[$name] ?? [] as $block) {
             $rendered = $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets, $frame->headings->inArea($level, $block->id));
-            $rendered = null === $language ? $rendered : self::withLanguage($rendered, $language);
+            $rendered = null === $language ? $rendered : self::withLanguage($rendered, $language->code, $direction);
             $component = $marked ? $this->service(Components::class)->get(ComponentKind::Block, $block->name) : null;
             $html .= null === $component ? $rendered : $this->markup->block($rendered, $block, $component, $name);
         }
@@ -120,16 +126,16 @@ final readonly class ComponentRenderer
     }
 
     /**
-     * Adds lang="…" to the outer element of a rendered block, unless it has one.
+     * Adds lang="…" and dir="…" to the outer element of a rendered block,
+     * unless it has them.
      */
-    private static function withLanguage(string $html, string $language): string
+    private static function withLanguage(string $html, string $language, ?string $direction): string
     {
-        return (string) preg_replace(
-            '/^(\s*(?:<!--.*?-->\s*)*<[a-zA-Z][a-zA-Z0-9-]*)(?=[\s>\/])(?![^>]*\slang=)/s',
-            '$1 lang="' . Html::escape($language) . '"',
-            $html,
-            1,
-        );
+        $tag = '/^(\s*(?:<!--.*?-->\s*)*<[a-zA-Z][a-zA-Z0-9-]*)(?=[\s>\/])';
+        // dir first, so lang comes before it.
+        $html = null === $direction ? $html : (string) preg_replace($tag . '(?![^>]*\sdir=)/s', '$1 dir="' . Html::escape($direction) . '"', $html, 1);
+
+        return (string) preg_replace($tag . '(?![^>]*\slang=)/s', '$1 lang="' . Html::escape($language) . '"', $html, 1);
     }
 
     private function render(ComponentKind $kind, Instance $instance, int $depth, ?AssetList $assets, Headings $headings): string

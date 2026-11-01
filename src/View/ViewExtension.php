@@ -14,10 +14,12 @@ use Frootbox\Core\Navigation\Menus;
 use Frootbox\Core\Site\SiteFields;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
+use Frootbox\RichText\Html;
 use Psr\Container\ContainerInterface;
 use Twig\Error\RuntimeError;
 use Twig\Extension\AbstractExtension;
 use Twig\Markup;
+use Twig\TwigFilter;
 use Twig\TwigFunction;
 
 /**
@@ -32,6 +34,9 @@ use Twig\TwigFunction;
  *     {{ url(value('button')) }}      the URL of a link field
  *     {{ language() }}                the language of the visitor, e.g. "en"
  *     {{ content_language() }}        the language of the content, e.g. "de" on a fallback
+ *     {{ direction() }}               the writing direction of the visitor's language, "ltr" or "rtl"
+ *     {{ content_direction() }}       the one of the content
+ *     <p{{ content_attributes()|attributes }}> lang and dir of the content where they differ from the page
  *     {{ site_field('address') }}     a field of the website, the same on every page
  *     {{ site_value('brand') }}       its stored value
  *     {% for item in alternates() %}  the page in all languages, for a language switcher
@@ -56,12 +61,56 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('url', $this->url(...)),
             new TwigFunction('language', fn(): string => $this->service(Delivery::class)->language()->code),
             new TwigFunction('content_language', fn(): string => $this->service(Delivery::class)->contentLanguage()->code),
+            new TwigFunction('direction', fn(): string => $this->service(Delivery::class)->language()->direction->value),
+            new TwigFunction('content_direction', fn(): string => $this->service(Delivery::class)->contentLanguage()->direction->value),
+            new TwigFunction('content_attributes', $this->contentAttributes(...)),
             new TwigFunction('alternates', $this->alternates(...)),
             new TwigFunction('navigation', $this->navigation(...)),
             new TwigFunction('site_field', fn(string $name): mixed => $this->site()->field($name)),
             new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
             new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),
         ];
+    }
+
+    public function getFilters(): array
+    {
+        return [
+            new TwigFilter('attributes', self::attributes(...), ['is_safe' => ['html']]),
+        ];
+    }
+
+    /**
+     * lang and dir of the content where they differ from the page, e.g. on
+     * a fallback to another language (decision 0133); empty otherwise.
+     *
+     * @return array<string, string>
+     */
+    public function contentAttributes(): array
+    {
+        $delivery = $this->service(Delivery::class);
+        [$page, $content] = [$delivery->language(), $delivery->contentLanguage()];
+        $attributes = [];
+
+        if ($content->code !== $page->code) {
+            $attributes['lang'] = $content->code;
+        }
+
+        if ($content->direction !== $page->direction) {
+            $attributes['dir'] = $content->direction->value;
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Attributes for a tag, each with a space before it; null and false
+     * are left out, true writes the bare name.
+     *
+     * @param array<mixed> $attributes
+     */
+    public static function attributes(array $attributes): string
+    {
+        return substr(Html::open('i', Scope::attributes($attributes, 'attributes')), 2, -1);
     }
 
     /**
@@ -96,7 +145,7 @@ final class ViewExtension extends AbstractExtension
     /**
      * The page being delivered in every language it has a URL in.
      *
-     * @return list<array{code: string, title: string, url: string, current: bool, fallback: bool}>
+     * @return list<array{code: string, title: string, direction: string, url: string, current: bool, fallback: bool}>
      */
     public function alternates(): array
     {
@@ -118,6 +167,7 @@ final class ViewExtension extends AbstractExtension
                 $alternates[] = [
                     'code' => $language->code,
                     'title' => $language->title,
+                    'direction' => $language->direction->value,
                     'url' => $url,
                     'current' => $language->code === $delivery->language()->code,
                     'fallback' => $addresses[$language->code]->fallback,

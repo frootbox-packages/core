@@ -20,10 +20,14 @@ final class Head
     /** @var array<string, string> */
     private array $alternates = [];
 
+    /**
+     * @param string $direction "ltr" or "rtl" (decision 0133)
+     */
     public function __construct(
         public string $language,
         public string $title,
         public ?string $canonical = null,
+        public string $direction = 'ltr',
     ) {}
 
     /**

@@ -147,17 +147,17 @@ final readonly class Scope
      *
      * @return array<string, string|int|bool|null>
      */
-    private static function attributes(array $attributes): array
+    public static function attributes(array $attributes, string $function = 'heading()'): array
     {
         $checked = [];
 
         foreach ($attributes as $name => $value) {
             if (!\is_string($name) || 1 !== preg_match(self::ATTRIBUTE, $name)) {
-                throw new ViewException(\sprintf('heading() got "%s" as the name of an attribute.', (string) $name));
+                throw new ViewException(\sprintf('%s got "%s" as the name of an attribute.', $function, (string) $name));
             }
 
             if (null !== $value && !\is_scalar($value)) {
-                throw new ViewException(\sprintf('heading() got no text for the attribute "%s".', $name));
+                throw new ViewException(\sprintf('%s got no text for the attribute "%s".', $function, $name));
             }
 
             $checked[$name] = \is_float($value) ? (string) $value : $value;

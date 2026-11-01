@@ -57,7 +57,7 @@ final class EntryAndLinksTest extends NotesTestCase
         self::assertSame('/de', $this->request('https://example.org/', ['Accept-Language' => 'en'])->getHeaderLine('Location'), 'English lives on its own domain.');
 
         $english = (string) $this->request('https://example.com/about-us')->getBody();
-        self::assertStringContainsString('<html lang="en">', $english);
+        self::assertStringContainsString('<html lang="en" dir="ltr">', $english);
         self::assertStringContainsString('<link rel="canonical" href="https://example.com/about-us">', $english);
         self::assertStringContainsString('<link rel="alternate" hreflang="de" href="https://example.org/de/ueber-uns">', $english);
         self::assertStringContainsString('<link rel="alternate" hreflang="x-default" href="https://example.org/de/ueber-uns">', $english);
@@ -101,9 +101,9 @@ final class EntryAndLinksTest extends NotesTestCase
 
         $this->get(Delivery::class)->set($this->get(Languages::class)->get('de'), target: Target::page($this->about));
         self::assertSame([
-            ['code' => 'de', 'title' => 'Deutsch', 'url' => '/de/ueber-uns', 'current' => true, 'fallback' => false],
-            ['code' => 'en', 'title' => 'English', 'url' => 'https://example.com/about-us', 'current' => false, 'fallback' => false],
-            ['code' => 'fr', 'title' => 'Français', 'url' => '/fr/ueber-uns', 'current' => false, 'fallback' => true],
+            ['code' => 'de', 'title' => 'Deutsch', 'direction' => 'ltr', 'url' => '/de/ueber-uns', 'current' => true, 'fallback' => false],
+            ['code' => 'en', 'title' => 'English', 'direction' => 'ltr', 'url' => 'https://example.com/about-us', 'current' => false, 'fallback' => false],
+            ['code' => 'fr', 'title' => 'Français', 'direction' => 'ltr', 'url' => '/fr/ueber-uns', 'current' => false, 'fallback' => true],
         ], $this->get(ViewExtension::class)->alternates());
 
         $html = $this->get(ComponentRenderer::class)->block(['block' => 'acme/base/Teaser', 'fields' => ['title' => 'x', 'button' => ['target' => 'page:01ARZ3NDEKTSV4RRFFQ69G5FAV', 'text' => 'Weg']]]);

@@ -110,7 +110,13 @@ final readonly class Languages
                 throw new ConfigException(\sprintf('The language "%s" in config/app.yaml: "prefix" and "domain" must be text, "fallback" a language code or false.', $code));
             }
 
-            $languages[] = new Language($code, $title, trim($prefix, '/'), null === $domain ? null : strtolower($domain), false === $fallback ? null : $fallback);
+            $direction = $settings['direction'] ?? null;
+
+            if (null !== $direction && !(\is_string($direction) && null !== Direction::tryFrom($direction))) {
+                throw new ConfigException(\sprintf('The language "%s" in config/app.yaml: "direction" must be "ltr" or "rtl". Without it the code decides.', $code));
+            }
+
+            $languages[] = new Language($code, $title, trim($prefix, '/'), null === $domain ? null : strtolower($domain), false === $fallback ? null : $fallback, null === $direction ? null : Direction::from($direction));
         }
 
         return new self($languages, $reserved);

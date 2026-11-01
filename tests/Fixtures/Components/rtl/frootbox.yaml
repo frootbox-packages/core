@@ -1,0 +1,3 @@
+title: Theme for directions
+theme:
+  parent: acme/base

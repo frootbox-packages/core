@@ -1,0 +1,9 @@
+{# frootbox
+title: Page
+fields:
+  heading: { type: headline }
+areas:
+  main: {}
+#}
+<nav data-direction="{{ direction() }}" data-content-direction="{{ content_direction() }}">{% for alternate in alternates() %}<a href="{{ alternate.url }}" lang="{{ alternate.code }}" dir="{{ alternate.direction }}">{{ alternate.title }}</a>{% endfor %}</nav>
+<main>{{ heading('heading', 0, {class: 'title'}|merge(content_attributes())) }}<p class="intro"{{ content_attributes()|attributes }}>…</p>{{ area('main') }}</main>

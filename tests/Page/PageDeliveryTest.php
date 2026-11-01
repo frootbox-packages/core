@@ -50,7 +50,7 @@ final class PageDeliveryTest extends NotesTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('text/html; charset=utf-8', $response->getHeaderLine('Content-Type'));
-        self::assertStringStartsWith("<!doctype html>\n<html lang=\"de\">", $html);
+        self::assertStringStartsWith("<!doctype html>\n<html lang=\"de\" dir=\"ltr\">", $html);
         self::assertStringContainsString('<title>Testsite</title>', $html, 'The start page has the name of the site as title.');
         self::assertStringContainsString('<link rel="canonical" href="https://example.org/">', $html);
         self::assertStringContainsString('<style>@layer reset, tokens, base, layouts, blocks, theme, project;</style>', $html);

@@ -62,20 +62,20 @@ final class PageUrlsTest extends NotesTestCase
         $this->publish($start, $about, $team);
 
         $html = $this->html('/en/about-us');
-        self::assertStringStartsWith("<!doctype html>\n<html lang=\"en\">", $html);
+        self::assertStringStartsWith("<!doctype html>\n<html lang=\"en\" dir=\"ltr\">", $html);
         self::assertStringContainsString('<title>About us – Testsite</title>', $html);
         self::assertStringContainsString('<link rel="canonical" href="https://example.org/en/about-us">', $html);
         self::assertStringContainsString('<link rel="alternate" hreflang="de" href="https://example.org/ueber-uns">', $html);
         self::assertStringContainsString('<link rel="alternate" hreflang="en" href="https://example.org/en/about-us">', $html);
         self::assertStringContainsString('<link rel="alternate" hreflang="x-default" href="https://example.org/ueber-uns">', $html);
 
-        self::assertStringContainsString('<html lang="de">', $this->html('/ueber-uns'));
+        self::assertStringContainsString('<html lang="de" dir="ltr">', $this->html('/ueber-uns'));
         self::assertStringContainsString('<title>Testsite</title>', $this->html('/en'));
         $this->assertStatus(404, '/en/ueber-uns');
 
         // Team has no English translation: English frame, German content, canonical to the German original.
         $fallback = $this->html('/en/about-us/team');
-        self::assertStringContainsString('<html lang="en">', $fallback);
+        self::assertStringContainsString('<html lang="en" dir="ltr">', $fallback);
         self::assertStringContainsString('<article lang="de" class="site-teaser"><h3>Unser Team</h3>', $fallback);
         self::assertStringContainsString('<link rel="canonical" href="https://example.org/ueber-uns/team">', $fallback);
         self::assertStringNotContainsString('hreflang', $fallback, 'Only one real translation, so no alternates.');
@@ -152,7 +152,7 @@ final class PageUrlsTest extends NotesTestCase
         $english = $this->createPage($start, ['de' => 'Anfahrt', 'en' => 'Kontakt']);
         $this->publish($start, $german, $english);
 
-        self::assertStringContainsString('<html lang="en">', $this->html('/en/kontakt'));
+        self::assertStringContainsString('<html lang="en" dir="ltr">', $this->html('/en/kontakt'));
         self::assertSame('/en/kontakt', $this->get(Urls::class)->path(Target::page($english), 'en'));
         self::assertNull($this->get(Urls::class)->path(Target::page($german), 'en'), 'The fallback slug is taken by an own one.');
     }
