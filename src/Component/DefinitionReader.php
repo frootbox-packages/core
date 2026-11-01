@@ -68,6 +68,7 @@ final readonly class DefinitionReader
         'allow' => ['type' => 'array', 'items' => ['type' => 'string']],
         'min' => ['type' => 'integer', 'minimum' => 0],
         'max' => ['type' => 'integer', 'minimum' => 1],
+        'level' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 6],
     ];
 
     public function __construct(
@@ -246,6 +247,7 @@ final readonly class DefinitionReader
                 $allow,
                 \is_int($min) ? $min : null,
                 \is_int($max) ? $max : null,
+                \is_int($definition['level'] ?? null) ? $definition['level'] : null,
             );
         }
 

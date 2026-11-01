@@ -1,0 +1,11 @@
+{# frootbox
+title: FAQ
+fields:
+  title: { type: headline, optional: true }
+  items:
+    type: list
+    fields:
+      question: { type: headline }
+      answer: { type: richtext, optional: true, headings: 0 }
+#}
+<section class="faq">{{ heading('title') }}{% for item in field('items') %}<details><summary>{{ item.heading('question', 1, {class: 'faq__question'}) }}</summary>{{ item.field('answer') }}</details>{% endfor %}</section>

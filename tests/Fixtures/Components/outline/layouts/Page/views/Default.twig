@@ -1,0 +1,10 @@
+{# frootbox
+title: Page
+fields:
+  title: { type: headline }
+  intro: { type: richtext, optional: true }
+areas:
+  main: {}
+  aside: { level: 2 }
+#}
+<main>{{ heading('title', 0, {class: 'page__title', 'data-x': 'a"b'}) }}{{ field('intro') }}{{ area('main') }}</main><aside>{{ area('aside') }}</aside>{% include '@theme/footer.twig' %}

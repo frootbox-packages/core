@@ -28,6 +28,9 @@ final class AssetList
     /** @var array<string, Asset> by file */
     private array $assets = [];
 
+    /** @var array<string, string> */
+    private array $inline = [];
+
     /**
      * @param non-empty-list<string> $layers in cascade order
      */
@@ -47,6 +50,24 @@ final class AssetList
         if ($asset->isStyle() || $asset->isScript()) {
             $this->assets[$file] ??= $asset;
         }
+    }
+
+    /**
+     * A small rule of the core the page needs, e.g. for the h1 only
+     * screen readers see (decision 0129). Outside the layers, so no
+     * theme overrides it by chance.
+     */
+    public function addStyle(string $css): void
+    {
+        $this->inline[$css] = $css;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function inlineStyles(): array
+    {
+        return array_values($this->inline);
     }
 
     /**

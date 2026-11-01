@@ -1,0 +1,8 @@
+{# frootbox
+title: Section
+fields:
+  title: { type: headline, optional: true }
+areas:
+  content: {}
+#}
+<section class="section">{{ heading('title', 0, {class: 'section__title'}) }}{{ area('content') }}</section>

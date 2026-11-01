@@ -1,0 +1,7 @@
+{# frootbox
+title: Text
+fields:
+  title: { type: headline, optional: true }
+  body: { type: richtext, optional: true }
+#}
+<div class="text">{{ heading('title', 0, {class: 'text__title'}) }}<div class="text__body">{{ field('body') }}</div></div>

@@ -24,6 +24,8 @@ use Twig\TwigFunction;
  * Functions for block and layout templates:
  *
  *     {{ field('title') }}            the field, ready for output
+ *     {{ heading('title') }}          the field as a heading at the level of its place
+ *     {{ item.heading('question', 1) }} a heading one rank below the main one
  *     {{ value('button').url }}       the stored value
  *     {{ area('columns') }}           the blocks placed in an area
  *     {{ url('page:01J…') }}          the URL of a target in the visitor's language
@@ -48,6 +50,7 @@ final class ViewExtension extends AbstractExtension
     {
         return [
             new TwigFunction('field', fn(array $context, string $name): mixed => self::frame($context, 'field')->scope->field($name), ['needs_context' => true]),
+            new TwigFunction('heading', fn(array $context, string $name, int $rank = 0, array $attributes = []): Markup => self::frame($context, 'heading')->scope->heading($name, $rank, $attributes), ['needs_context' => true]),
             new TwigFunction('value', fn(array $context, string $name): mixed => self::frame($context, 'value')->scope->value($name), ['needs_context' => true]),
             new TwigFunction('area', fn(array $context, string $name): Markup => new Markup($this->renderer->area(self::frame($context, 'area'), $name), 'UTF-8'), ['needs_context' => true]),
             new TwigFunction('url', $this->url(...)),

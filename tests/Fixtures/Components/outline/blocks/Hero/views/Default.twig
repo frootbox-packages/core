@@ -1,0 +1,7 @@
+{# frootbox
+title: Hero
+fields:
+  title: { type: headline, placeholder: Big words }
+  text: { type: text, optional: true }
+#}
+<section class="hero">{{ heading('title', 0, {class: 'hero__title'}) }}<p>{{ field('text') }}</p></section>

@@ -64,9 +64,10 @@ final readonly class EditMarkup
      * Wraps the output of a field that is text or markup. The stored value
      * goes along as JSON for the editors (decision 0122).
      *
-     * @param string $path Inside the block or layout, e.g. "title" or "slides/0/title"
+     * @param string                $path  Inside the block or layout, e.g. "title" or "slides/0/title"
+     * @param array<string, int|string> $extra More attributes for the editors, e.g. the level of headings in rich text
      */
-    public function field(string $path, Field $field, string|Markup $output, mixed $value = null): Markup
+    public function field(string $path, Field $field, string|Markup $output, mixed $value = null, array $extra = []): Markup
     {
         if ($this->anchors) {
             return new Markup(\sprintf(
@@ -79,7 +80,7 @@ final readonly class EditMarkup
         }
 
         return new Markup(\sprintf(
-            '<fb-field data-fb-field="%s" data-fb-type="%s" data-fb-label="%s"%s%s%s tabindex="0"%s>%s</fb-field>',
+            '<fb-field data-fb-field="%s" data-fb-type="%s" data-fb-label="%s"%s%s%s%s tabindex="0"%s>%s</fb-field>',
             Html::escape($path),
             Html::escape($field->type),
             Html::escape($field->label),
@@ -87,6 +88,7 @@ final readonly class EditMarkup
             $field->optional ? ' data-fb-optional' : '',
             '' === $field->placeholder ? '' : ' data-fb-placeholder="' . Html::escape($field->placeholder) . '"',
             $this->site ? ' data-fb-site' : '',
+            implode('', array_map(static fn(string $name, int|string $item): string => ' ' . $name . '="' . Html::escape((string) $item) . '"', array_keys($extra), $extra)),
             null === $value ? '' : ' data-fb-value="' . Html::escape(json_encode($value, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)) . '"',
             $output instanceof Markup ? (string) $output : Html::escape($output),
         ), 'UTF-8');

@@ -14,6 +14,8 @@ use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\Instance;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Heading\Headings;
+use Frootbox\Core\Heading\Outline;
 use Frootbox\Core\Page\EditMode;
 use Frootbox\RichText\Html;
 use Psr\Container\ContainerInterface;
@@ -28,6 +30,12 @@ use Twig\Environment as Twig;
 final readonly class ComponentRenderer
 {
     public const int MAX_DEPTH = 20;
+
+    /** The class of the h1 a page without one gets (decision 0129). */
+    public const string FALLBACK = 'fb-visually-hidden';
+
+    /** Hidden from the eyes, read by screen readers. */
+    private const string HIDDEN = '.fb-visually-hidden{position:absolute!important;inline-size:1px!important;block-size:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}';
 
     /**
      * @param ContainerInterface $container Twig and the components are loaded on first use, so Twig can be created without them
@@ -46,16 +54,33 @@ final readonly class ComponentRenderer
      */
     public function block(Instance|array $block, ?AssetList $assets = null): string
     {
-        return $this->render(ComponentKind::Block, $block instanceof Instance ? $block : Instance::fromArray($block), 0, $assets);
+        return $this->render(ComponentKind::Block, $block instanceof Instance ? $block : Instance::fromArray($block), 0, $assets, new Headings());
     }
 
     /**
+     * A layout with its blocks. Their headings get their levels from where
+     * they stand (decision 0129). A page without any h1 gets its title as
+     * one for screen readers, first in <main>.
+     *
      * @param Instance|array<mixed> $layout
-     * @param AssetList|null        $assets collects the styles and scripts of everything rendered
+     * @param AssetList|null        $assets  collects the styles and scripts of everything rendered
+     * @param string|null           $title   the title of the page, for a page without h1
+     * @param Outline|null          $outline collects the headings, e.g. for page.outline
      */
-    public function layout(Instance|array $layout, ?AssetList $assets = null): string
+    public function layout(Instance|array $layout, ?AssetList $assets = null, ?string $title = null, ?Outline $outline = null): string
     {
-        return $this->render(ComponentKind::Layout, $layout instanceof Instance ? $layout : Instance::fromArray($layout, ComponentKind::Layout), 0, $assets);
+        $html = $this->render(ComponentKind::Layout, $layout instanceof Instance ? $layout : Instance::fromArray($layout, ComponentKind::Layout), 0, $assets, new Headings($outline ?? new Outline()));
+
+        if (null === $title || '' === trim($title) || 1 === preg_match('/<h1[\s>]/i', $html)) {
+            return $html;
+        }
+
+        $assets?->addStyle(self::HIDDEN);
+        $delivery = $this->service(Delivery::class);
+        $heading = Html::element('h1', Html::escape($title), ['class' => self::FALLBACK, 'lang' => $delivery->isFallback() ? $delivery->contentLanguage()->code : null]);
+        $main = preg_replace_callback('/<main(?:\s[^>]*)?>/i', static fn(array $match): string => $match[0] . $heading, $html, 1, $count);
+
+        return 1 === $count && \is_string($main) ? $main : $heading . $html;
     }
 
     /**
@@ -81,8 +106,10 @@ final readonly class ComponentRenderer
         $marking = $this->editMode->marking();
         $marked = $marking || $this->editMode->anchors();
 
+        $level = $frame->component->areas[$name]->level;
+
         foreach ($frame->instance->areas[$name] ?? [] as $block) {
-            $rendered = $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets);
+            $rendered = $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets, $frame->headings->inArea($level, $block->id));
             $rendered = null === $language ? $rendered : self::withLanguage($rendered, $language);
             $component = $marked ? $this->service(Components::class)->get(ComponentKind::Block, $block->name) : null;
             $html .= null === $component ? $rendered : $this->markup->block($rendered, $block, $component, $name);
@@ -104,7 +131,7 @@ final readonly class ComponentRenderer
         );
     }
 
-    private function render(ComponentKind $kind, Instance $instance, int $depth, ?AssetList $assets): string
+    private function render(ComponentKind $kind, Instance $instance, int $depth, ?AssetList $assets, Headings $headings): string
     {
         $component = $this->service(Components::class)->get($kind, $instance->name);
 
@@ -124,7 +151,7 @@ final readonly class ComponentRenderer
         $html = $this->service(Twig::class)->render($component->variant($instance->variant)->template, [
             'id' => $instance->id,
             'options' => $component->variant($instance->variant)->options($instance->options),
-            Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types, $markup), $depth, $assets),
+            Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types, $markup, headings: $headings), $depth, $assets, $headings),
         ]);
 
         return match (true) {

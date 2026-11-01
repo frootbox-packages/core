@@ -10,6 +10,7 @@ namespace Frootbox\Core\View;
 
 use ArrayIterator;
 use Countable;
+use Frootbox\Core\Heading\Headings;
 use IteratorAggregate;
 use Stringable;
 
@@ -34,12 +35,12 @@ final readonly class ListValue implements IteratorAggregate, Countable, Stringab
     }
 
     /**
-     * The entries with their places for the editing mode, e.g.
-     * "slides/0/" (decision 0119).
+     * The entries with their places, e.g. "slides/0/", for the editing
+     * mode (decision 0119) and the headings of the page (decision 0129).
      */
-    public function within(EditMarkup $markup, string $path): self
+    public function within(?EditMarkup $markup, string $path, ?Headings $headings = null): self
     {
-        return new self(array_map(static fn(int $index, Scope $entry): Scope => $entry->within($markup, $path . $index . '/'), array_keys($this->entries), $this->entries));
+        return new self(array_map(static fn(int $index, Scope $entry): Scope => $entry->within($markup, $path . $index . '/', $headings), array_keys($this->entries), $this->entries));
     }
 
     /**

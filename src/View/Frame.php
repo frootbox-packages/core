@@ -11,9 +11,10 @@ namespace Frootbox\Core\View;
 use Frootbox\Core\Asset\AssetList;
 use Frootbox\Core\Component\Component;
 use Frootbox\Core\Component\Instance;
+use Frootbox\Core\Heading\Headings;
 
 /**
- * What field(), value() and area() need while one block or layout is rendered.
+ * What field(), heading(), value() and area() need while one block or layout is rendered.
  *
  * @internal
  */
@@ -27,5 +28,6 @@ final readonly class Frame
         public Scope $scope,
         public int $depth,
         public ?AssetList $assets = null,
+        public Headings $headings = new Headings(),
     ) {}
 }

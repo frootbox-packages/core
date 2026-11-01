@@ -229,7 +229,7 @@ final readonly class PageHandler implements RequestHandlerInterface
 
         $assets = new AssetList();
         $layout = Instance::fromArray(['layout' => $page->data->layout, 'variant' => $page->data->variant, ...$page->translation->content], ComponentKind::Layout);
-        $body = $this->service(ComponentRenderer::class)->layout($layout, $assets);
+        $body = $this->service(ComponentRenderer::class)->layout($layout, $assets, $page->translation->title);
 
         $site = $this->config->string('app.name', 'Frootbox');
         $base = $this->service(SiteUrl::class)->base($request);

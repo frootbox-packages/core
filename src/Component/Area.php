@@ -16,6 +16,7 @@ final readonly class Area
 {
     /**
      * @param list<string>|null $allow Full block names, null for all blocks
+     * @param int|null          $level The level its headings start at, e.g. 2 for a sidebar that never has the h1 (decision 0129)
      */
     public function __construct(
         public string $name,
@@ -24,6 +25,7 @@ final readonly class Area
         public ?array $allow = null,
         public ?int $min = null,
         public ?int $max = null,
+        public ?int $level = null,
     ) {}
 
     /**

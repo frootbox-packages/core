@@ -61,6 +61,11 @@ final readonly class Document
         }
 
         $lines[] = '<style>' . $assets->layerOrder() . '</style>';
+
+        foreach ($assets->inlineStyles() as $css) {
+            $lines[] = '<style>' . $css . '</style>';
+        }
+
         // With the values editors chose, in the editing mode those of the draft.
         $tokens = $this->design->css();
 
