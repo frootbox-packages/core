@@ -38,6 +38,12 @@ use Frootbox\Core\Console\ScheduleRunCommand;
 use Frootbox\Core\Console\SeedCommand;
 use Frootbox\Core\Console\UserCreateCommand;
 use Frootbox\Core\Console\UserTokenCommand;
+use Frootbox\Core\Design\DiscardDesign;
+use Frootbox\Core\Design\ListDesignVersions;
+use Frootbox\Core\Design\PublishDesign;
+use Frootbox\Core\Design\RestoreDesign;
+use Frootbox\Core\Design\ShowDesign;
+use Frootbox\Core\Design\UpdateDesign;
 use Frootbox\Core\Field\Types\HeadlineType;
 use Frootbox\Core\Field\Types\ImageType;
 use Frootbox\Core\Field\Types\LinkType;
@@ -198,6 +204,14 @@ final class CoreExtension implements Extension
         foreach ([ListMedia::class, ShowMedium::class, ListMediaFolders::class] as $query) {
             $registry->query($query);
         }
+
+        // Design tokens (decision 0127).
+        foreach ([UpdateDesign::class, PublishDesign::class, DiscardDesign::class, RestoreDesign::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ShowDesign::class);
+        $registry->query(ListDesignVersions::class);
 
         $registry->get(MediaHandler::ROUTE, MediaHandler::class, 'media');
 

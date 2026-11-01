@@ -2,9 +2,14 @@ title: Base theme
 theme:
   tokens:
     color:
-      primary: '#0a6e4f'
+      primary: { value: '#0a6e4f', type: color, label: Main colour, contrast: text }
       text: '#222'
-    radius: 4px
+    font:
+      heading: { value: sans, type: font, label: Headings }
+    radius: { value: 4px, type: length, label: Rounding, min: 0, max: 20 }
+    space: { value: normal, type: choice, label: Spacing, options: { normal: { label: Normal, value: 2rem }, wide: { label: Wide, value: 4rem } } }
+  fonts:
+    lora: { label: Lora, family: '"Lora", serif' }
   navigations:
     main: Main navigation
     footer: Footer

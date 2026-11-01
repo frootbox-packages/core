@@ -54,7 +54,7 @@ final class PageDeliveryTest extends NotesTestCase
         self::assertStringContainsString('<title>Testsite</title>', $html, 'The start page has the name of the site as title.');
         self::assertStringContainsString('<link rel="canonical" href="https://example.org/">', $html);
         self::assertStringContainsString('<style>@layer reset, tokens, base, layouts, blocks, theme, project;</style>', $html);
-        self::assertStringContainsString('<style>@layer tokens {:root{--color-primary:#c00;', $html);
+        self::assertStringContainsString('<style>@layer tokens {:root{--color-primary:#cc0000;', $html);
         self::assertStringContainsString('<main><h1>Willkommen</h1><article class="site-teaser"><h3>Frisch geröstet</h3>', $html);
 
         // Only what the page uses, each in its layer; theme files on every page.

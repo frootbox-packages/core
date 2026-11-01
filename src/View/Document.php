@@ -11,6 +11,7 @@ namespace Frootbox\Core\View;
 use Frootbox\Core\Asset\AssetList;
 use Frootbox\Core\Asset\AssetTags;
 use Frootbox\Core\Asset\PublicAssets;
+use Frootbox\Core\Design\DesignTokens;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\Target;
@@ -30,6 +31,7 @@ final readonly class Document
         private ThemeChain $themes,
         private EventDispatcherInterface $events,
         private Languages $languages,
+        private DesignTokens $design,
     ) {}
 
     public function render(Head $head, string $body, AssetList $assets, ServerRequestInterface $request, ?Target $target = null): string
@@ -59,7 +61,8 @@ final readonly class Document
         }
 
         $lines[] = '<style>' . $assets->layerOrder() . '</style>';
-        $tokens = $this->themes->css();
+        // With the values editors chose, in the editing mode those of the draft.
+        $tokens = $this->design->css();
 
         if ('' !== $tokens) {
             $lines[] = '<style>@layer tokens {' . $tokens . '}</style>';

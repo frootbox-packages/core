@@ -1,0 +1,83 @@
+<?php
+
+/*
+ * SPDX-License-Identifier: LGPL-3.0-only
+ */
+
+declare(strict_types=1);
+
+namespace Frootbox\Core\Design;
+
+use Frootbox\Core\Config\Config;
+use Frootbox\Core\Page\EditMode;
+use Frootbox\Core\Revision\Revision;
+use Frootbox\Core\Revision\Revisions;
+use Frootbox\Core\Theme\ThemeChain;
+
+/**
+ * The values editors chose for the tokens of the active theme (decision
+ * 0127), kept as a revision of the type "design" per theme. Visitors get
+ * the published ones, the editing mode the draft.
+ */
+final readonly class DesignTokens
+{
+    public const string TYPE = 'design';
+
+    public function __construct(
+        private ThemeChain $themes,
+        private Revisions $revisions,
+        private EditMode $editMode,
+        private Config $config,
+    ) {}
+
+    /**
+     * The tokens as CSS variables for the page being delivered.
+     */
+    public function css(): string
+    {
+        $database = $this->config->get('database.url');
+
+        // Before the installation there is nothing to read.
+        if (!\is_string($database) || '' === $database) {
+            return $this->themes->css();
+        }
+
+        return $this->themes->css($this->overrides($this->editMode->active()));
+    }
+
+    /**
+     * The chosen values by token name; with $draft those of the draft if
+     * there is one.
+     *
+     * @return array<string, string>
+     */
+    public function overrides(bool $draft): array
+    {
+        $theme = $this->themes->active();
+
+        if (null === $theme) {
+            return [];
+        }
+
+        $revision = ($draft ? $this->revisions->draft(self::TYPE, $theme->name) : null) ?? $this->revisions->published(self::TYPE, $theme->name);
+
+        return self::values($revision);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function values(?Revision $revision): array
+    {
+        $tokens = $revision?->data['tokens'] ?? null;
+        $values = [];
+
+        foreach (\is_array($tokens) ? $tokens : [] as $name => $value) {
+            if (\is_string($value)) {
+                $values[(string) $name] = $value;
+            }
+        }
+
+        return $values;
+    }
+}

@@ -17,24 +17,35 @@ use Frootbox\Core\Extension\ExtensionPackage;
  *       parent: frootbox/base
  *       tokens:
  *         color:
- *           primary: '#0a6e4f'
+ *           primary: { value: '#0a6e4f', type: color, label: Main colour }
  *         radius: 4px
+ *       fonts:
+ *         lora: { label: Lora, family: '"Lora", serif' }
  *       navigations:
  *         main: { title: Main navigation, depth: 2 }
  *         footer: Footer
  *
- * Tokens become CSS variables such as --color-primary. Navigations are
- * the menus the theme shows (decision 0106).
+ * Tokens become CSS variables such as --color-primary. Those with a type
+ * may be changed by editors, the short form stays fixed; fonts are what a
+ * font token can choose besides the system fonts (decision 0127).
+ * Navigations are the menus the theme shows (decision 0106).
  */
 final readonly class Theme
 {
-    private const array KEYS = ['parent', 'tokens', 'navigations'];
+    private const array KEYS = ['parent', 'tokens', 'fonts', 'navigations'];
+
+    private const array DESCRIPTION = ['value', 'type', 'label', 'contrast', 'min', 'max', 'step', 'unit', 'options'];
+
+    /** A value ends up in a style sheet and must not break out of it. */
+    private const string UNSAFE = '/[;{}<>\\\\\x00-\x1F]/';
 
     private const string TOKEN_NAME = '/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/';
 
     /**
-     * @param array<string, string>       $tokens      Flat: "color-primary" => "#0a6e4f"
-     * @param array<string, array<mixed>> $navigations By key, as in the manifest; read by Navigation\Definitions
+     * @param array<string, string>          $tokens      Flat: "color-primary" => "#0a6e4f"
+     * @param array<string, array<mixed>>    $navigations By key, as in the manifest; read by Navigation\Definitions
+     * @param array<string, TokenDefinition> $definitions The tokens with a type, by name
+     * @param array<string, Font>            $fonts       By key
      */
     public function __construct(
         public string $name,
@@ -42,6 +53,8 @@ final readonly class Theme
         public ?string $parent = null,
         public array $tokens = [],
         public array $navigations = [],
+        public array $definitions = [],
+        public array $fonts = [],
     ) {}
 
     public static function fromPackage(ExtensionPackage $package): ?self
@@ -79,15 +92,100 @@ final readonly class Theme
             throw new ThemeException(\sprintf('%s: "navigations" must list the navigations by key, e.g. "main: Main navigation".', $where));
         }
 
-        return new self($package->name, $package->path, $parent, self::flatten($tokens, '', $where), $navigations);
+        $definitions = [];
+        $flat = self::flatten($tokens, '', $where, $definitions);
+
+        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where));
     }
 
     /**
-     * @param array<mixed> $tokens
+     * @return array<string, Font>
+     */
+    private static function fonts(mixed $fonts, string $where): array
+    {
+        if (!\is_array($fonts)) {
+            throw new ThemeException(\sprintf('%s: "fonts" must list the fonts by key, e.g. "lora: { label: Lora, family: \'"Lora", serif\' }".', $where));
+        }
+
+        $list = [];
+
+        foreach ($fonts as $key => $font) {
+            $key = (string) $key;
+            $family = \is_array($font) ? ($font['family'] ?? null) : null;
+            $label = \is_array($font) ? ($font['label'] ?? $key) : null;
+
+            if (1 !== preg_match(self::TOKEN_NAME, $key) || !\is_string($family) || '' === trim($family) || 1 === preg_match(self::UNSAFE, $family) || !\is_string($label)) {
+                throw new ThemeException(\sprintf('%s: the font "%s" needs a lower case key, a "label" and a "family" without ; { } < > or a backslash.', $where, $key));
+            }
+
+            $list[$key] = new Font($key, $label, trim($family));
+        }
+
+        return $list;
+    }
+
+    /**
+     * @param array<mixed> $token
+     */
+    private static function definition(string $name, array $token, string $where): TokenDefinition
+    {
+        $unknown = array_diff(array_map(strval(...), array_keys($token)), self::DESCRIPTION);
+        $type = TokenType::tryFrom(\is_string($token['type']) ? $token['type'] : '');
+        $label = $token['label'] ?? $name;
+        $contrast = $token['contrast'] ?? null;
+        $unit = $token['unit'] ?? (TokenType::Length === $type ? 'px' : null);
+
+        if ([] !== $unknown) {
+            throw new ThemeException(\sprintf('%s: the token "%s" contains unknown keys: %s. Allowed are %s.', $where, $name, implode(', ', $unknown), implode(', ', self::DESCRIPTION)));
+        }
+
+        if (null === $type) {
+            throw new ThemeException(\sprintf('%s: the token "%s" needs a type: %s.', $where, $name, implode(', ', array_column(TokenType::cases(), 'value'))));
+        }
+
+        if (!\is_string($label) || (null !== $contrast && !\is_string($contrast)) || (null !== $unit && !\in_array($unit, ['px', 'rem'], true))) {
+            throw new ThemeException(\sprintf('%s: the token "%s" needs a text as label and contrast and px or rem as unit.', $where, $name));
+        }
+
+        $numbers = [];
+
+        foreach (['min', 'max', 'step'] as $key) {
+            $number = $token[$key] ?? null;
+
+            if (null !== $number && !\is_int($number) && !\is_float($number)) {
+                throw new ThemeException(\sprintf('%s: "%s" of the token "%s" must be a number.', $where, $key, $name));
+            }
+
+            $numbers[$key] = null === $number ? null : (float) $number;
+        }
+
+        $options = [];
+
+        foreach (\is_array($token['options'] ?? null) ? $token['options'] : [] as $key => $option) {
+            $value = \is_array($option) ? ($option['value'] ?? null) : $option;
+            $text = \is_array($option) ? ($option['label'] ?? (string) $key) : (string) $key;
+
+            if (!\is_string($value) || '' === trim($value) || 1 === preg_match(self::UNSAFE, $value) || !\is_string($text)) {
+                throw new ThemeException(\sprintf('%s: the option "%s" of the token "%s" needs a "label" and a CSS "value" without ; { } < > or a backslash.', $where, $key, $name));
+            }
+
+            $options[(string) $key] = ['label' => $text, 'value' => trim($value)];
+        }
+
+        if (TokenType::Choice === $type && [] === $options) {
+            throw new ThemeException(\sprintf('%s: the token "%s" is a choice and needs "options".', $where, $name));
+        }
+
+        return new TokenDefinition($name, $type, $label, $contrast, $numbers['min'], $numbers['max'], $numbers['step'], $unit, $options);
+    }
+
+    /**
+     * @param array<mixed>                   $tokens
+     * @param array<string, TokenDefinition> $definitions Filled with the tokens that have a type
      *
      * @return array<string, string>
      */
-    private static function flatten(array $tokens, string $prefix, string $where): array
+    private static function flatten(array $tokens, string $prefix, string $where, array &$definitions): array
     {
         $flat = [];
 
@@ -100,8 +198,11 @@ final readonly class Theme
 
             $name = $prefix . $key;
 
-            if (\is_array($value)) {
-                $flat = [...$flat, ...self::flatten($value, $name . '-', $where)];
+            if (\is_array($value) && \array_key_exists('type', $value)) {
+                $definitions[$name] = self::definition($name, $value, $where);
+                $value = $value['value'] ?? null;
+            } elseif (\is_array($value)) {
+                $flat = [...$flat, ...self::flatten($value, $name . '-', $where, $definitions)];
 
                 continue;
             }
@@ -112,8 +213,7 @@ final readonly class Theme
 
             $value = trim((string) $value);
 
-            // The value ends up in a style sheet and must not break out of it.
-            if ('' === $value || 1 === preg_match('/[;{}<>\\\\\x00-\x1F]/', $value)) {
+            if ('' === $value || 1 === preg_match(self::UNSAFE, $value)) {
                 throw new ThemeException(\sprintf('%s: the token "%s" must not be empty or contain ; { } < > or a backslash.', $where, $name));
             }
 

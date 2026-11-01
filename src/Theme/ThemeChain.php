@@ -51,7 +51,10 @@ final readonly class ThemeChain
             $name = $theme->parent;
         }
 
-        return new self(array_values($themes));
+        $chain = new self(array_values($themes));
+        $chain->check();
+
+        return $chain;
     }
 
     public function active(): ?Theme
@@ -81,9 +84,53 @@ final readonly class ThemeChain
     }
 
     /**
-     * The tokens as CSS variables, e.g. ":root{--color-primary:#0a6e4f;}".
+     * The tokens editors may change, by name, children overriding their
+     * parents (decision 0127). Contrast names the full token.
+     *
+     * @return array<string, TokenDefinition>
      */
-    public function css(): string
+    public function definitions(): array
+    {
+        $definitions = [];
+
+        foreach (array_reverse($this->themes) as $theme) {
+            $definitions = [...$definitions, ...$theme->definitions];
+        }
+
+        foreach ($definitions as $name => $definition) {
+            if (null !== $definition->contrast) {
+                $definitions[$name] = $definition->withContrast($this->contrastOf($name, $definition->contrast, $definitions));
+            }
+        }
+
+        return $definitions;
+    }
+
+    /**
+     * The fonts a font token can choose: the system fonts, then those of
+     * the themes, children overriding their parents.
+     *
+     * @return array<string, Font>
+     */
+    public function fonts(): array
+    {
+        $fonts = Font::system();
+
+        foreach (array_reverse($this->themes) as $theme) {
+            $fonts = [...$fonts, ...$theme->fonts];
+        }
+
+        return $fonts;
+    }
+
+    /**
+     * The tokens as CSS variables, e.g. ":root{--color-primary:#0a6e4f;}".
+     * Overrides are values editors chose; those the themes do not
+     * describe or that do not fit are left out.
+     *
+     * @param array<string, string> $overrides
+     */
+    public function css(array $overrides = []): string
     {
         $tokens = $this->tokens();
 
@@ -91,6 +138,66 @@ final readonly class ThemeChain
             return '';
         }
 
-        return ':root{' . implode('', array_map(static fn(string $name, string $value): string => '--' . $name . ':' . $value . ';', array_keys($tokens), $tokens)) . '}';
+        $definitions = $this->definitions();
+        $fonts = $this->fonts();
+        $lines = '';
+
+        foreach ($tokens as $name => $value) {
+            $definition = $definitions[$name] ?? null;
+
+            if (null !== $definition) {
+                $override = $overrides[$name] ?? null;
+                $value = $definition->css(null !== $override && null === $definition->problem($override, $fonts) ? $override : $value, $fonts);
+            }
+
+            $lines .= '--' . $name . ':' . $value . ';';
+        }
+
+        return ':root{' . $lines . '}';
+    }
+
+    /**
+     * Checks the values the themes give their described tokens.
+     *
+     * @throws ThemeException
+     */
+    private function check(): void
+    {
+        $tokens = $this->tokens();
+        $fonts = $this->fonts();
+
+        foreach ($this->definitions() as $name => $definition) {
+            $value = $tokens[$name] ?? '';
+            $problem = $definition->problem($value, $fonts);
+
+            if (null !== $problem) {
+                throw new ThemeException(\sprintf('The token "%s" of the theme %s is "%s" but %s', $name, $this->active()?->name, $value, $problem));
+            }
+        }
+    }
+
+    /**
+     * "primary-contrast" next to "color-primary" is "color-primary-contrast".
+     *
+     * @param array<string, TokenDefinition> $definitions
+     *
+     * @throws ThemeException
+     */
+    private function contrastOf(string $name, string $contrast, array $definitions): string
+    {
+        $cut = strrpos($name, '-');
+        $candidates = false === $cut ? [$contrast] : [substr($name, 0, $cut + 1) . $contrast, $contrast];
+
+        $tokens = $this->tokens();
+
+        foreach ($candidates as $candidate) {
+            $fixed = !isset($definitions[$candidate]) && 1 === preg_match(TokenDefinition::COLOR, $tokens[$candidate] ?? '');
+
+            if ($fixed || TokenType::Color === ($definitions[$candidate]->type ?? null)) {
+                return $candidate;
+            }
+        }
+
+        throw new ThemeException(\sprintf('The token "%s" of the theme %s is read against "%s", which is no colour token.', $name, $this->active()?->name, $contrast));
     }
 }
