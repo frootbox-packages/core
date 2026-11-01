@@ -26,17 +26,20 @@ final readonly class LayoutSummary
         public array $variants,
         public array $areas = [],
         public array $fields = [],
+        /** URL of the preview for choosing a layout (decision 0148) */
+        public ?string $preview = null,
     ) {}
 
-    public static function of(Component $layout): self
+    public static function of(Component $layout, Previews $previews = new Previews()): self
     {
         return new self(
             $layout->name,
             $layout->title,
             $layout->description,
-            VariantSummary::all($layout->variants),
+            VariantSummary::all($layout, $previews),
             AreaSummary::all($layout->areas),
             FieldSummary::all($layout->fields),
+            $previews->url($layout),
         );
     }
 }

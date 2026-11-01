@@ -20,8 +20,11 @@ use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Cache\ClearPageCache;
+use Frootbox\Core\Component\ListBlockGroups;
 use Frootbox\Core\Component\ListBlocks;
 use Frootbox\Core\Component\ListLayouts;
+use Frootbox\Core\Component\PreviewHandler;
+use Frootbox\Core\Component\Previews;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
 use Frootbox\Core\Console\ActionsCommand;
@@ -185,7 +188,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class] as $query) {
+        foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class, ListBlockGroups::class] as $query) {
             $registry->query($query);
         }
 
@@ -233,6 +236,7 @@ final class CoreExtension implements Extension
         $registry->query(ShowSite::class);
 
         $registry->get(MediaHandler::ROUTE, MediaHandler::class, 'media');
+        $registry->get(Previews::ROUTE, PreviewHandler::class, 'previews');
 
         $registry->query(ShowAccount::class);
         $registry->query(ListTokens::class);

@@ -61,6 +61,40 @@ final class BlockCommandsTest extends TestCase
         self::assertStringContainsString('5 blocks and 1 layouts with 9 templates are fine.', $output);
     }
 
+    public function testHintsAtMissingGroupsAndPreviews(): void
+    {
+        $root = $this->project->root . '/kit';
+        mkdir($root . '/blocks/Good/views', 0o777, true);
+        mkdir($root . '/blocks/Odd/views', 0o777, true);
+        file_put_contents($root . '/frootbox.yaml', 'title: Kit');
+        file_put_contents($root . '/blocks/Good/views/Default.twig', "{# frootbox\ntitle: Good\ngroup: teaser\n#}");
+        file_put_contents($root . '/blocks/Good/preview.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" id="preview"/>');
+        file_put_contents($root . '/blocks/Odd/views/Default.twig', "{# frootbox\ntitle: Odd\ngroup: acme/kit/gone\n#}");
+        file_put_contents($root . '/blocks/Odd/preview.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"/>');
+        file_put_contents($root . '/blocks/Odd/preview.Wide.png', (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', true));
+
+        [$exitCode, $output] = $this->console('blocks:check', new Extensions([ExtensionPackage::fromManifest('acme/kit', $root)]));
+        $output = (string) preg_replace('/\s+/', ' ', $output);
+
+        self::assertSame(0, $exitCode, 'Hints do not fail the check.');
+        self::assertStringNotContainsString('acme/kit/Good', $output);
+        self::assertStringContainsString('acme/kit/Odd names the group "acme/kit/gone", which is not registered.', $output);
+        self::assertStringContainsString('acme/kit/Odd: preview.svg: needs a viewBox in 16:10', $output);
+        self::assertStringContainsString('acme/kit/Odd: preview.Wide.png: there is no variant Wide', $output);
+        self::assertStringContainsString('2 blocks and 0 layouts with 2 templates are fine.', $output);
+
+        file_put_contents($root . '/blocks/Odd/views/Default.twig', "{# frootbox\ntitle: Odd\n#}");
+        file_put_contents($root . '/blocks/Odd/views/Wide.twig', "{# frootbox\ntitle: Wide\n#}");
+        file_put_contents($root . '/blocks/Odd/preview.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100"/>');
+
+        [, $output] = $this->console('blocks:check', new Extensions([ExtensionPackage::fromManifest('acme/kit', $root)]));
+        $output = (string) preg_replace('/\s+/', ' ', $output);
+
+        self::assertStringContainsString('acme/kit/Odd has no group', $output);
+        self::assertStringContainsString('acme/kit/Odd: preview.svg: needs id="preview"', $output);
+        self::assertStringContainsString('acme/kit/Odd: preview.Wide.png: is 1x1; previews are 16:10', $output);
+    }
+
     public function testReportsSchemaAndTwigErrors(): void
     {
         $root = $this->project->root . '/broken';

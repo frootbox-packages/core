@@ -28,5 +28,9 @@ final readonly class Definition
         public array $areas = [],
         /** Only for areas that allow the block by name (decision 0124) */
         public bool $widget = false,
+        /** The group in the block picker (decision 0148) */
+        public ?string $group = null,
+        /** @var list<string> Further words for the search */
+        public array $keywords = [],
     ) {}
 }

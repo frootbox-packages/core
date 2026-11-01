@@ -15,6 +15,8 @@ use Frootbox\Core\Action\Query;
 use Frootbox\Core\Action\Undo\UndoCheck;
 use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\ScopeResolver;
+use Frootbox\Core\Component\BlockGroup;
+use Frootbox\Core\Component\BlockGroups;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Console\CommandInfo;
@@ -93,6 +95,9 @@ final class Registry
 
     /** @var array<class-string, list<object>> */
     private array $items = [];
+
+    /** @var array<string, BlockGroup> */
+    private array $blockGroups = [];
 
     public function __construct()
     {
@@ -318,6 +323,29 @@ final class Registry
     }
 
     /**
+     * A group of the block picker (decision 0148), e.g.
+     * blockGroup('acme/shop/products', 'Products'). It follows the groups
+     * of the core, in load order. Blocks name it with "group:".
+     */
+    public function blockGroup(string $name, string $title): void
+    {
+        $slash = strrpos($name, '/');
+        $package = false === $slash ? null : substr($name, 0, $slash);
+
+        if (!BlockGroup::isValid($name) || null === $package || $package !== $this->package) {
+            throw new DefinitionException(null === $this->package
+                ? 'The groups of the core are fixed in BlockGroups::CORE.'
+                : \sprintf('The block group "%s" of %s must be named "%s/<group>", lower case with dashes.', $name, $this->package, $this->package));
+        }
+
+        if (isset($this->blockGroups[$name]) || isset(BlockGroups::CORE[$name])) {
+            throw new DefinitionException(\sprintf('The block group "%s" is registered twice.', $name));
+        }
+
+        $this->blockGroups[$name] = new BlockGroup($name, $title);
+    }
+
+    /**
      * A check that runs after an action was undone and refuses the undo
      * if it would break a rule across several rows (decision 0102).
      *
@@ -435,6 +463,14 @@ final class Registry
     public function catalog(): Catalog
     {
         return $this->catalog;
+    }
+
+    /**
+     * @return list<BlockGroup>
+     */
+    public function blockGroups(): array
+    {
+        return array_values($this->blockGroups);
     }
 
     /**

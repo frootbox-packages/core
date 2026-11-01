@@ -17,6 +17,7 @@ final readonly class BlockSummary
      * @param list<VariantSummary> $variants
      * @param list<FieldSummary>   $fields
      * @param list<AreaSummary>    $areas
+     * @param list<string>         $keywords
      */
     public function __construct(
         /** e.g. "acme/website/Teaser" */
@@ -28,18 +29,26 @@ final readonly class BlockSummary
         public array $variants,
         public array $fields,
         public array $areas,
+        /** In the block picker, null for "Other" (decision 0148) */
+        public ?string $group = null,
+        public array $keywords = [],
+        /** URL of the preview, an SVG in the colours of the theme or a picture; null without one */
+        public ?string $preview = null,
     ) {}
 
-    public static function of(Component $block): self
+    public static function of(Component $block, Previews $previews = new Previews()): self
     {
         return new self(
             $block->name,
             $block->title,
             $block->description,
             $block->widget,
-            VariantSummary::all($block->variants),
+            VariantSummary::all($block, $previews),
             FieldSummary::all($block->fields),
             AreaSummary::all($block->areas),
+            $block->group,
+            $block->keywords,
+            $previews->url($block),
         );
     }
 }

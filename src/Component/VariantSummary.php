@@ -21,20 +21,22 @@ final readonly class VariantSummary
         public string $title,
         public string $description,
         public array $options = [],
+        /** URL of its own preview, null if it has none (decision 0148) */
+        public ?string $preview = null,
     ) {}
 
-    public static function of(Variant $variant): self
+    public static function of(Variant $variant, ?string $preview = null): self
     {
-        return new self($variant->name, $variant->title, $variant->description, array_values(array_map(OptionSummary::of(...), $variant->options)));
+        return new self($variant->name, $variant->title, $variant->description, array_values(array_map(OptionSummary::of(...), $variant->options)), $preview);
     }
 
     /**
-     * @param array<string, Variant> $variants
+     * The variants of a block or layout with their previews.
      *
      * @return list<self>
      */
-    public static function all(array $variants): array
+    public static function all(Component $component, Previews $previews = new Previews()): array
     {
-        return array_values(array_map(self::of(...), $variants));
+        return array_values(array_map(static fn(Variant $variant): self => self::of($variant, $previews->url($component, $variant->name)), $component->variants));
     }
 }

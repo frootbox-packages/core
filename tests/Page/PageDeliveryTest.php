@@ -118,7 +118,7 @@ final class PageDeliveryTest extends NotesTestCase
             $this->createPage($start->id, 'API', 'api');
             self::fail('The reserved slug was accepted.');
         } catch (InvalidInputException $error) {
-            self::assertSame(['/translations/de/slug' => '"api" is reserved directly below the start page. Reserved: api, assets, media, en.'], $error->errors);
+            self::assertSame(['/translations/de/slug' => '"api" is reserved directly below the start page. Reserved: api, assets, media, previews, en.'], $error->errors);
         }
 
         $docs = $this->createPage($start->id, 'Doku');

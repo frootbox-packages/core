@@ -26,6 +26,7 @@ use Symfony\Component\Yaml\Yaml;
  *     <package>/blocks/<Name>/block.yaml               shared schema, optional
  *     <package>/blocks/<Name>/views/<Variant>.twig     one file per variant, Default is required
  *     <package>/blocks/<Name>/assets/…                 styles and scripts
+ *     <package>/blocks/<Name>/preview.svg              preview in the picker, also preview.<Variant>.webp
  *     <theme>/overrides/<vendor>/<package>/blocks/<Name>/…   replaces single files
  *
  * Blocks of themes outside the active chain are not available.
@@ -126,6 +127,8 @@ final readonly class ComponentLoader
         $fields = $schema->fields ?? [];
         $areas = $schema->areas ?? [];
         $widget = $schema->widget ?? false;
+        $group = $schema->group ?? null;
+        $keywords = $schema->keywords ?? [];
 
         // Default first, then the others by name.
         uksort($templates, static fn(string $a, string $b): int => [Variant::DEFAULT !== $a, $a] <=> [Variant::DEFAULT !== $b, $b]);
@@ -147,7 +150,7 @@ final readonly class ComponentLoader
             if (!$holdsSchema && !$hasSchemaFile && Variant::DEFAULT === $variant) {
                 // An overriding Default view: the schema still comes from the original.
                 $original = $this->reader->read($this->header($views[Variant::DEFAULT], $where . '/views/Default.twig', $errors) ?? [], DefinitionReader::FULL_KEYS, true, $package->name, $where . '/views/Default.twig', $errors);
-                [$title, $description, $fields, $areas, $widget] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget];
+                [$title, $description, $fields, $areas, $widget, $group, $keywords] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget, $original->group, $original->keywords];
             }
 
             $definition = $this->reader->read(
@@ -160,7 +163,7 @@ final readonly class ComponentLoader
             );
 
             if ($holdsSchema) {
-                [$title, $description, $fields, $areas, $widget] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget];
+                [$title, $description, $fields, $areas, $widget, $group, $keywords] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget, $definition->group, $definition->keywords];
             }
 
             $variants[$variant] = new Variant(
@@ -178,7 +181,28 @@ final readonly class ComponentLoader
             $widget = false;
         }
 
-        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget);
+        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides));
+    }
+
+    /**
+     * Preview files by variant; a theme replaces the preview of a variant
+     * with its own, whatever the format (decision 0148).
+     *
+     * @param list<array{string, string}> $overrides
+     *
+     * @return array<string, string>
+     */
+    private function previews(string $path, array $overrides): array
+    {
+        $previews = Previews::in($path);
+
+        foreach (array_reverse(array_column($overrides, 1)) as $folder) {
+            $previews = [...$previews, ...Previews::in($folder)];
+        }
+
+        uksort($previews, static fn(string $a, string $b): int => [Variant::DEFAULT !== $a, $a] <=> [Variant::DEFAULT !== $b, $b]);
+
+        return $previews;
     }
 
     /**

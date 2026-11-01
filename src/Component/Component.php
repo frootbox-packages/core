@@ -21,6 +21,8 @@ final readonly class Component
      * @param array<string, Area>    $areas
      * @param array<string, Variant> $variants Default first
      * @param array<string, string>  $assets   Path within assets/ => absolute path
+     * @param list<string>           $keywords Further words for the search in the picker
+     * @param array<string, string>  $previews Variant => absolute path of its preview, "Default" for preview.svg (decision 0148)
      */
     public function __construct(
         public ComponentKind $kind,
@@ -34,6 +36,10 @@ final readonly class Component
         public array $assets = [],
         /** Goes only into areas that allow it by name (decision 0124) */
         public bool $widget = false,
+        /** The group in the block picker, null for "Other" (decision 0148) */
+        public ?string $group = null,
+        public array $keywords = [],
+        public array $previews = [],
     ) {}
 
     public function package(): string
