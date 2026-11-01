@@ -24,6 +24,7 @@ use Frootbox\Core\Http\ResponseEmitter;
 use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Page\PageHandler;
 use Frootbox\Core\Routing\RoutingMiddleware;
+use Frootbox\Core\Site\SiteAccessMiddleware;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
 use Psr\Container\ContainerInterface;
@@ -61,6 +62,8 @@ final readonly class Application
         AuthenticationMiddleware::class,
         // Again behind the sign-in, so error pages know the user (decision 0132).
         ErrorMiddleware::class,
+        // Preview links and the password of the website, before the page cache (decisions 0152, 0153).
+        SiteAccessMiddleware::class,
         RoutingMiddleware::class,
     ];
 

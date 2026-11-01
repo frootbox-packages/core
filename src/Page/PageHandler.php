@@ -23,6 +23,7 @@ use Frootbox\Core\Http\Exception\HttpException;
 use Frootbox\Core\Http\SiteUrl;
 use Frootbox\Core\Http\WelcomeHandler;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Preview\PreviewAccess;
 use Frootbox\Core\Schedule\Scheduler;
 use Frootbox\Core\Url\NotFoundLog;
 use Frootbox\Core\Url\Resolution;
@@ -76,7 +77,9 @@ final readonly class PageHandler implements RequestHandlerInterface
         }
 
         $installed = $this->isInstalled();
-        $editing = $installed && $this->wantsEditMode($request);
+        // A preview link shows the drafts like the editing mode, read only (decision 0152).
+        $preview = $request->getAttribute(PreviewAccess::class) instanceof PreviewAccess;
+        $editing = $installed && ($preview || $this->wantsEditMode($request));
         $this->service(EditMode::class)->set($editing);
 
         if ($installed) {
@@ -101,7 +104,7 @@ final readonly class PageHandler implements RequestHandlerInterface
                 throw HttpException::locked($path);
             }
 
-            if ($editing) {
+            if ($editing && !$preview) {
                 // A page in a fallback language has no content of its own to change (decision 0122).
                 $marking = !$resolution->page->isFallback() && $this->mayChange($request, $resolution->page->id);
                 $this->service(EditMode::class)->set(true, $marking, $marking && $this->mayChangeSite($request));

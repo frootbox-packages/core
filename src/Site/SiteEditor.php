@@ -46,6 +46,7 @@ final readonly class SiteEditor
         private MediaReferences $references,
         private MediaEditor $media,
         private UsageIndex $usages,
+        private SiteProtection $protection,
     ) {}
 
     public function details(): SiteDetails
@@ -53,7 +54,7 @@ final readonly class SiteEditor
         $theme = $this->themes->active();
 
         if (null === $theme) {
-            return new SiteDetails(null, false, null, [], []);
+            return new SiteDetails(null, false, null, [], [], $this->protection->status());
         }
 
         $draft = $this->revisions->draft(SiteFields::TYPE, $theme->name);
@@ -65,7 +66,7 @@ final readonly class SiteEditor
             $values[$code] = $this->site->merged($stored, $code);
         }
 
-        return new SiteDetails($theme->name, null !== $draft, $published?->version, FieldSummary::all($this->site->fields()), $values);
+        return new SiteDetails($theme->name, null !== $draft, $published?->version, FieldSummary::all($this->site->fields()), $values, $this->protection->status());
     }
 
     /**

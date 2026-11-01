@@ -90,6 +90,36 @@ final readonly class SignInThrottle
     }
 
     /**
+     * Throws if the address has to wait before it may try the password of
+     * the protected website again (decision 0153). Its own count, so
+     * guessing that password does not lock out signing in.
+     *
+     * @throws TooManyAttemptsException
+     */
+    public function checkSite(?string $address, ?DateTimeImmutable $now = null): void
+    {
+        $now ??= new DateTimeImmutable();
+        [$count, $last] = $this->failures(self::siteKey($address), $now);
+
+        if ($count >= self::ACCOUNT_LIMIT && null !== $last) {
+            $wait = $last + min(self::MAX_WAIT, 60 * 2 ** ($count - self::ACCOUNT_LIMIT)) - $now->getTimestamp();
+
+            if ($wait > 0) {
+                throw new TooManyAttemptsException($wait);
+            }
+        }
+    }
+
+    /**
+     * Counts a wrong password for the protected website.
+     */
+    public function failSite(?string $address, ?DateTimeImmutable $now = null): void
+    {
+        $now ??= new DateTimeImmutable();
+        $this->connection->insert(self::TABLE, ['key_hash' => self::siteKey($address), 'failed_at' => $now->format(Values::DATE_FORMAT)]);
+    }
+
+    /**
      * Forgets the failures of an account after a successful sign-in.
      */
     public function clear(string $email): void
@@ -116,6 +146,11 @@ final readonly class SignInThrottle
     private static function accountKey(string $email): string
     {
         return hash('sha256', 'email:' . Users::normalizeEmail($email));
+    }
+
+    private static function siteKey(?string $address): string
+    {
+        return hash('sha256', 'site:ip:' . ($address ?? 'unknown'));
     }
 
     private static function addressKey(string $address): string

@@ -28,5 +28,7 @@ final readonly class SiteDetails
         public ?int $version,
         public array $fields,
         public array $values,
+        /** Whether a password protects the website (decisions 0153, 0154) */
+        public ?ProtectionStatus $protection = null,
     ) {}
 }

@@ -71,6 +71,7 @@ final class ConsoleTest extends TestCase
         self::assertStringContainsString(Frootbox::VERSION, $output);
         self::assertStringContainsString('pdo_sqlite', $output);
         self::assertStringContainsString('connected', $output);
+        self::assertMatchesRegularExpression('/Password protection\s+(off|unknown, not migrated yet)/', $output);
     }
 
     public function testDoctrineCommandsAreAvailable(): void

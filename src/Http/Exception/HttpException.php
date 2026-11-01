@@ -24,6 +24,8 @@ final class HttpException extends RuntimeException
         string $message = '',
         public readonly array $headers = [],
         ?Throwable $previous = null,
+        /** Tells error pages which case it is, e.g. "site-protected" */
+        public readonly ?string $reason = null,
     ) {
         parent::__construct($message, $status, $previous);
     }
@@ -44,6 +46,27 @@ final class HttpException extends RuntimeException
     /**
      * The page is locked for visitors (decision 0117).
      */
+    /**
+     * A preview link that expired or was revoked (decision 0152). No
+     * silent fallback to the published website.
+     */
+    public static function previewExpired(): self
+    {
+        return new self(410, 'This preview link has expired or was revoked.', ['X-Robots-Tag' => 'noindex, nofollow'], reason: 'preview-expired');
+    }
+
+    /**
+     * The website is protected by a password and the visitor has not
+     * entered it (decision 0153).
+     */
+    public static function siteProtected(string $path, bool $password = true): self
+    {
+        return $password
+            ? new self(401, \sprintf('The website is protected, "%s" needs the password.', $path), ['X-Robots-Tag' => 'noindex, nofollow'], reason: 'site-protected')
+            // Forced by SITE_PROTECT without a password: only users and preview links get in (decision 0154).
+            : new self(401, \sprintf('The website is protected, "%s" is only for signed-in users.', $path), ['X-Robots-Tag' => 'noindex, nofollow'], reason: 'site-protected-closed');
+    }
+
     public static function locked(string $path): self
     {
         return new self(503, \sprintf('The page at "%s" is locked for visitors.', $path), ['X-Robots-Tag' => 'noindex']);

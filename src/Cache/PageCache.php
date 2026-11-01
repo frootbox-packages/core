@@ -10,6 +10,7 @@ namespace Frootbox\Core\Cache;
 
 use Frootbox\Core\Auth\Authentication;
 use Frootbox\Core\Config\Environment;
+use Frootbox\Core\Preview\PreviewAccess;
 use Frootbox\Core\ProjectPaths;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -45,7 +46,9 @@ final class PageCache
         return !$this->environment->isDevelopment()
             && \in_array($request->getMethod(), ['GET', 'HEAD'], true)
             && '' === $request->getHeaderLine('Authorization')
-            && null === $request->getAttribute(Authentication::class);
+            && null === $request->getAttribute(Authentication::class)
+            // A preview shows drafts, never cached (decision 0152).
+            && null === $request->getAttribute(PreviewAccess::class);
     }
 
     public function get(ServerRequestInterface $request): ?string

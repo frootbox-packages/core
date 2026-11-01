@@ -17,6 +17,8 @@ use Frootbox\Core\Page\PageReader;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\SchedulePage;
 use Frootbox\Core\Page\UnpublishPage;
+use Frootbox\Core\Preview\PreviewLinks;
+use Frootbox\Core\Preview\PrunePreviews;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Revision\Revisions;
 use Psr\Log\LoggerInterface;
@@ -38,6 +40,7 @@ final readonly class Scheduler
         private Runner $runner,
         private ProjectPaths $paths,
         private LoggerInterface $logger,
+        private PreviewLinks $previews,
     ) {}
 
     /**
@@ -63,6 +66,16 @@ final readonly class Scheduler
             if (PageReader::TYPE !== $type) {
                 $failed[] = \sprintf('%s: no schedule for this type yet (%s)', $type, implode(', ', $ids));
             }
+        }
+
+        // Preview links 30 days after they ended (decision 0154); the action only
+        // runs when there is something to delete, so the log stays readable.
+        try {
+            if ([] !== $this->previews->endedBefore(PrunePreviews::before())) {
+                $this->runner->run(new PrunePreviews(), Context::system());
+            }
+        } catch (TableNotFoundException) {
+            // Not migrated yet.
         }
 
         return new ScheduleResult($published['done'], $unpublished, [...$published['failed'], ...$failed]);

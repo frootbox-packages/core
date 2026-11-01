@@ -12,6 +12,7 @@ use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Auth\Gate;
 use Frootbox\Core\Http\Exception\HttpException;
+use Frootbox\Core\Preview\PreviewAccess;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -85,7 +86,8 @@ final readonly class MediaHandler implements RequestHandlerInterface
             || !MediaUrls::allows($medium, $width)
             || !\in_array($extension, $this->urls->formats($medium), true)
             || ($height > 0 && $height > $width * 4)
-            || ($private && !$this->gate->allows($this->context->get()->actor, $this->catalog->get('media.show')))
+            // A valid preview link sees the media of drafts as well (decision 0152).
+            || ($private && null === $request->getAttribute(PreviewAccess::class) && !$this->gate->allows($this->context->get()->actor, $this->catalog->get('media.show')))
         ) {
             throw HttpException::notFound($path);
         }

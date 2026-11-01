@@ -21,6 +21,14 @@ final class AuthenticationException extends ActionException
         return new self('The email or password is wrong.');
     }
 
+    /**
+     * The password of a protected website (decision 0153).
+     */
+    public static function wrongPassword(): self
+    {
+        return new self('The password is wrong.');
+    }
+
     public static function userRequired(): self
     {
         return new self('Only a signed-in user can do this.');

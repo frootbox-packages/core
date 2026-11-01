@@ -39,7 +39,7 @@ use PHPUnit\Framework\TestCase;
  */
 abstract class NotesTestCase extends TestCase
 {
-    private const array TABLES = ['media_usages', 'media', 'media_texts', 'media_tags', 'media_folders', 'notes', 'sign_in_failures', 'navigations', 'urls', 'redirects', 'not_found', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
+    private const array TABLES = ['preview_links', 'site_protection', 'media_usages', 'media', 'media_texts', 'media_tags', 'media_folders', 'notes', 'sign_in_failures', 'navigations', 'urls', 'redirects', 'not_found', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
 
     /** APP_SECRET of the tests, e.g. for signed media addresses. */
     protected const string SECRET = 'test-secret-0123456789abcdef';
@@ -56,7 +56,7 @@ abstract class NotesTestCase extends TestCase
         new NotesExtension()->register($registry);
         $registry->forPackage('acme/shop', static fn() => $registry->query(ListOrders::class));
 
-        $config = new Config($this->environment(), ['database' => ['url' => TestDatabase::url()], ...$this->config()], ['APP_SECRET' => self::SECRET]);
+        $config = new Config($this->environment(), ['database' => ['url' => TestDatabase::url()], ...$this->config()], ['APP_SECRET' => self::SECRET, ...$this->env()]);
         $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), $extensions, $registry);
         $this->get(CurrentContext::class)->set(Context::system(Channel::Console));
 
@@ -79,6 +79,16 @@ abstract class NotesTestCase extends TestCase
     protected function environment(): Environment
     {
         return Environment::Development;
+    }
+
+    /**
+     * More variables of .env, e.g. SITE_PROTECT.
+     *
+     * @return array<string, string>
+     */
+    protected function env(): array
+    {
+        return [];
     }
 
     /**
