@@ -442,7 +442,7 @@ final readonly class PageEditor
             }
 
             $title = trim($translation->title);
-            $slug = null === $data->parentId ? '' : ('' === $translation->slug ? Slug::fromTitle($title, $language) : $translation->slug);
+            $slug = null === $data->parentId ? '' : ('' === $translation->slug ? Slug::fromTitle($title, $language) : Slug::normalize($translation->slug));
 
             if ('' === $title || mb_strlen($title) > 255) {
                 $errors[$at . '/title'] = '' === $title ? 'must not be empty.' : 'must be at most 255 characters.';
@@ -518,7 +518,7 @@ final readonly class PageEditor
         }
 
         if (!Slug::isValid($slug)) {
-            return \sprintf('must be lower case a-z, 0-9 and hyphens, at most %d characters, e.g. "about-us".', Slug::MAX_LENGTH);
+            return \sprintf('must be lower case letters, 0-9 and hyphens, at most %d characters, e.g. "about-us". Latin, Cyrillic and Greek only as a-z.', Slug::MAX_LENGTH);
         }
 
         $reserved = array_values(array_unique([...Slug::RESERVED, ...$this->router->reservedSegments(), ...$this->languages->prefixes()]));

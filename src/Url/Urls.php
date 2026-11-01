@@ -66,6 +66,9 @@ final class Urls
 
         $language = null === $language ? $this->delivery->language() : $this->languages->get($language);
 
+        // Over HTTP percent-encoded (decision 0158).
+        $path = UrlPath::encode($path);
+
         if (null === $language->domain || $language->domain === $this->delivery->language()->domain) {
             return $path;
         }
@@ -83,7 +86,7 @@ final class Urls
         $path = $this->path($target, $language);
         $base = $this->base($this->languages->get($language), $site);
 
-        return null === $path || null === $base ? null : $base . $path;
+        return null === $path || null === $base ? null : $base . UrlPath::encode($path);
     }
 
     /**

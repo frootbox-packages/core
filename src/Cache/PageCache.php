@@ -12,6 +12,7 @@ use Frootbox\Core\Auth\Authentication;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Preview\PreviewAccess;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Url\UrlPath;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
@@ -114,7 +115,8 @@ final class PageCache
     private function file(ServerRequestInterface $request): string
     {
         $uri = $request->getUri();
-        $key = hash('sha256', strtolower($uri->getHost()) . ':' . ($uri->getPort() ?? '') . $uri->getPath());
+        // "%d9%85" and "%D9%85" are the same page (decision 0158).
+        $key = hash('sha256', strtolower($uri->getHost()) . ':' . ($uri->getPort() ?? '') . (UrlPath::decode($uri->getPath()) ?? $uri->getPath()));
 
         return $this->paths->var(\sprintf('cache/pages/%s/%s/%s.html', $this->generation(), substr($key, 0, 2), $key));
     }

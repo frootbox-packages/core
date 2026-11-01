@@ -48,7 +48,7 @@ final readonly class Languages
                 throw new ConfigException(\sprintf('"%s" in "languages" is not a language code. Use lower case codes such as "de", "en" or "de-ch".', $language->code));
             }
 
-            if ('' !== $language->prefix && (!Slug::isValid($language->prefix) || \in_array($language->prefix, $reserved, true))) {
+            if ('' !== $language->prefix && (!Slug::isLatin($language->prefix) || \in_array($language->prefix, $reserved, true))) {
                 throw new ConfigException(\sprintf('The prefix "%s" of the language "%s" must be lower case a-z, 0-9 and hyphens and not one of %s.', $language->prefix, $language->code, implode(', ', $reserved)));
             }
 

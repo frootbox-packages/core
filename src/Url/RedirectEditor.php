@@ -37,6 +37,8 @@ final readonly class RedirectEditor
      */
     public function save(string $action, ?int $id, string $path, ?string $target, ?string $location, bool $permanent): Redirect
     {
+        // Readable or percent-encoded, stored as text in NFC like request paths (decision 0158).
+        $path = UrlPath::decode($path) ?? $path;
         $existing = null === $id ? null : $this->redirects->getById($id);
         $errors = [...$this->checkPath($path, $existing), ...$this->checkDestination($path, $target, $location)];
 

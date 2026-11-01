@@ -19,6 +19,7 @@ use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\PageReader;
 use Frootbox\Core\Support\Message;
 use Frootbox\Core\Url\DraftAddresses;
+use Frootbox\Core\Url\UrlPath;
 use Frootbox\Core\Url\Urls;
 use Frootbox\Core\User\Users;
 use Frootbox\Database\EntityNotFoundException;
@@ -180,7 +181,7 @@ final readonly class PreviewEditor
         $language = $this->languages->default();
         $path = null === $pageId ? null : ($this->addresses->of($pageId)[$language->code] ?? null)?->path;
 
-        return $language->path($path ?? '') . '?' . self::PARAMETER . '=' . $token;
+        return UrlPath::encode($language->path($path ?? '')) . '?' . self::PARAMETER . '=' . $token;
     }
 
     /**

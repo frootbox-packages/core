@@ -27,6 +27,7 @@ use Frootbox\Core\Preview\PreviewAccess;
 use Frootbox\Core\Schedule\Scheduler;
 use Frootbox\Core\Url\NotFoundLog;
 use Frootbox\Core\Url\Resolution;
+use Frootbox\Core\Url\UrlPath;
 use Frootbox\Core\Url\UrlResolver;
 use Frootbox\Core\Url\Urls;
 use Frootbox\Core\View\ComponentRenderer;
@@ -141,7 +142,7 @@ final readonly class PageHandler implements RequestHandlerInterface
         }
 
         if ('GET' === $request->getMethod()) {
-            $this->service(NotFoundLog::class)->record($path);
+            $this->service(NotFoundLog::class)->record(UrlPath::decode($path) ?? $path);
         }
 
         throw HttpException::notFound($path);

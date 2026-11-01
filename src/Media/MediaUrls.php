@@ -121,7 +121,7 @@ final readonly class MediaUrls
     public static function name(string $fileName, string $language = ''): string
     {
         $base = pathinfo($fileName, \PATHINFO_FILENAME);
-        $slug = substr(Slug::fromTitle($base, $language), 0, 60);
+        $slug = substr(Slug::latin($base, $language), 0, 60);
         $slug = trim($slug, '-');
 
         return '' === $slug ? 'image' : $slug;

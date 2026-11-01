@@ -128,7 +128,7 @@ final class PagesTest extends NotesTestCase
         self::assertSame('', Slug::fromTitle('!!!'));
 
         $this->assertInvalid(['/translations/de/slug' => \sprintf('is already used by the page "Über uns & Team" (%s) next to it.', $about->id)], fn() => $this->createPage($start->id, 'Ueber uns team'));
-        $this->assertInvalid(['/translations/de/slug' => 'must be lower case a-z, 0-9 and hyphens, at most 100 characters, e.g. "about-us".'], fn() => $this->createPage($start->id, 'Kontakt', slug: 'Kontakt'));
+        $this->assertInvalid(['/translations/de/slug' => 'must be lower case letters, 0-9 and hyphens, at most 100 characters, e.g. "about-us". Latin, Cyrillic and Greek only as a-z.'], fn() => $this->createPage($start->id, 'Kontakt', slug: 'Kontakt'));
         $this->assertInvalid(['/translations/de/slug' => 'is required: the title has no letters or digits to make one from.'], fn() => $this->createPage($start->id, '???'));
 
         // The same slug is fine below another parent and in another language.
@@ -143,7 +143,8 @@ final class PagesTest extends NotesTestCase
         self::assertSame('kyiv', $this->runner()->ask(new SuggestSlug('Київ', 'uk')));
         self::assertSame('ueber-uns', $this->runner()->ask(new SuggestSlug('Über uns', 'de')));
         self::assertSame('uber-uns', $this->runner()->ask(new SuggestSlug('Über uns')));
-        self::assertSame('', $this->runner()->ask(new SuggestSlug('北京', 'zh')));
+        self::assertSame('北京', $this->runner()->ask(new SuggestSlug('北京', 'zh')), 'Other scripts keep their letters (decision 0158).');
+        self::assertSame('', $this->runner()->ask(new SuggestSlug('🎉', 'de')));
     }
 
     public function testThereIsOneStartPage(): void

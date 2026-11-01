@@ -63,9 +63,61 @@ final class TransliterationTest extends TestCase
         yield 'Greek pairs of letters' => ['Ευρώπη Θεσσαλονίκη Ουρανός Άγγελος', 'el', 'evropi-thessaloniki-ouranos-angelos'];
         yield 'Greek diaeresis' => ['Προϋπόθεση', 'el', 'proypothesi'];
         yield 'Vietnamese' => ['Hà Nội Đà Nẵng', 'vi', 'ha-noi-da-nang'];
-        yield 'Chinese has no rules' => ['北京', 'zh', ''];
-        yield 'Arabic has no rules' => ['مصر', 'ar', ''];
-        yield 'Mixed' => ['Café 北京 2026', 'de', 'cafe-2026'];
+        yield 'Mixed' => ['Café 2026', 'de', 'cafe-2026'];
+    }
+
+    /**
+     * Scripts without rules keep their letters (decision 0158).
+     *
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function scripts(): iterable
+    {
+        yield 'Arabic' => ['من نحن', 'ar', 'من-نحن'];
+        yield 'Arabic without vowel marks and tatweel' => ['مَقْهَى الكتـــاب', 'ar', 'مقهى-الكتاب'];
+        yield 'Arabic digits' => ['عرض ٢٠٢٦', 'ar', 'عرض-2026'];
+        yield 'Persian half space and digits' => ['خانه‌ها ۱۴۰۵', 'fa', 'خانه-ها-1405'];
+        yield 'Hebrew without points' => ['שָׁלוֹם עולם', 'he', 'שלום-עולם'];
+        yield 'Marks of the direction' => ["\u{200F}مرحبا\u{200F}", 'ar', 'مرحبا'];
+        yield 'Chinese' => ['北京', 'zh', '北京'];
+        yield 'Japanese' => ['東京 カフェ', 'ja', '東京-カフェ'];
+        yield 'Korean stays in syllables' => ['한국어 페이지', 'ko', '한국어-페이지'];
+        yield 'Devanagari keeps its marks' => ['हिन्दी पृष्ठ', 'hi', 'हिन्दी-पृष्ठ'];
+        yield 'Armenian in lower case' => ['Երևան', 'hy', 'երևան'];
+        yield 'Mixed with Latin' => ['مقهى Bohnenglück', 'ar', 'مقهى-bohnengluck'];
+        yield 'Mixed with Cyrillic' => ['Café 北京 Москва', 'de', 'cafe-北京-moskva'];
+        yield 'No letters at all' => ['🎉 !', 'de', ''];
+    }
+
+    #[DataProvider('scripts')]
+    public function testKeepsTheLettersOfOtherScripts(string $title, string $language, string $slug): void
+    {
+        self::assertSame($slug, Slug::fromTitle($title, $language));
+        self::assertTrue('' === $slug || Slug::isValid($slug), $slug);
+    }
+
+    public function testChecksSlugs(): void
+    {
+        self::assertTrue(Slug::isValid('ueber-uns'));
+        self::assertTrue(Slug::isValid('من-نحن'));
+        self::assertFalse(Slug::isValid('Über'), 'Latin only as a-z.');
+        self::assertFalse(Slug::isValid('москва'), 'Cyrillic only as a-z.');
+        self::assertFalse(Slug::isValid('a--b'));
+        self::assertFalse(Slug::isValid('a b'));
+        self::assertFalse(Slug::isValid('١٢'), 'Digits only as 0-9.');
+        self::assertFalse(Slug::isValid("خانه\u{200C}ها"), 'No half space.');
+        self::assertFalse(Slug::isValid("\u{0928}\u{093F}\u{093C}"[0] . 'x'), 'No broken bytes.');
+        self::assertTrue(Slug::isValid(str_repeat('م', Slug::MAX_LENGTH)), 'The length counts letters, not bytes.');
+        self::assertFalse(Slug::isValid(str_repeat('م', Slug::MAX_LENGTH + 1)));
+
+        // Typed on a Mac, letters may come split in two.
+        $split = "\u{05E9}\u{05C1}a";
+        self::assertSame(Slug::normalize($split), \Normalizer::normalize($split, \Normalizer::FORM_C));
+
+        self::assertTrue(Slug::isLatin('en'));
+        self::assertFalse(Slug::isLatin('من'));
+        self::assertSame('', Slug::latin('من نحن'), 'File names stay in a-z.');
+        self::assertSame('ueber-uns', Slug::latin('Über uns', 'de'));
     }
 
     #[DataProvider('titles')]

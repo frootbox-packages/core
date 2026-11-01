@@ -49,7 +49,14 @@ final readonly class UrlResolver
 
         $uri = $request->getUri();
         $host = $uri->getAuthority();
-        $match = $this->languages->match($host, $uri->getPath());
+        // Compared as text in NFC (decision 0158); no valid UTF-8, no page.
+        $path = UrlPath::decode($uri->getPath());
+
+        if (null === $path) {
+            return Resolution::notFound();
+        }
+
+        $match = $this->languages->match($host, $path);
 
         if (null !== $match) {
             $page = $this->pages->resolve($match[0], $match[1]);
@@ -57,13 +64,13 @@ final readonly class UrlResolver
             if (null !== $page) {
                 return Resolution::page($page);
             }
-        } elseif ('/' === $uri->getPath()) {
+        } elseif ('/' === $path) {
             $language = $this->languages->preferred($host, $request->getHeaderLine('Accept-Language'));
 
             return Resolution::redirect($this->link($language, '', $host), 302, ['Accept-Language']);
         }
 
-        $redirect = $this->redirects->at($uri->getPath());
+        $redirect = $this->redirects->at($path);
 
         if (null !== $redirect) {
             return $this->manual($redirect, $match[0] ?? null, $uri);
@@ -89,7 +96,7 @@ final readonly class UrlResolver
         $status = $redirect->permanent ? 301 : 302;
 
         if (null !== $redirect->location) {
-            return Resolution::redirect($redirect->location, $status);
+            return Resolution::redirect(UrlPath::encode($redirect->location), $status);
         }
 
         $addresses = $this->addresses->of(Target::parse((string) $redirect->target));
@@ -107,7 +114,7 @@ final readonly class UrlResolver
      */
     private function link(Language $language, string $path, string $host): string
     {
-        $url = $language->path($path);
+        $url = UrlPath::encode($language->path($path));
 
         if (null === $language->domain || \in_array($language, $this->languages->forHost($host), true)) {
             return $url;
