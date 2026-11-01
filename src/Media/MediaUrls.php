@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Media;
 
 use Frootbox\Core\Config\Config;
+use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\Slug;
 use LogicException;
 
@@ -33,6 +34,7 @@ final readonly class MediaUrls
     public function __construct(
         private Config $config,
         private Images $images,
+        private Languages $languages,
     ) {}
 
     /**
@@ -40,7 +42,7 @@ final readonly class MediaUrls
      */
     public function url(Medium $medium, int $width, int $height, string $extension): string
     {
-        $name = self::name($medium->fileName);
+        $name = self::name($medium->fileName, $this->languages->default()->code);
 
         return \sprintf(
             '%s%s/%d/%s-%dx%d-%s.%s',
@@ -113,12 +115,13 @@ final readonly class MediaUrls
     }
 
     /**
-     * The file name as part of the address, e.g. "roesterei-am-hafen".
+     * The file name as part of the address, e.g. "roesterei-am-hafen",
+     * written by the rules of the default language (decision 0134).
      */
-    public static function name(string $fileName): string
+    public static function name(string $fileName, string $language = ''): string
     {
         $base = pathinfo($fileName, \PATHINFO_FILENAME);
-        $slug = substr(Slug::fromTitle($base), 0, 60);
+        $slug = substr(Slug::fromTitle($base, $language), 0, 60);
         $slug = trim($slug, '-');
 
         return '' === $slug ? 'image' : $slug;

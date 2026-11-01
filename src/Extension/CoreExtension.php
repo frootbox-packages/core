@@ -90,6 +90,7 @@ use Frootbox\Core\Page\RestorePage;
 use Frootbox\Core\Page\SchedulePage;
 use Frootbox\Core\Page\ShowPage;
 use Frootbox\Core\Page\ShowPageTree;
+use Frootbox\Core\Page\SuggestSlug;
 use Frootbox\Core\Page\UnlockPage;
 use Frootbox\Core\Page\UnpublishPage;
 use Frootbox\Core\Page\UpdateBlock;
@@ -178,7 +179,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class, ListLayouts::class, ListBlocks::class] as $query) {
+        foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class] as $query) {
             $registry->query($query);
         }
 

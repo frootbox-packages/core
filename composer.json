@@ -29,6 +29,7 @@
         "psr/log": "^3.0",
         "symfony/console": "^8.1",
         "symfony/dotenv": "^8.1",
+        "symfony/polyfill-intl-normalizer": "^1.33",
         "symfony/yaml": "^8.1",
         "twig/twig": "^3.30"
     },

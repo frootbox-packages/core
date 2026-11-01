@@ -43,6 +43,7 @@ use Frootbox\Core\Page\RestorePage;
 use Frootbox\Core\Page\ShowPage;
 use Frootbox\Core\Page\ShowPageTree;
 use Frootbox\Core\Page\Slug;
+use Frootbox\Core\Page\SuggestSlug;
 use Frootbox\Core\Page\TranslationData;
 use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\Revision\Revision;
@@ -78,6 +79,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Pages::class)]
 #[CoversClass(PageTranslations::class)]
 #[CoversClass(Slug::class)]
+#[CoversClass(SuggestSlug::class)]
 #[CoversClass(ContentValidator::class)]
 #[CoversClass(Instance::class)]
 #[CoversClass(Revision::class)]
@@ -121,7 +123,7 @@ final class PagesTest extends NotesTestCase
         $about = $this->createPage($start->id, 'Über uns & Team');
 
         self::assertSame('ueber-uns-team', $about->draft?->translations['de']->slug);
-        self::assertSame('ueber-uns-team', Slug::fromTitle(' Über  uns & Team! '));
+        self::assertSame('ueber-uns-team', Slug::fromTitle(' Über  uns & Team! ', 'de'));
         self::assertSame('', Slug::fromTitle('!!!'));
 
         $this->assertInvalid(['/translations/de/slug' => \sprintf('is already used by the page "Über uns & Team" (%s) next to it.', $about->id)], fn() => $this->createPage($start->id, 'Ueber uns team'));
@@ -132,6 +134,15 @@ final class PagesTest extends NotesTestCase
         $this->createPage($about->id, 'Über uns & Team');
         $english = $this->runner()->run(new UpdatePage($about->id, ['en' => ['title' => 'Über uns & Team']]));
         self::assertSame(['de', 'en'], array_keys($english->draft->translations ?? []));
+        self::assertSame('uber-uns-team', $english->draft->translations['en']->slug ?? null, 'English writes umlauts without an e.');
+    }
+
+    public function testSuggestsTheSlugOfATitle(): void
+    {
+        self::assertSame('kyiv', $this->runner()->ask(new SuggestSlug('Київ', 'uk')));
+        self::assertSame('ueber-uns', $this->runner()->ask(new SuggestSlug('Über uns', 'de')));
+        self::assertSame('uber-uns', $this->runner()->ask(new SuggestSlug('Über uns')));
+        self::assertSame('', $this->runner()->ask(new SuggestSlug('北京', 'zh')));
     }
 
     public function testThereIsOneStartPage(): void

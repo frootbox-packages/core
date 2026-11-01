@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Page;
 
+use Frootbox\Core\Support\Transliteration;
+
 /**
  * The part of a page URL in one language, e.g. "ueber-uns".
  */
@@ -23,20 +25,14 @@ final class Slug
      */
     public const array RESERVED = ['api', 'assets', 'media'];
 
-    private const array REPLACE = [
-        'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss', 'æ' => 'ae', 'œ' => 'oe', 'ø' => 'o', 'å' => 'a',
-        'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-        'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i', 'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o',
-        'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ç' => 'c', 'ñ' => 'n', 'ý' => 'y', 'ÿ' => 'y',
-    ];
-
     /**
-     * Makes a slug from a title: "Über uns & Team" becomes
-     * "ueber-uns-team". Empty if nothing usable is left.
+     * Makes a slug from a title by the rules of its language (decision
+     * 0134): "Über uns & Team" in German becomes "ueber-uns-team",
+     * "Київ" in Ukrainian "kyiv". Empty if nothing usable is left.
      */
-    public static function fromTitle(string $title): string
+    public static function fromTitle(string $title, string $language = ''): string
     {
-        $slug = strtr(mb_strtolower($title), self::REPLACE);
+        $slug = Transliteration::toLatin($title, $language);
         $slug = trim((string) preg_replace('/[^a-z0-9]+/', '-', $slug), '-');
 
         return rtrim(substr($slug, 0, self::MAX_LENGTH), '-');

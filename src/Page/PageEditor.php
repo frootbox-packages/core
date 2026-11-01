@@ -435,7 +435,7 @@ final readonly class PageEditor
             }
 
             $title = trim($translation->title);
-            $slug = null === $data->parentId ? '' : ('' === $translation->slug ? Slug::fromTitle($title) : $translation->slug);
+            $slug = null === $data->parentId ? '' : ('' === $translation->slug ? Slug::fromTitle($title, $language) : $translation->slug);
 
             if ('' === $title || mb_strlen($title) > 255) {
                 $errors[$at . '/title'] = '' === $title ? 'must not be empty.' : 'must be at most 255 characters.';
