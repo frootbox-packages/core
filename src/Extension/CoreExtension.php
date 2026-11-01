@@ -39,11 +39,24 @@ use Frootbox\Core\Console\SeedCommand;
 use Frootbox\Core\Console\UserCreateCommand;
 use Frootbox\Core\Console\UserTokenCommand;
 use Frootbox\Core\Field\Types\HeadlineType;
+use Frootbox\Core\Field\Types\ImageType;
 use Frootbox\Core\Field\Types\LinkType;
 use Frootbox\Core\Field\Types\ListType;
 use Frootbox\Core\Field\Types\RichTextType;
 use Frootbox\Core\Field\Types\TextType;
 use Frootbox\Core\Install\InstallCommand;
+use Frootbox\Core\Media\CreateMediaFolder;
+use Frootbox\Core\Media\CreateMedium;
+use Frootbox\Core\Media\DeleteMediaFolder;
+use Frootbox\Core\Media\DeleteMedium;
+use Frootbox\Core\Media\ListMedia;
+use Frootbox\Core\Media\ListMediaFolders;
+use Frootbox\Core\Media\MediaHandler;
+use Frootbox\Core\Media\MediaPruneCommand;
+use Frootbox\Core\Media\ShowMedium;
+use Frootbox\Core\Media\UpdateMediaFolder;
+use Frootbox\Core\Media\UpdateMedium;
+use Frootbox\Core\Media\UploadHandler;
 use Frootbox\Core\Navigation\CopyNavigation;
 use Frootbox\Core\Navigation\DiscardNavigation;
 use Frootbox\Core\Navigation\ListNavigations;
@@ -107,8 +120,9 @@ final class CoreExtension implements Extension
 {
     public function register(Registry $registry): void
     {
-        // The static route has to come before the placeholder.
+        // The static routes have to come before the placeholder.
         $registry->get(ApiHandler::PREFIX . '/openapi.json', OpenApiHandler::class, 'api.openapi');
+        $registry->post(UploadHandler::PATH, UploadHandler::class, 'api.uploads');
         $registry->route(['GET', 'POST'], ApiHandler::PREFIX . '/' . ApiHandler::NAME, ApiHandler::class, 'api');
 
         $registry->command(AboutCommand::class);
@@ -128,8 +142,9 @@ final class CoreExtension implements Extension
         $registry->command(CacheClearCommand::class);
         $registry->command(ScheduleRunCommand::class);
         $registry->command(SeedCommand::class);
+        $registry->command(MediaPruneCommand::class);
 
-        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class] as $fieldType) {
+        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class] as $fieldType) {
             $registry->fieldType($fieldType);
         }
 
@@ -175,6 +190,16 @@ final class CoreExtension implements Extension
         $registry->undoCheck(NavigationUndoCheck::class);
 
         $registry->listen(ActionExecuted::class, ClearPageCache::class);
+
+        foreach ([CreateMedium::class, UpdateMedium::class, DeleteMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class] as $action) {
+            $registry->action($action);
+        }
+
+        foreach ([ListMedia::class, ShowMedium::class, ListMediaFolders::class] as $query) {
+            $registry->query($query);
+        }
+
+        $registry->get(MediaHandler::ROUTE, MediaHandler::class, 'media');
 
         $registry->query(ShowAccount::class);
         $registry->query(ListTokens::class);

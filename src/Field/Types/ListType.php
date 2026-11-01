@@ -12,6 +12,7 @@ use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Field\HasSubfields;
+use Frootbox\Core\Field\ReferencesMedia;
 use Frootbox\Core\View\ListValue;
 use Frootbox\Core\View\Scope;
 
@@ -25,7 +26,7 @@ use Frootbox\Core\View\Scope;
  *         title: { type: headline }
  */
 #[AsFieldType('list', 'Repeated entries with their own fields')]
-final readonly class ListType implements HasSubfields
+final readonly class ListType implements HasSubfields, ReferencesMedia
 {
     public function __construct(private FieldTypes $types) {}
 
@@ -61,6 +62,17 @@ final readonly class ListType implements HasSubfields
         }
 
         return $errors;
+    }
+
+    public function media(mixed $value, Field $field): array
+    {
+        $ids = [];
+
+        foreach (\is_array($value) ? $value : [] as $entry) {
+            array_push($ids, ...(\is_array($entry) ? $this->types->media($field->fields, $entry) : []));
+        }
+
+        return $ids;
     }
 
     public function output(mixed $value, Field $field): ListValue

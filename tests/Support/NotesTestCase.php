@@ -39,7 +39,10 @@ use PHPUnit\Framework\TestCase;
  */
 abstract class NotesTestCase extends TestCase
 {
-    private const array TABLES = ['notes', 'sign_in_failures', 'navigations', 'urls', 'redirects', 'not_found', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
+    private const array TABLES = ['media', 'media_texts', 'media_tags', 'media_folders', 'notes', 'sign_in_failures', 'navigations', 'urls', 'redirects', 'not_found', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
+
+    /** APP_SECRET of the tests, e.g. for signed media addresses. */
+    protected const string SECRET = 'test-secret-0123456789abcdef';
 
     protected Container $container;
 
@@ -53,7 +56,7 @@ abstract class NotesTestCase extends TestCase
         new NotesExtension()->register($registry);
         $registry->forPackage('acme/shop', static fn() => $registry->query(ListOrders::class));
 
-        $config = new Config($this->environment(), ['database' => ['url' => TestDatabase::url()], ...$this->config()]);
+        $config = new Config($this->environment(), ['database' => ['url' => TestDatabase::url()], ...$this->config()], ['APP_SECRET' => self::SECRET]);
         $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), $extensions, $registry);
         $this->get(CurrentContext::class)->set(Context::system(Channel::Console));
 

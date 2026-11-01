@@ -135,4 +135,27 @@ final class FieldTypes
 
         return $errors;
     }
+
+    /**
+     * Ids of the media used in an object with these fields.
+     *
+     * @param array<string, Field> $fields
+     * @param array<mixed>         $values
+     *
+     * @return list<string>
+     */
+    public function media(array $fields, array $values): array
+    {
+        $ids = [];
+
+        foreach ($fields as $name => $field) {
+            $type = $this->get($field->type);
+
+            if ($type instanceof ReferencesMedia && null !== ($values[$name] ?? null)) {
+                array_push($ids, ...$type->media($values[$name], $field));
+            }
+        }
+
+        return $ids;
+    }
 }

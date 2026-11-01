@@ -54,6 +54,7 @@ final class InstallCommandTest extends TestCase
         self::assertStringContainsString("APP_ENV=prod\n", $dotenv);
         self::assertStringContainsString("DATABASE_URL='" . Installer::DEFAULT_DATABASE_URL . "'", $dotenv);
         self::assertStringContainsString('# APP_ENV', $dotenv, 'The comments of .env.example are kept.');
+        self::assertMatchesRegularExpression('/^APP_SECRET=[0-9a-f]{64}$/m', $dotenv);
         self::assertSame(0o600, fileperms($this->project->root . '/.env') & 0o777);
         self::assertFileExists($this->project->root . '/storage/database.sqlite');
 

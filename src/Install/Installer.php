@@ -105,6 +105,7 @@ final readonly class Installer
         $contents = is_file($example) ? (string) file_get_contents($example) : '';
         $contents = self::set($contents, 'APP_ENV', $environment->value);
         $contents = self::set($contents, 'DATABASE_URL', "'" . $databaseUrl . "'");
+        $contents = self::set($contents, 'APP_SECRET', bin2hex(random_bytes(32)));
 
         if (false === file_put_contents($this->dotenvFile(), $contents)) {
             throw new InstallException(\sprintf('Could not write %s.', $this->dotenvFile()));

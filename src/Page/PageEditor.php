@@ -13,6 +13,8 @@ use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Media\MediaEditor;
+use Frootbox\Core\Media\MediaReferences;
 use Frootbox\Core\Revision\RevisionStore;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Support\SortKey;
@@ -38,6 +40,8 @@ final readonly class PageEditor
         private Languages $languages,
         private AddressSync $addresses,
         private Router $router,
+        private MediaReferences $references,
+        private MediaEditor $media,
     ) {}
 
     /**
@@ -222,11 +226,17 @@ final readonly class PageEditor
             throw new InvalidInputException($action, $errors);
         }
 
+        $media = [];
+
         foreach ($this->parentsFirst($drafts, $nodes) as $id => $data) {
             $this->store->saveDraft(PageReader::TYPE, $id, $data->toArray());
             $this->write($id, $data);
             $this->store->publish(PageReader::TYPE, $id);
+            array_push($media, ...$this->references->inPage($data));
         }
+
+        // Media become public with the first published page that uses them.
+        $this->media->publish($media);
 
         $this->addresses->sync();
 

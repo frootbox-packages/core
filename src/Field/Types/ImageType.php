@@ -1,0 +1,183 @@
+<?php
+
+/*
+ * SPDX-License-Identifier: LGPL-3.0-only
+ */
+
+declare(strict_types=1);
+
+namespace Frootbox\Core\Field\Types;
+
+use Frootbox\Core\Field\AsFieldType;
+use Frootbox\Core\Field\Field;
+use Frootbox\Core\Field\ReferencesMedia;
+use Frootbox\Core\Media\Media;
+use Frootbox\Core\Media\MediaTexts;
+use Frootbox\Core\Media\MediaUrls;
+use Frootbox\Core\Media\Medium;
+use Frootbox\Core\View\Delivery;
+use Frootbox\RichText\Html;
+use LogicException;
+use Psr\Container\ContainerInterface;
+use Twig\Markup;
+
+/**
+ * An image from the media library (decision 0126):
+ *
+ *     {"media": "01J…", "alt": "Optional, else the one of the library"}
+ *
+ * Settings: "ratio" cuts it around its focus point, e.g. "16:9"; "sizes"
+ * tells the browser how wide it is shown, e.g. "(min-width: 60rem) 50vw,
+ * 100vw". {{ field('image') }} gives a <picture> with modern formats and
+ * all widths; a deleted medium gives nothing.
+ */
+#[AsFieldType('image', 'An image from the media library')]
+final readonly class ImageType implements ReferencesMedia
+{
+    public const string RATIO_PATTERN = '^[1-9][0-9]?:[1-9][0-9]?$';
+
+    /** The width of the fallback in <img src>. */
+    private const int FALLBACK_WIDTH = 960;
+
+    /**
+     * @param ContainerInterface $container The media are loaded on first output
+     */
+    public function __construct(private ContainerInterface $container) {}
+
+    public function settings(): array
+    {
+        return [
+            'ratio' => ['type' => 'string', 'pattern' => self::RATIO_PATTERN],
+            'sizes' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 300],
+        ];
+    }
+
+    public function valueSchema(Field $field): array
+    {
+        return [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['media'],
+            'properties' => [
+                'media' => ['type' => 'string', 'pattern' => '^[0-9A-HJKMNP-TV-Z]{26}$'],
+                'alt' => ['type' => 'string', 'maxLength' => 500],
+            ],
+        ];
+    }
+
+    public function validate(mixed $value, Field $field): array
+    {
+        // A medium deleted later must not keep the page from being saved.
+        return [];
+    }
+
+    public function media(mixed $value, Field $field): array
+    {
+        return \is_array($value) && \is_string($value['media'] ?? null) ? [$value['media']] : [];
+    }
+
+    public function output(mixed $value, Field $field): Markup|string
+    {
+        $id = $this->media($value, $field)[0] ?? null;
+        $medium = null === $id ? null : $this->service(Media::class)->fetchById($id);
+
+        if (null === $medium || !\is_array($value)) {
+            return '';
+        }
+
+        $urls = $this->service(MediaUrls::class);
+        $ratio = self::ratio($field, $medium);
+        $widths = MediaUrls::widths($medium);
+        $fallback = MediaUrls::fallback($medium);
+        $sizes = \is_string($field->setting('sizes')) ? $field->setting('sizes') : '100vw';
+        $srcset = static fn(string $extension): string => implode(', ', array_map(
+            static fn(int $width): string => $urls->url($medium, $width, self::height($width, $ratio), $extension) . ' ' . $width . 'w',
+            $widths,
+        ));
+
+        $sources = '';
+
+        foreach ($urls->modernFormats() as $extension) {
+            $sources .= Html::open('source', ['type' => 'image/' . $extension, 'srcset' => $srcset($extension), 'sizes' => $sizes]);
+        }
+
+        $width = self::fallbackWidth($widths);
+        $height = self::height($width, $ratio);
+        $img = Html::open('img', [
+            'src' => $urls->url($medium, $width, $height, $fallback),
+            'srcset' => $srcset($fallback),
+            'sizes' => $sizes,
+            'width' => $width,
+            'height' => 0 === $height ? max(1, (int) round($width * $medium->height / $medium->width)) : $height,
+            'alt' => $this->alt($value, $medium),
+            'loading' => 'lazy',
+            'decoding' => 'async',
+        ]);
+
+        return new Markup(Html::element('picture', $sources . $img), 'UTF-8');
+    }
+
+    /**
+     * Width through height, null to keep the ratio of the original.
+     */
+    private static function ratio(Field $field, Medium $medium): ?float
+    {
+        $setting = $field->setting('ratio');
+
+        if (!\is_string($setting) || 1 !== preg_match('/' . self::RATIO_PATTERN . '/', $setting)) {
+            return null;
+        }
+
+        [$width, $height] = array_map(intval(...), explode(':', $setting));
+        // Taller than 1:4 is not delivered (MediaHandler).
+        $ratio = max(0.25, $width / $height);
+
+        return abs($ratio - $medium->width / $medium->height) < 0.01 ? null : $ratio;
+    }
+
+    /**
+     * @return int 0 keeps the ratio of the original
+     */
+    private static function height(int $width, ?float $ratio): int
+    {
+        return null === $ratio ? 0 : max(1, (int) round($width / $ratio));
+    }
+
+    /**
+     * @param list<int> $widths
+     */
+    private static function fallbackWidth(array $widths): int
+    {
+        $fitting = array_filter($widths, static fn(int $width): bool => $width <= self::FALLBACK_WIDTH);
+
+        return [] === $fitting ? $widths[0] : max($fitting);
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function alt(array $value, Medium $medium): string
+    {
+        if (\is_string($value['alt'] ?? null) && '' !== trim($value['alt'])) {
+            return trim($value['alt']);
+        }
+
+        $language = $this->service(Delivery::class)->contentLanguage()->code;
+
+        return $this->service(MediaTexts::class)->of($medium->id)[$language]->alt ?? '';
+    }
+
+    /**
+     * @template T of object
+     *
+     * @param class-string<T> $class
+     *
+     * @return T
+     */
+    private function service(string $class): object
+    {
+        $service = $this->container->get($class);
+
+        return $service instanceof $class ? $service : throw new LogicException(\sprintf('%s is not available.', $class));
+    }
+}

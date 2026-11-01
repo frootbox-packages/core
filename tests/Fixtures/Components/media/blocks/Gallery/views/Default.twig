@@ -1,0 +1,11 @@
+{# frootbox
+title: Gallery
+fields:
+  cover: { type: image, ratio: "16:9", sizes: "50vw", optional: true }
+  pictures:
+    type: list
+    optional: true
+    fields:
+      picture: { type: image }
+#}
+<div class="gallery">{{ field('cover') }}{% for entry in field('pictures') %}{{ entry.field('picture') }}{% endfor %}</div>
