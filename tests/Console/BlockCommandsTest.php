@@ -95,6 +95,34 @@ final class BlockCommandsTest extends TestCase
         self::assertStringContainsString('acme/kit/Odd: preview.Wide.png: is 1x1; previews are 16:10', $output);
     }
 
+    public function testHintsAtHeadingsThatBreakTheOutline(): void
+    {
+        $root = $this->project->root . '/kit';
+        $blocks = [
+            'Good' => "{{ heading('title') }}{% for item in field('items') %}{{ item.heading('question', 1) }}{% endfor %}{{ field('body') }}",
+            'Fixed' => "<section>\n  < H2 class=\"x\">{{ field('title') }}</h2></section>",
+            'Hidden' => "{{ heading('title') }}{{ ('<h' ~ 4 ~ '>Deep</h4>')|raw }}",
+        ];
+
+        foreach ($blocks as $name => $template) {
+            mkdir($root . '/blocks/' . $name . '/views', 0o777, true);
+            file_put_contents($root . '/blocks/' . $name . '/views/Default.twig', "{# frootbox\ntitle: {$name}\ngroup: text\nfields:\n  title: { type: headline, placeholder: '<h2>' }\n  body: { type: richtext, optional: true }\n  items: { type: list, optional: true, fields: { question: { type: headline } } }\n#}" . $template);
+            file_put_contents($root . '/blocks/' . $name . '/preview.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" id="preview"/>');
+        }
+
+        file_put_contents($root . '/frootbox.yaml', 'title: Kit');
+
+        [$exitCode, $output] = $this->console('blocks:check', new Extensions([ExtensionPackage::fromManifest('acme/kit', $root)]));
+        $output = (string) preg_replace('/\s+/', ' ', $output);
+
+        self::assertSame(0, $exitCode, 'Hints do not fail the check.');
+        self::assertStringNotContainsString('acme/kit/Good', $output);
+        self::assertStringContainsString('acme/kit/Fixed, variant Default: writes a fixed <h2>. Use heading()', $output);
+        self::assertStringContainsString('acme/kit/Hidden, variant Default, on top of a page: h4 follows h1 and skips a level.', $output);
+        self::assertStringContainsString('acme/kit/Hidden, variant Default, further down: h4 follows h2 and skips a level.', $output);
+        self::assertStringNotContainsString('in a section with a heading', $output, 'There the h4 fits under the h3 of the block.');
+    }
+
     public function testReportsSchemaAndTwigErrors(): void
     {
         $root = $this->project->root . '/broken';

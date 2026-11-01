@@ -50,11 +50,12 @@ final readonly class ComponentRenderer
 
     /**
      * @param Instance|array<mixed> $block
-     * @param AssetList|null        $assets collects the styles and scripts of everything rendered
+     * @param AssetList|null        $assets   collects the styles and scripts of everything rendered
+     * @param Headings|null         $headings where it stands, by default on top of a page
      */
-    public function block(Instance|array $block, ?AssetList $assets = null): string
+    public function block(Instance|array $block, ?AssetList $assets = null, ?Headings $headings = null): string
     {
-        return $this->render(ComponentKind::Block, $block instanceof Instance ? $block : Instance::fromArray($block), 0, $assets, new Headings());
+        return $this->render(ComponentKind::Block, $block instanceof Instance ? $block : Instance::fromArray($block), 0, $assets, $headings ?? new Headings());
     }
 
     /**

@@ -16,6 +16,7 @@ use Frootbox\Core\Component\ComponentException;
 use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\ComponentLoader;
 use Frootbox\Core\Component\Previews;
+use Frootbox\Core\Heading\BlockOutlineCheck;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -27,7 +28,9 @@ use Twig\Error\SyntaxError;
 /**
  * Checks all blocks and layouts: schemas, overrides and Twig syntax.
  * Ignores the cache, so it also suits a deployment pipeline. Missing
- * groups and previews are warnings (decision 0148).
+ * groups and previews are warnings (decision 0148), so are fixed
+ * headings and an outline that breaks at one of three places (decision
+ * 0129).
  */
 #[AsCommand(name: 'blocks:check', description: 'Checks schemas, overrides and Twig syntax of all blocks and layouts')]
 final class BlocksCheckCommand extends Command
@@ -36,6 +39,7 @@ final class BlocksCheckCommand extends Command
         private readonly ComponentLoader $loader,
         private readonly Twig $twig,
         private readonly BlockGroups $groups,
+        private readonly BlockOutlineCheck $headings,
     ) {
         parent::__construct();
     }
@@ -92,7 +96,7 @@ final class BlocksCheckCommand extends Command
     }
 
     /**
-     * Group and previews of a block or layout.
+     * Group, previews and headings of a block or layout.
      *
      * @return list<string>
      */
@@ -128,7 +132,7 @@ final class BlocksCheckCommand extends Command
             }
         }
 
-        return $warnings;
+        return [...$warnings, ...$this->headings->check($component)];
     }
 
     private static function svgProblem(string $file): ?string
