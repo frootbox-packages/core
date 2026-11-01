@@ -21,6 +21,7 @@ use Frootbox\Core\Media\MediumDetails;
 use Frootbox\Core\Media\MediumUsage;
 use Frootbox\Core\Media\RebuildMediaUsages;
 use Frootbox\Core\Media\ShowMedium;
+use Frootbox\Core\Media\UpdateMedium;
 use Frootbox\Core\Media\Uploads;
 use Frootbox\Core\Media\UsageIndex;
 use Frootbox\Core\Page\CreatePage;
@@ -44,6 +45,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(RebuildMediaUsages::class)]
 #[CoversClass(MediaUsagesCommand::class)]
 #[CoversClass(MediaReferences::class)]
+#[CoversClass(ListMedia::class)]
 final class MediaUsagesTest extends NotesTestCase
 {
     public function testKnowsWhereAPageUsesAMediumInDraftAndPublished(): void
@@ -79,6 +81,27 @@ final class MediaUsagesTest extends NotesTestCase
         self::assertSame([], $this->usages($first->id));
         self::assertSame([], $this->usages($second->id));
         self::assertCount(3, $this->runner()->ask(new ListMedia(unused: true))->items);
+    }
+
+    public function testListsTheMediaAPageUsesAsItIsEdited(): void
+    {
+        $first = $this->medium();
+        $second = $this->medium();
+        $page = $this->runner()->run(new CreatePage('acme/base/Page', ['de' => ['title' => 'Start', 'content' => $this->content($first->id)]]))->id;
+        $this->runner()->run(new PublishPages([$page]));
+
+        self::assertSame([$first->id], $this->onPage($page));
+
+        $this->runner()->run(new UpdatePage($page, ['de' => ['content' => $this->content($second->id)]]));
+        self::assertSame([$second->id], $this->onPage($page), 'The draft counts once there is one.');
+        self::assertSame([], $this->onPage($page, changed: true));
+
+        $this->runner()->run(new UpdateMedium($second->id, texts: ['de' => ['alt' => 'Neu']]));
+        self::assertSame([], $this->onPage($page, changed: true), 'Not public yet: no draft of the medium.');
+
+        $this->runner()->run(new UpdateMedium($first->id, texts: ['de' => ['alt' => 'Neu']]));
+        $this->runner()->run(new DiscardPage($page));
+        self::assertSame([$first->id], $this->onPage($page, changed: true));
     }
 
     public function testKnowsWhereTheFieldsOfTheWebsiteUseAMediumAndMakeItPublic(): void
@@ -119,6 +142,14 @@ final class MediaUsagesTest extends NotesTestCase
     protected function config(): array
     {
         return ['app' => ['url' => 'https://example.org'], 'theme' => 'acme/site', 'languages' => ['de' => ['title' => 'Deutsch'], 'en' => ['title' => 'English']]];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function onPage(string $page, bool $changed = false): array
+    {
+        return array_map(static fn(MediumDetails $medium): string => $medium->id, $this->runner()->ask(new ListMedia(changed: $changed, pageId: $page))->items);
     }
 
     /**

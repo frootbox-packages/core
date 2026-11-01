@@ -11,6 +11,7 @@ namespace Frootbox\Core\Tests\Media;
 use DateTimeImmutable;
 use Frootbox\Core\Action\AccessDeniedException;
 use Frootbox\Core\Action\Channel;
+use Frootbox\Core\Action\ConflictException;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Action\InvalidInputException;
@@ -51,6 +52,7 @@ use Frootbox\Core\Media\UploadHandler;
 use Frootbox\Core\Media\UploadReceiver;
 use Frootbox\Core\Media\Uploads;
 use Frootbox\Core\Page\CreatePage;
+use Frootbox\Core\Page\DeletePage;
 use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Page\PageHandler;
 use Frootbox\Core\Page\PublishPages;
@@ -250,7 +252,7 @@ final class MediaTest extends NotesTestCase
         $folder = $this->runner()->run(new CreateMediaFolder('Kaffee'));
         $medium = $this->medium('hafen.jpg', 1200, 800, texts: ['de' => ['alt' => 'Alt', 'title' => '']]);
         $other = $this->medium('anderes.jpg', 400, 300);
-        $this->publishWith($medium->id);
+        $page = $this->publishWith($medium->id);
         $id = $medium->id;
 
         $changed = $this->runner()->run(new UpdateMedium($id, folderId: $folder->id, focusX: 0.2, focusY: 0.5, texts: ['de' => ['alt' => 'Neu']], tags: ['hafen']));
@@ -300,6 +302,8 @@ final class MediaTest extends NotesTestCase
         $this->assertInvalid(fn() => $this->runner()->run(new DiscardMedium($id)), '/id');
 
         $this->runner()->run(new UpdateMedium($id, texts: ['de' => ['alt' => 'Weg']]));
+        $this->expectConflict(fn() => $this->runner()->run(new DeleteMedium($id)), 'published place');
+        $this->runner()->run(new DeletePage($page));
         $this->runner()->run(new DeleteMedium($id));
         self::assertNull($this->get(Revisions::class)->draft(MediaDrafts::TYPE, $id), 'Deleting takes the draft along.');
     }
@@ -441,8 +445,9 @@ final class MediaTest extends NotesTestCase
         self::assertMatchesRegularExpression('#<img src="/media/' . $cover->id . '/1/cover-960x540-[0-9a-f]{16}\.jpg" srcset="[^"]+" sizes="50vw" width="960" height="540" alt="Aus der Bibliothek" loading="lazy" decoding="async">#', $html);
         self::assertMatchesRegularExpression('#<img src="/media/' . $inList->id . '/1/liste-320x0-[0-9a-f]{16}\.png" srcset="[^"]+" sizes="100vw" width="320" height="240" alt="Eigener Text"#', $html);
 
-        // A deleted medium shows nothing.
-        $this->runner()->run(new DeleteMedium($cover->id));
+        // A published page keeps its media (decision 0147); one gone anyway shows nothing.
+        $this->expectConflict(fn() => $this->runner()->run(new DeleteMedium($cover->id)), '1 published place');
+        $this->connection()->executeStatement('DELETE FROM media WHERE id = ?', [$cover->id]);
         $html = (string) $this->get(PageHandler::class)->handle(new Psr17Factory()->createServerRequest('GET', 'https://example.org/'))->getBody();
         self::assertStringNotContainsString($cover->id, $html);
         self::assertStringContainsString($inList->id, $html);
@@ -508,13 +513,17 @@ final class MediaTest extends NotesTestCase
 
     /**
      * Publishes a page that uses the medium.
+     *
+     * @return string The id of the page
      */
-    private function publishWith(string $id): void
+    private function publishWith(string $id): string
     {
         $page = $this->runner()->run(new CreatePage('acme/base/Page', ['de' => ['title' => 'Start', 'content' => ['fields' => ['heading' => 'Bild'], 'areas' => ['main' => [
             ['block' => 'acme/media/Gallery', 'fields' => ['cover' => ['media' => $id]]],
         ]]]]]))->id;
         $this->runner()->run(new PublishPages([$page]));
+
+        return $page;
     }
 
     /**
@@ -638,6 +647,19 @@ final class MediaTest extends NotesTestCase
         } finally {
             $this->get(CurrentContext::class)->set(Context::system());
         }
+    }
+
+    private function expectConflict(callable $callback, string $text): void
+    {
+        try {
+            $callback();
+        } catch (ConflictException $exception) {
+            self::assertStringContainsString($text, $exception->getMessage());
+
+            return;
+        }
+
+        self::fail('Expected a conflict.');
     }
 
     private function assertInvalid(callable $callback, string $pointer): void

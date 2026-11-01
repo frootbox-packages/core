@@ -16,7 +16,7 @@ use Frootbox\Core\Auth\Scoped;
 /**
  * @implements Action<bool>
  */
-#[AsAction('media.delete', 'Deletes a medium; pages that use it show nothing there any more')]
+#[AsAction('media.delete', 'Deletes a medium that no published page or field uses (409 otherwise, see media.usages); drafts that use it show nothing there any more')]
 final readonly class DeleteMedium implements Action, Scoped
 {
     public function __construct(

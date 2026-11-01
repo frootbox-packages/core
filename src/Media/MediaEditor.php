@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Media;
 
+use Frootbox\Core\Action\ConflictException;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Revision\RevisionStore;
@@ -40,6 +41,7 @@ final readonly class MediaEditor
         private Languages $languages,
         private MediaDrafts $drafts,
         private RevisionStore $store,
+        private MediaUsages $usages,
     ) {}
 
     /**
@@ -307,13 +309,21 @@ final readonly class MediaEditor
 
     /**
      * Removes the medium and its generated files. The originals stay until
-     * media:prune, so undo can bring the medium back.
+     * media:prune, so undo can bring the medium back. A deletion would
+     * reach published pages without a draft: as long as published content
+     * uses the medium, it is refused (decision 0147).
      *
      * @throws EntityNotFoundException
+     * @throws ConflictException
      */
     public function delete(string $id): void
     {
         $medium = $this->media->getById($id);
+        $live = $this->livePlaces($id);
+
+        if ($live > 0) {
+            throw new ConflictException(new Message('The image is used in {count} published place. Take it out there and publish, then delete it.', ['count' => $live]));
+        }
         $file = $this->drafts->of($id)['file'] ?? null;
 
         foreach ($this->texts->fetch(['where' => ['mediaId' => $id]]) as $text) {
@@ -482,6 +492,22 @@ final readonly class MediaEditor
         }
 
         $this->store->saveDraft(MediaDrafts::TYPE, $medium->id, $draft);
+    }
+
+    /**
+     * How many published places (owner and language) use the medium.
+     */
+    private function livePlaces(string $id): int
+    {
+        $places = [];
+
+        foreach ($this->usages->ofMedium($id) as $usage) {
+            if ($usage->published) {
+                $places[$usage->ownerType . '|' . $usage->ownerId . '|' . $usage->language] = true;
+            }
+        }
+
+        return \count($places);
     }
 
     /**

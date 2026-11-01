@@ -124,6 +124,26 @@ final readonly class UsageIndex
     }
 
     /**
+     * Ids of the media a page uses as it is edited: in its draft, or in
+     * its published state if it has no draft.
+     *
+     * @return list<string>
+     */
+    public function ofPage(string $id): array
+    {
+        $published = null === $this->pages->draft($id);
+        $ids = [];
+
+        foreach ($this->usages->ofOwner(self::PAGE, $id) as $usage) {
+            if ($usage->published === $published) {
+                $ids[] = $usage->mediaId;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
      * Ids of all media used somewhere, in a draft or published.
      *
      * @return list<string>

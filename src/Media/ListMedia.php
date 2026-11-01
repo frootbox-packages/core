@@ -19,7 +19,7 @@ use Frootbox\Database\Where;
 /**
  * @implements Query<MediaPage>
  */
-#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere or only those with a draft')]
+#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere, only those with a draft or only those a page uses')]
 final readonly class ListMedia implements Query, Scoped
 {
     public function __construct(
@@ -32,6 +32,8 @@ final readonly class ListMedia implements Query, Scoped
         public bool $unused = false,
         #[Description('Only media with a draft that is not published yet')]
         public bool $changed = false,
+        #[Description('Only media this page uses: its draft, or the published state if it has none')]
+        public ?string $pageId = null,
         #[Range(1)]
         public int $page = 1,
         #[Range(1, 200)]
@@ -77,8 +79,23 @@ final readonly class ListMedia implements Query, Scoped
             }
         }
 
+        $only = null;
+
         if ($this->changed) {
-            $where['id in'] = $drafts->ids();
+            $only = $drafts->ids();
+        }
+
+        if (null !== $this->pageId) {
+            $onPage = $usages->ofPage($this->pageId);
+            $only = null === $only ? $onPage : array_values(array_intersect($only, $onPage));
+        }
+
+        if ([] === $only) {
+            return new MediaPage([], 0, $this->page, $this->perPage);
+        }
+
+        if (null !== $only) {
+            $where['id in'] = $only;
         }
 
         $result = $media->paginate(['where' => $where, 'order' => ['createdAt' => 'desc', 'id' => 'desc']], $this->page, $this->perPage);
