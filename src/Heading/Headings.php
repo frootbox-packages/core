@@ -42,8 +42,10 @@ final class Headings
     public function wanted(int $rank): int
     {
         $rank = max(0, $rank);
+        $wanted = null === $this->main ? $this->start + max(0, $rank - 1) : $this->main + $rank;
 
-        return null === $this->main ? $this->start + max(0, $rank - 1) : $this->main + $rank;
+        // Once the page has its h1, a place that would start at 1 starts at 2.
+        return 1 === $wanted && $this->outline->hasMain() ? 2 : $wanted;
     }
 
     /**

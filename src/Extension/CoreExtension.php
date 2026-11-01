@@ -60,6 +60,7 @@ use Frootbox\Core\Field\Types\LinkType;
 use Frootbox\Core\Field\Types\ListType;
 use Frootbox\Core\Field\Types\RichTextType;
 use Frootbox\Core\Field\Types\TextType;
+use Frootbox\Core\Heading\ShowOutline;
 use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Media\CreateMediaFolder;
 use Frootbox\Core\Media\CreateMedium;
@@ -208,7 +209,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([ShowPageTree::class, ShowPage::class, ListPageVersions::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class, ListBlockGroups::class] as $query) {
+        foreach ([ShowPageTree::class, ShowPage::class, ShowOutline::class, ListPageVersions::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class, ListBlockGroups::class] as $query) {
             $registry->query($query);
         }
 

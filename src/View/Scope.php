@@ -110,7 +110,7 @@ final readonly class Scope
             return new Markup('', 'UTF-8');
         }
 
-        $level = $empty ? $headings->level($rank) : $headings->take($rank, (string) $plain, $this->path . $name);
+        $level = $empty ? $headings->level($rank) : $headings->take($rank, $plain instanceof Markup ? (string) $plain : Html::escape($plain), $this->path . $name);
         $tag = 'h' . $level;
         $output = $this->field($name);
 
