@@ -306,7 +306,7 @@ final readonly class ContentValidator
      *
      * @return array<string, mixed>
      */
-    private static function withoutMinimums(array $schema): array
+    public static function withoutMinimums(array $schema): array
     {
         unset($schema['required'], $schema['minItems']);
 

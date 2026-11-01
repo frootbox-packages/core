@@ -11,6 +11,7 @@ namespace Frootbox\Core\View;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Navigation\MenuItem;
 use Frootbox\Core\Navigation\Menus;
+use Frootbox\Core\Site\SiteFields;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
 use Psr\Container\ContainerInterface;
@@ -29,6 +30,8 @@ use Twig\TwigFunction;
  *     {{ url(value('button')) }}      the URL of a link field
  *     {{ language() }}                the language of the visitor, e.g. "en"
  *     {{ content_language() }}        the language of the content, e.g. "de" on a fallback
+ *     {{ site_field('address') }}     a field of the website, the same on every page
+ *     {{ site_value('brand') }}       its stored value
  *     {% for item in alternates() %}  the page in all languages, for a language switcher
  */
 final class ViewExtension extends AbstractExtension
@@ -52,6 +55,8 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('content_language', fn(): string => $this->service(Delivery::class)->contentLanguage()->code),
             new TwigFunction('alternates', $this->alternates(...)),
             new TwigFunction('navigation', $this->navigation(...)),
+            new TwigFunction('site_field', fn(string $name): mixed => $this->site()->field($name)),
+            new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
             new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),
         ];
     }
@@ -142,5 +147,13 @@ final class ViewExtension extends AbstractExtension
         $service = $this->container->get($class);
 
         return $service instanceof $class ? $service : throw new ViewException(\sprintf('%s is not available.', $class));
+    }
+
+    /**
+     * The fields of the website in the language of the visitor (decision 0128).
+     */
+    private function site(): Scope
+    {
+        return $this->service(SiteFields::class)->scope($this->service(Delivery::class)->language()->code);
     }
 }

@@ -103,7 +103,8 @@ final readonly class PageHandler implements RequestHandlerInterface
 
             if ($editing) {
                 // A page in a fallback language has no content of its own to change (decision 0122).
-                $this->service(EditMode::class)->set(true, !$resolution->page->isFallback() && $this->mayChange($request, $resolution->page->id));
+                $marking = !$resolution->page->isFallback() && $this->mayChange($request, $resolution->page->id);
+                $this->service(EditMode::class)->set(true, $marking, $marking && $this->mayChangeSite($request));
             }
 
             $html = $this->render($resolution->page, $request);
@@ -168,6 +169,19 @@ final readonly class PageHandler implements RequestHandlerInterface
         return $authentication instanceof Authentication
             && $catalog->has('page.update')
             && $this->service(Gate::class)->allowsOn($authentication->actor, $catalog->get('page.update'), [Scope::page($id)]);
+    }
+
+    /**
+     * Whether the user may change the fields of the website (decision 0128).
+     */
+    private function mayChangeSite(ServerRequestInterface $request): bool
+    {
+        $authentication = $request->getAttribute(Authentication::class);
+        $catalog = $this->service(Catalog::class);
+
+        return $authentication instanceof Authentication
+            && $catalog->has('site.update-field')
+            && $this->service(Gate::class)->allows($authentication->actor, $catalog->get('site.update-field'));
     }
 
     private function isInstalled(): bool

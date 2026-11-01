@@ -95,6 +95,11 @@ use Frootbox\Core\Page\UnpublishPage;
 use Frootbox\Core\Page\UpdateBlock;
 use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\Page\UpdatePageField;
+use Frootbox\Core\Site\DiscardSite;
+use Frootbox\Core\Site\PublishSite;
+use Frootbox\Core\Site\ShowSite;
+use Frootbox\Core\Site\UpdateSite;
+use Frootbox\Core\Site\UpdateSiteField;
 use Frootbox\Core\Url\ClearNotFound;
 use Frootbox\Core\Url\CreateRedirect;
 use Frootbox\Core\Url\DeleteRedirect;
@@ -212,6 +217,13 @@ final class CoreExtension implements Extension
 
         $registry->query(ShowDesign::class);
         $registry->query(ListDesignVersions::class);
+
+        // Fields of the website (decision 0128).
+        foreach ([UpdateSiteField::class, UpdateSite::class, PublishSite::class, DiscardSite::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ShowSite::class);
 
         $registry->get(MediaHandler::ROUTE, MediaHandler::class, 'media');
 

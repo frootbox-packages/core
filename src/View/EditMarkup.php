@@ -19,6 +19,7 @@ use Twig\Markup;
  * only for users who may change the page. Visitors never get it.
  *
  *     <fb-field data-fb-field="slides/0/title" data-fb-type="headline" data-fb-label="Title" tabindex="0">…</fb-field>
+ *     <fb-field data-fb-field="address" data-fb-type="text" data-fb-label="Address" data-fb-site tabindex="0">…</fb-field>
  *     <section data-fb-block="01J…" data-fb-name="acme/website/Teaser" data-fb-title="Teaser" data-fb-area="main">…</section>
  *     <fb-area data-fb-area="main" data-fb-empty></fb-area>
  */
@@ -26,6 +27,19 @@ final readonly class EditMarkup
 {
     /** Up to the first tag of a rendered block, after comments. */
     private const string ROOT = '/^\s*(?:<!--.*?-->\s*)*</s';
+
+    /**
+     * @param bool $site For the fields of the website rather than of the page (decision 0128)
+     */
+    public function __construct(private bool $site = false) {}
+
+    /**
+     * The markup for fields of the website, saved with site.update-field.
+     */
+    public function forSite(): self
+    {
+        return new self(true);
+    }
 
     /**
      * Wraps the output of a field that is text or markup. The stored value
@@ -36,10 +50,11 @@ final readonly class EditMarkup
     public function field(string $path, Field $field, string|Markup $output, mixed $value = null): Markup
     {
         return new Markup(\sprintf(
-            '<fb-field data-fb-field="%s" data-fb-type="%s" data-fb-label="%s" tabindex="0"%s>%s</fb-field>',
+            '<fb-field data-fb-field="%s" data-fb-type="%s" data-fb-label="%s"%s tabindex="0"%s>%s</fb-field>',
             Html::escape($path),
             Html::escape($field->type),
             Html::escape($field->label),
+            $this->site ? ' data-fb-site' : '',
             null === $value ? '' : ' data-fb-value="' . Html::escape(json_encode($value, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)) . '"',
             $output instanceof Markup ? (string) $output : Html::escape($output),
         ), 'UTF-8');

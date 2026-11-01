@@ -10,6 +10,14 @@ theme:
     space: { value: normal, type: choice, label: Spacing, options: { normal: { label: Normal, value: 2rem }, wide: { label: Wide, value: 4rem } } }
   fonts:
     lora: { label: Lora, family: '"Lora", serif' }
+  fields:
+    brand: { type: headline, label: Name, maxLength: 40 }
+    address: { type: text, label: Address, optional: true }
+    links:
+      type: list
+      optional: true
+      fields:
+        text: { type: headline, label: Text }
   navigations:
     main: Main navigation
     footer: Footer

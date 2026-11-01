@@ -5,4 +5,5 @@ fields:
 areas:
   main: {}
 #}
-<main><h1>{{ field('heading') }}</h1>{{ area('main') }}</main>
+<main><h1>{{ field('heading') }}</h1>{{ area('main') }}</main>{% if site_value('brand') %}<footer><p>{{ site_field('brand') }}</p><p>{{ site_field('address') }}</p></footer>{% endif %}
+

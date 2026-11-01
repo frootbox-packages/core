@@ -23,10 +23,16 @@ final class EditMode
 
     private bool $marking = false;
 
-    public function set(bool $active, bool $marking = false): void
+    private bool $site = false;
+
+    /**
+     * @param bool $site Whether the fields of the website are marked as well, only with $marking (decision 0128)
+     */
+    public function set(bool $active, bool $marking = false, bool $site = false): void
     {
         $this->active = $active;
         $this->marking = $active && $marking;
+        $this->site = $this->marking && $site;
     }
 
     /**
@@ -43,5 +49,13 @@ final class EditMode
     public function marking(): bool
     {
         return $this->marking;
+    }
+
+    /**
+     * Whether the fields of the website get their markup for editing.
+     */
+    public function markingSite(): bool
+    {
+        return $this->site;
     }
 }

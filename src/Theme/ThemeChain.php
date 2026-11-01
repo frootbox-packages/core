@@ -107,6 +107,24 @@ final readonly class ThemeChain
     }
 
     /**
+     * The fields with content for every page as the manifests describe
+     * them, by name (decision 0128); a child replaces a field of the same
+     * name.
+     *
+     * @return array<string, array<mixed>>
+     */
+    public function fields(): array
+    {
+        $fields = [];
+
+        foreach (array_reverse($this->themes) as $theme) {
+            $fields = [...$fields, ...$theme->fields];
+        }
+
+        return $fields;
+    }
+
+    /**
      * The fonts a font token can choose: the system fonts, then those of
      * the themes, children overriding their parents.
      *

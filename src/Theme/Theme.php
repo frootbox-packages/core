@@ -21,6 +21,8 @@ use Frootbox\Core\Extension\ExtensionPackage;
  *         radius: 4px
  *       fonts:
  *         lora: { label: Lora, family: '"Lora", serif' }
+ *       fields:
+ *         address: { type: text, label: Address, optional: true }
  *       navigations:
  *         main: { title: Main navigation, depth: 2 }
  *         footer: Footer
@@ -28,11 +30,13 @@ use Frootbox\Core\Extension\ExtensionPackage;
  * Tokens become CSS variables such as --color-primary. Those with a type
  * may be changed by editors, the short form stays fixed; fonts are what a
  * font token can choose besides the system fonts (decision 0127).
- * Navigations are the menus the theme shows (decision 0106).
+ * Fields hold content that is the same on every page, read by
+ * Site\SiteFields (decision 0128). Navigations are the menus the theme
+ * shows (decision 0106).
  */
 final readonly class Theme
 {
-    private const array KEYS = ['parent', 'tokens', 'fonts', 'navigations'];
+    private const array KEYS = ['parent', 'tokens', 'fonts', 'fields', 'navigations'];
 
     private const array DESCRIPTION = ['value', 'type', 'label', 'contrast', 'min', 'max', 'step', 'unit', 'options'];
 
@@ -46,6 +50,7 @@ final readonly class Theme
      * @param array<string, array<mixed>>    $navigations By key, as in the manifest; read by Navigation\Definitions
      * @param array<string, TokenDefinition> $definitions The tokens with a type, by name
      * @param array<string, Font>            $fonts       By key
+     * @param array<string, array<mixed>>    $fields      By name, as in the manifest; read by Site\SiteFields
      */
     public function __construct(
         public string $name,
@@ -55,6 +60,7 @@ final readonly class Theme
         public array $navigations = [],
         public array $definitions = [],
         public array $fonts = [],
+        public array $fields = [],
     ) {}
 
     public static function fromPackage(ExtensionPackage $package): ?self
@@ -92,10 +98,24 @@ final readonly class Theme
             throw new ThemeException(\sprintf('%s: "navigations" must list the navigations by key, e.g. "main: Main navigation".', $where));
         }
 
+        $fields = [];
+
+        foreach (\is_array($package->theme['fields'] ?? null) ? $package->theme['fields'] : [] as $name => $field) {
+            if (!\is_array($field)) {
+                throw new ThemeException(\sprintf('%s: the field "%s" must be described like a field of a block, e.g. "address: { type: text, label: Address }".', $where, $name));
+            }
+
+            $fields[(string) $name] = $field;
+        }
+
+        if (isset($package->theme['fields']) && !\is_array($package->theme['fields'])) {
+            throw new ThemeException(\sprintf('%s: "fields" must list the fields by name, e.g. "address: { type: text, label: Address }".', $where));
+        }
+
         $definitions = [];
         $flat = self::flatten($tokens, '', $where, $definitions);
 
-        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where));
+        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where), $fields);
     }
 
     /**
