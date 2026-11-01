@@ -59,6 +59,14 @@ final class Outline
     }
 
     /**
+     * The level of the heading before, 0 at the start of the page.
+     */
+    public function last(): int
+    {
+        return $this->last;
+    }
+
+    /**
      * Whether the page has its h1.
      */
     public function hasMain(): bool

@@ -163,7 +163,7 @@ final class HeadingsTest extends TestCase
 
         self::assertMatchesRegularExpression('~<h1 class="hero__title" data-fb-field="title" [^>]*data-fb-placeholder="Big words"[^>]*></h1>~', $html, 'The placeholder at the level it would get.');
         self::assertMatchesRegularExpression('~<h1 class="hero__title" data-fb-field="title" [^>]*>Counts</h1>~', $html, 'The empty one does not count.');
-        self::assertStringContainsString('data-fb-headings="3" data-fb-heading-level="2"', $html, 'The editor shows rich text headings at their level.');
+        self::assertStringContainsString('data-fb-headings="3" data-fb-heading-flow="{&quot;wanted&quot;:[2,2,3],&quot;last&quot;:1,&quot;floor&quot;:1,&quot;main&quot;:true}"', $html, 'The editor gives rich text headings the levels of the page.');
         self::assertStringContainsString('<h2 data-rank="1">Below</h2>', $html);
     }
 

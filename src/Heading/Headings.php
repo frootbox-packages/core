@@ -57,6 +57,18 @@ final class Headings
     }
 
     /**
+     * What an editor needs to give headings in rich text the level the
+     * page gives them: the level each rank wants, the level before, the
+     * floor and whether the page has its h1.
+     *
+     * @return array{wanted: list<int>, last: int, floor: int, main: bool}
+     */
+    public function flow(): array
+    {
+        return ['wanted' => [$this->wanted(1), $this->wanted(2), $this->wanted(3)], 'last' => $this->outline->last(), 'floor' => $this->floor, 'main' => $this->outline->hasMain()];
+    }
+
+    /**
      * Counts a heading and returns its level.
      *
      * @param string $text  Plain text or HTML

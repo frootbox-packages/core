@@ -63,7 +63,7 @@ final readonly class Scope
             $headings = $this->headings;
             $path = $this->path . $name;
             // The editor shows headings at the level they get (decision 0129).
-            $extra = ['data-fb-headings' => $type->headingRanks($field), 'data-fb-heading-level' => $headings->level(1)];
+            $extra = ['data-fb-headings' => $type->headingRanks($field), 'data-fb-heading-flow' => json_encode($headings->flow(), \JSON_THROW_ON_ERROR)];
             $output = $type->outputWithHeadings($value, $field, static fn(int $rank, string $content): int => $headings->take($rank, $content, $path));
         } else {
             $output = $type->output($value, $field);
