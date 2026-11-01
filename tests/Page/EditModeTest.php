@@ -170,7 +170,7 @@ final class EditModeTest extends NotesTestCase
 
         self::assertMatchesRegularExpression('/<article data-fb-block="[0-9a-z]{8}" data-fb-name="acme\/base\/Teaser" data-fb-title="Teaser" data-fb-area="main" class="site-teaser"/', $html);
         self::assertStringContainsString('<h3 data-fb-field="title" data-fb-type="headline"', $html, 'A field alone in its element marks the element.');
-        self::assertStringContainsString('<fb-field data-fb-field="text" data-fb-type="richtext" data-fb-label="Text" tabindex="0"></fb-field></article>', $html, 'Next to others it keeps the wrapper.');
+        self::assertStringContainsString('<fb-field data-fb-field="text" data-fb-type="richtext" data-fb-label="Text" data-fb-optional tabindex="0"></fb-field></article>', $html, 'Next to others it keeps the wrapper.');
         self::assertStringContainsString('<li><fb-field data-fb-field="slides/0/title" data-fb-type="headline" data-fb-label="Title" data-fb-placeholder="Slide title" tabindex="0" data-fb-value="&quot;Eins&quot;">Eins</fb-field><fb-field data-fb-field="slides/0/link"', $html);
         self::assertStringContainsString('data-fb-field="slides/1/title"', $html);
         self::assertStringContainsString('<fb-area data-fb-area="main" data-fb-empty></fb-area>', $this->html('/ueber-uns', $this->admin));
