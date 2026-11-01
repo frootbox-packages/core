@@ -15,6 +15,8 @@ use Frootbox\Core\Extension\ExtensionException;
 use Frootbox\Core\Extension\Mount;
 use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Core\Tests\Fixtures\Error\SilentErrorPage;
+use Frootbox\Core\Tests\Fixtures\Error\StatusErrorPage;
 use Frootbox\Core\Tests\Support\TextHandler;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -88,5 +90,15 @@ final class RegistryTest extends TestCase
         $this->expectExceptionMessage('The import "lit" is registered by acme/one and acme/two.');
 
         $registry->forPackage('acme/two', static fn() => $registry->import('lit', 'assets/lit.js'), '/two');
+    }
+
+    public function testKeepsErrorPagesOnceAndInOrder(): void
+    {
+        $registry = new Registry();
+        $registry->errorPage(StatusErrorPage::class);
+        $registry->errorPage(SilentErrorPage::class);
+        $registry->errorPage(StatusErrorPage::class);
+
+        self::assertSame([StatusErrorPage::class, SilentErrorPage::class], $registry->errorPages());
     }
 }

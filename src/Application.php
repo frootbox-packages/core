@@ -51,13 +51,16 @@ use UnexpectedValueException;
 final readonly class Application
 {
     /**
-     * Middleware in the order they see the request.
+     * Middleware in the order they see the request. Public so tests run
+     * the same chain.
      *
      * @var list<class-string<MiddlewareInterface>>
      */
-    private const array MIDDLEWARE = [
+    public const array MIDDLEWARE = [
         ErrorMiddleware::class,
         AuthenticationMiddleware::class,
+        // Again behind the sign-in, so error pages know the user (decision 0132).
+        ErrorMiddleware::class,
         RoutingMiddleware::class,
     ];
 

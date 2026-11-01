@@ -16,6 +16,7 @@ use Frootbox\Core\Api\JsonResponder;
 use Frootbox\Core\Api\OpenApi;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Api\RequestInput;
+use Frootbox\Core\Application;
 use Frootbox\Core\Auth\AccessTokens;
 use Frootbox\Core\Auth\AuthenticationMiddleware;
 use Frootbox\Core\Auth\TokenType;
@@ -23,7 +24,6 @@ use Frootbox\Core\Error\ErrorMiddleware;
 use Frootbox\Core\Error\Problem;
 use Frootbox\Core\Http\MiddlewareDispatcher;
 use Frootbox\Core\Http\NotFoundHandler;
-use Frootbox\Core\Routing\RoutingMiddleware;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\User\CreateRole;
 use Frootbox\Core\User\CreateUser;
@@ -264,7 +264,7 @@ final class ApiTest extends NotesTestCase
 
     private function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $middleware = [$this->get(ErrorMiddleware::class), $this->get(AuthenticationMiddleware::class), $this->get(RoutingMiddleware::class)];
+        $middleware = array_map($this->get(...), Application::MIDDLEWARE);
 
         return new MiddlewareDispatcher($middleware, $this->get(NotFoundHandler::class))->handle($request);
     }

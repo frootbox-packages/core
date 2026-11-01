@@ -20,6 +20,7 @@ use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Console\CommandInfo;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Database\SensitiveColumns;
+use Frootbox\Core\Error\ErrorPage;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\FieldTypes;
@@ -37,6 +38,7 @@ use Symfony\Component\Console\Command\Command;
  *     $registry->query(ListNews::class);
  *     $registry->fieldType(PriceType::class);
  *     $registry->undoCheck(OrderNumbersCheck::class);
+ *     $registry->errorPage(ShopErrorPage::class);
  *     $registry->mount('backend.path', '/cms')->get('/login', LoginHandler::class, 'backend.login');
  *     $registry->import('lit', 'assets/build/lit.js');
  *     $registry->asset('assets/css/shop.css', 'backend');
@@ -76,6 +78,9 @@ final class Registry
 
     /** @var list<class-string<UndoCheck>> */
     private array $undoChecks = [];
+
+    /** @var list<class-string<ErrorPage>> */
+    private array $errorPages = [];
 
     /** The folder of the package that is registering, null for the core. */
     private ?string $path = null;
@@ -330,6 +335,23 @@ final class Registry
     }
 
     /**
+     * An error page for the requests it is responsible for, e.g. those of
+     * the backend (decision 0132). The first responsible one wins.
+     *
+     * @param class-string<ErrorPage> $class
+     */
+    public function errorPage(string $class): void
+    {
+        if (!is_subclass_of($class, ErrorPage::class)) {
+            throw new DefinitionException(\sprintf('%s must implement %s.', $class, ErrorPage::class));
+        }
+
+        if (!\in_array($class, $this->errorPages, true)) {
+            $this->errorPages[] = $class;
+        }
+    }
+
+    /**
      * A kind of scope roles can be given for, e.g. "page" for branches of
      * the page tree (decision 0118).
      *
@@ -429,6 +451,14 @@ final class Registry
     public function undoChecks(): array
     {
         return $this->undoChecks;
+    }
+
+    /**
+     * @return list<class-string<ErrorPage>>
+     */
+    public function errorPages(): array
+    {
+        return $this->errorPages;
     }
 
     /**

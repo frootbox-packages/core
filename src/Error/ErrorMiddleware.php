@@ -27,12 +27,17 @@ use Throwable;
  * Problem decides the status: HttpException keeps its own, action errors
  * get 4xx (e.g. 403, 422), everything else 500. Server errors are logged
  * as errors, client errors such as 404 only as debug.
+ *
+ * It runs twice (decision 0132): outside, for errors of the sign-in, and
+ * behind the sign-in, so an error page of an extension (ErrorPages) knows
+ * the user. The page of the core is the fallback.
  */
 final readonly class ErrorMiddleware implements MiddlewareInterface
 {
     public function __construct(
         private Environment $environment,
         private ErrorPageRenderer $renderer,
+        private ErrorPages $pages,
         private ResponseFactoryInterface $responseFactory,
         private StreamFactoryInterface $streamFactory,
         private LoggerInterface $logger,
@@ -74,7 +79,7 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
                 ->withBody($this->streamFactory->createStream(json_encode($problem->toArray(), \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)))
             : $this->responseFactory->createResponse($status)
                 ->withHeader('Content-Type', 'text/html; charset=utf-8')
-                ->withBody($this->streamFactory->createStream($this->renderer->render($status, $throwable, $showDetails)));
+                ->withBody($this->streamFactory->createStream($this->pages->render($request, $status, $throwable, $showDetails) ?? $this->renderer->render($status, $throwable, $showDetails)));
 
         $response = $response->withHeader('Cache-Control', 'no-store');
 

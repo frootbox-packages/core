@@ -27,6 +27,7 @@ use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Database\RecordingWriter;
 use Frootbox\Core\Database\SensitiveColumns;
+use Frootbox\Core\Error\ErrorPages;
 use Frootbox\Core\Event\EventDispatcher;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Extension\ExtensionLoader;
@@ -99,6 +100,7 @@ final class ContainerFactory
             SensitiveColumns::class => factory([self::class, 'createSensitiveColumns']),
             FieldTypes::class => factory([self::class, 'createFieldTypes']),
             UndoChecks::class => factory([self::class, 'createUndoChecks']),
+            ErrorPages::class => factory([self::class, 'createErrorPages']),
             ScopeResolvers::class => factory([self::class, 'createScopeResolvers']),
             ThemeChain::class => factory([self::class, 'createThemeChain']),
             Languages::class => factory([Languages::class, 'fromConfig']),
@@ -165,6 +167,11 @@ final class ContainerFactory
     public static function createUndoChecks(Registry $registry, ContainerInterface $container): UndoChecks
     {
         return new UndoChecks($registry->undoChecks(), $container);
+    }
+
+    public static function createErrorPages(Registry $registry, ContainerInterface $container, LoggerInterface $logger): ErrorPages
+    {
+        return new ErrorPages($registry->errorPages(), $container, $logger);
     }
 
     /**
