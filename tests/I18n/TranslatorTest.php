@@ -62,9 +62,17 @@ final class TranslatorTest extends TestCase
 
     public function testListsTheLanguagesWithTexts(): void
     {
-        self::assertSame(['de' => 'Deutsch', 'en' => 'English', 'nl' => 'Nederlands'], $this->translator()->available(), 'Texts of a theme for visitors, here in Arabic, do not make a language of the backend.');
+        self::assertSame(['de' => 'Deutsch', 'en' => 'English', 'nl' => 'Nederlands'], $this->translator()->available(), 'Texts of a theme for visitors, here in Arabic, and those of a module in translations/website/, here in Hebrew, do not make a language of the backend.');
         self::assertTrue($this->translator()->offers('nl'));
         self::assertFalse($this->translator()->offers('fr'));
+    }
+
+    public function testTextsOnlyForVisitorsServeTheWebsite(): void
+    {
+        $translator = $this->translator(['languages' => ['he' => ['title' => 'עברית']]]);
+
+        self::assertSame('כתבות ישנות', $translator->in('he', 'Older articles', ['acme/look']));
+        self::assertSame('en', $translator->language(), 'The backend does not speak Hebrew because of them.');
     }
 
     public function testTranslatesLabelsByTheirPackageFirst(): void
@@ -130,7 +138,7 @@ final class TranslatorTest extends TestCase
         return new Translator($config, Languages::fromConfig($config), new Extensions([
             $this->package('acme/core', ['de' => ['Title' => 'Titel', 'Menu' => 'Menü'], 'nl' => ['Title' => 'Titel']]),
             $this->package('acme/theme', ['de' => ['Title' => 'Überschrift'], 'en' => ['Dachzeile' => 'Eyebrow']]),
-            $this->package('acme/other', ['de' => ['Title' => 'Titel']]),
+            $this->package('acme/other', ['de' => ['Title' => 'Titel'], 'website/he' => ['Older articles' => 'כתבות ישנות']]),
             $this->package('acme/look', ['ar' => ['Skip to content' => 'انتقل إلى المحتوى'], 'de' => ['Title' => 'Bezeichnung']], theme: true),
         ]), new ProjectPaths($this->project->root), $this->context, $users);
     }
@@ -143,11 +151,13 @@ final class TranslatorTest extends TestCase
         $folder = $this->project->root . '/' . str_replace('/', '-', $name);
 
         foreach ($texts as $language => $messages) {
-            if (!is_dir($folder . '/translations')) {
-                mkdir($folder . '/translations', 0o777, true);
+            $file = $folder . '/translations/' . $language . '.yaml';
+
+            if (!is_dir(\dirname($file))) {
+                mkdir(\dirname($file), 0o777, true);
             }
 
-            file_put_contents($folder . '/translations/' . $language . '.yaml', Yaml::dump($messages));
+            file_put_contents($file, Yaml::dump($messages));
         }
 
         return new ExtensionPackage($name, $folder, $name, theme: $theme ? [] : null);

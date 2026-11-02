@@ -38,6 +38,9 @@ final class Translator
 {
     public const string FOLDER = 'translations';
 
+    /** Below FOLDER: texts only for visitors, which make no language of the backend (decision 0220). */
+    public const string WEBSITE = 'website';
+
     public const string ENGLISH = 'en';
 
     private const string CACHE = 'cache/translations-%s.cache';
@@ -89,14 +92,15 @@ final class Translator
 
         $site = $this->siteLanguages->default()->code;
 
-        return [] !== $this->files($site) ? $site : self::ENGLISH;
+        return [] !== $this->files($site, false) ? $site : self::ENGLISH;
     }
 
     /**
      * The languages a user may choose: English and every language some
      * package has texts for, by code with the name in that language.
      * Themes do not count, their texts are mostly for visitors (decision
-     * 0168), e.g. an Arabic theme does not translate the backend.
+     * 0168), e.g. an Arabic theme does not translate the backend; nor do
+     * texts only for visitors in translations/website/ (decision 0220).
      *
      * @return array<string, string>
      */
@@ -268,17 +272,20 @@ final class Translator
      *
      * @return list<array{package: string, path: string}>
      */
-    private function files(string $language): array
+    private function files(string $language, bool $website = true): array
     {
         $candidates = array_unique([explode('-', $language)[0], $language]);
+        $folders = $website ? [self::FOLDER, self::FOLDER . '/' . self::WEBSITE] : [self::FOLDER];
         $files = [];
 
         foreach ($this->extensions as $package) {
-            foreach ($candidates as $candidate) {
-                $file = $package->path . '/' . self::FOLDER . '/' . $candidate . '.yaml';
+            foreach ($folders as $folder) {
+                foreach ($candidates as $candidate) {
+                    $file = $package->path . '/' . $folder . '/' . $candidate . '.yaml';
 
-                if (is_file($file)) {
-                    $files[] = ['package' => $package->name, 'path' => $file];
+                    if (is_file($file)) {
+                        $files[] = ['package' => $package->name, 'path' => $file];
+                    }
                 }
             }
         }
