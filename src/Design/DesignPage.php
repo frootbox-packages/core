@@ -56,6 +56,9 @@ final readonly class DesignPage implements RequestHandlerInterface
 {
     public const string ROUTE = '/_design';
 
+    // The head of the page gets the request with the attribute DesignPage::class set to true,
+    // e.g. for the editor bar (decision 0207).
+
     private const string TEMPLATE = __DIR__ . '/../../resources/views/design.twig';
 
     /** Headings of the examples sit below "Blocks" and the group, none goes higher. */
@@ -147,7 +150,7 @@ final readonly class DesignPage implements RequestHandlerInterface
             ->withHeader('Content-Type', 'text/html; charset=utf-8')
             ->withHeader('Cache-Control', 'private, no-store')
             ->withHeader('X-Robots-Tag', 'noindex, nofollow')
-            ->withBody($this->streams->createStream($this->document->render($head, $html, $assets, $request)));
+            ->withBody($this->streams->createStream($this->document->render($head, $html, $assets, $request->withAttribute(self::class, true))));
     }
 
     private function allowed(ServerRequestInterface $request): bool
