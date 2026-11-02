@@ -87,6 +87,9 @@ final class RouterTest extends TestCase
         self::assertSame('/cms?q=a%20b', $router->path('backend', ['q' => 'a b']));
         self::assertSame('/cms/pages/01JB00000000000000000000AB', $router->path('backend.page', ['id' => '01JB00000000000000000000AB']));
         self::assertSame('/cms/pages/01JB00000000000000000000AB/versions', $router->path('backend.page', ['id' => '01JB00000000000000000000AB', 'tab' => 'versions']));
+
+        $router->get('/cms/help/{id:[a-z/ ]+}', TextHandler::class, 'help');
+        self::assertSame('/cms/help/acme/a%20b', $router->path('help', ['id' => 'acme/a b']), 'A pattern that allows "/" keeps it.');
     }
 
     public function testRefusesWrongParameters(): void

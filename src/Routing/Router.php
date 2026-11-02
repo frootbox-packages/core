@@ -135,7 +135,8 @@ final class Router
                     throw new InvalidArgumentException(\sprintf('"%s" does not fit the placeholder {%s} of the route "%s".', $value, $variable, $name));
                 }
 
-                $path .= rawurlencode($value);
+                // A placeholder whose pattern allows "/" keeps it, e.g. the id of a help page.
+                $path .= implode('/', array_map(rawurlencode(...), explode('/', $value)));
                 $used[] = $variable;
             }
 
