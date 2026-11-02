@@ -50,6 +50,7 @@ use Frootbox\Core\Console\ScheduleRunCommand;
 use Frootbox\Core\Console\SeedCommand;
 use Frootbox\Core\Console\UserCreateCommand;
 use Frootbox\Core\Console\UserTokenCommand;
+use Frootbox\Core\Design\DesignPage;
 use Frootbox\Core\Design\DiscardDesign;
 use Frootbox\Core\Design\ListDesignVersions;
 use Frootbox\Core\Design\PublishDesign;
@@ -286,6 +287,8 @@ final class CoreExtension implements Extension
 
         $registry->get(MediaHandler::ROUTE, MediaHandler::class, 'media');
         $registry->get(Previews::ROUTE, PreviewHandler::class, 'previews');
+        // Everything the theme brings, for agencies to approve (decision 0205).
+        $registry->get(DesignPage::ROUTE, DesignPage::class, 'design');
 
         $registry->query(ShowAccount::class);
         $registry->query(ListLanguages::class);

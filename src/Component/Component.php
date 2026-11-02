@@ -23,6 +23,7 @@ final readonly class Component
      * @param array<string, string>  $assets   Path within assets/ => absolute path
      * @param list<string>           $keywords Further words for the search in the picker
      * @param array<string, string>  $previews Variant => absolute path of its preview, "Default" for preview.svg (decision 0148)
+     * @param array<string, mixed>   $example
      */
     public function __construct(
         public ComponentKind $kind,
@@ -42,6 +43,8 @@ final readonly class Component
         public array $previews = [],
         /** Made or adapted by a theme of this website, not by the root theme (decision 0202) */
         public bool $tailored = false,
+        /** Content for the design page: fields, areas and options as on a page (decision 0205) */
+        public array $example = [],
     ) {}
 
     public function package(): string

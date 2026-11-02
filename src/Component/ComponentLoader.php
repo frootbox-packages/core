@@ -178,6 +178,7 @@ final readonly class ComponentLoader
         $widget = $schema->widget ?? false;
         $group = $schema->group ?? null;
         $keywords = $schema->keywords ?? [];
+        $example = $schema->example ?? [];
 
         // Default first, then the others by name.
         uksort($templates, static fn(string $a, string $b): int => [Variant::DEFAULT !== $a, $a] <=> [Variant::DEFAULT !== $b, $b]);
@@ -199,7 +200,7 @@ final readonly class ComponentLoader
             if (!$holdsSchema && !$hasSchemaFile && Variant::DEFAULT === $variant) {
                 // An overriding Default view: the schema still comes from the original.
                 $original = $this->reader->read($this->header($views[Variant::DEFAULT], $where . '/views/Default.twig', $errors) ?? [], DefinitionReader::FULL_KEYS, true, $package->name, $where . '/views/Default.twig', $errors);
-                [$title, $description, $fields, $areas, $widget, $group, $keywords] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget, $original->group, $original->keywords];
+                [$title, $description, $fields, $areas, $widget, $group, $keywords, $example] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget, $original->group, $original->keywords, $original->example];
             }
 
             $definition = $this->reader->read(
@@ -212,7 +213,7 @@ final readonly class ComponentLoader
             );
 
             if ($holdsSchema) {
-                [$title, $description, $fields, $areas, $widget, $group, $keywords] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget, $definition->group, $definition->keywords];
+                [$title, $description, $fields, $areas, $widget, $group, $keywords, $example] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget, $definition->group, $definition->keywords, $definition->example];
             }
 
             $variants[$variant] = new Variant(
@@ -230,7 +231,7 @@ final readonly class ComponentLoader
             $widget = false;
         }
 
-        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides), $this->tailored($package->name, $overrides));
+        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides), $this->tailored($package->name, $overrides), $example);
     }
 
     /**

@@ -66,6 +66,7 @@ final class Labels
             array_map(fn(string $keyword): string => $this->text($keyword, $package), $component->keywords),
             $component->previews,
             $component->tailored,
+            $component->example,
         );
     }
 

@@ -20,10 +20,10 @@ use Frootbox\Core\Field\HasSubfields;
 final readonly class DefinitionReader
 {
     /** Keys of block.yaml and layout.yaml. */
-    public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas'];
+    public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas', 'example'];
 
     /** Keys of the header of views/Default.twig when there is no block.yaml. */
-    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas'];
+    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'example'];
 
     /** Keys of the header of any other view, including views that override. */
     public const array VARIANT_KEYS = ['title', 'description', 'options'];
@@ -42,7 +42,12 @@ final readonly class DefinitionReader
         'options' => self::ANY_MAP,
         'fields' => self::ANY_MAP,
         'areas' => self::ANY_MAP,
+        // Content for the design page, in the form of a block on a page (decision 0205).
+        'example' => ['type' => ['object', 'array']],
     ];
+
+    /** Keys of an example (decision 0205). */
+    private const array EXAMPLE = ['fields', 'areas', 'options'];
 
     private const array OPTION = [
         'type' => ['enum' => Option::TYPES],
@@ -95,7 +100,48 @@ final readonly class DefinitionReader
             true === ($raw['widget'] ?? false),
             self::string($raw['group'] ?? null),
             \is_array($raw['keywords'] ?? null) ? array_values(array_filter($raw['keywords'], \is_string(...))) : [],
+            $this->example($raw['example'] ?? null, $where, $errors),
         );
+    }
+
+    /**
+     * The example of a block for the design page: fields, areas and
+     * options as on a page (decision 0205). Checked against the schema by
+     * blocks:check, here only its shape.
+     *
+     * @return array<string, mixed>
+     */
+    private function example(mixed $raw, string $where, DefinitionErrors $errors): array
+    {
+        if (null === $raw) {
+            return [];
+        }
+
+        if (!\is_array($raw) || (array_is_list($raw) && [] !== $raw)) {
+            $errors->add($where, 'example', 'must be a map with fields, areas or options');
+
+            return [];
+        }
+
+        $example = [];
+
+        foreach ($raw as $key => $value) {
+            if (!\in_array($key, self::EXAMPLE, true)) {
+                $errors->add($where, 'example.' . $key, 'unknown key. Allowed: ' . implode(', ', self::EXAMPLE));
+
+                continue;
+            }
+
+            if (!\is_array($value) || (array_is_list($value) && [] !== $value)) {
+                $errors->add($where, 'example.' . $key, 'must be a map by name');
+
+                continue;
+            }
+
+            $example[$key] = $value;
+        }
+
+        return $example;
     }
 
     /**

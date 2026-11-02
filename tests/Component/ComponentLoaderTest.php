@@ -201,7 +201,7 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/BadYaml/views/Default.twig: the header is not valid YAML: Malformed inline YAML string at line 3.',
             'acme/broken: blocks/Fields/views/Default.twig → areas.main.allow: "not a block" is not a block name, e.g. Column or frootbox/base/Teaser',
             'acme/broken: blocks/Fields/views/Default.twig → areas.main.max: must be at least 1.',
-            'acme/broken: blocks/Fields/views/Default.twig → colour: unknown key. Allowed: title, description, group, keywords, widget, options, fields, areas',
+            'acme/broken: blocks/Fields/views/Default.twig → colour: unknown key. Allowed: title, description, group, keywords, widget, options, fields, areas, example',
             'acme/broken: blocks/Fields/views/Default.twig → fields.button.target: unknown key. Allowed: type, label, description, optional, placeholder',
             'acme/broken: blocks/Fields/views/Default.twig → fields.slides.fields: is missing: the fields of each entry',
             'acme/broken: blocks/Fields/views/Default.twig → fields.text.maxLength: must be at least 1.',
@@ -215,7 +215,7 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/Fields/views/Default.twig → options.wide.default: does not fit the option',
             'acme/broken: blocks/NoDefault: views/Default.twig is missing. Every block has a variant Default.',
             'acme/broken: blocks/NoTitle/views/Default.twig → title: is required.',
-            'acme/broken: blocks/Shared/block.yaml → options: unknown key. Allowed: title, description, group, keywords, widget, fields, areas',
+            'acme/broken: blocks/Shared/block.yaml → options: unknown key. Allowed: title, description, group, keywords, widget, fields, areas, example',
             'acme/broken: blocks/Shared/views/Default.twig → fields: unknown key. Allowed: title, description, options',
             'acme/broken: blocks/lowercase: folder names are PascalCase, e.g. "ImageGallery"',
         ], $errors);

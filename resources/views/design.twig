@@ -1,0 +1,84 @@
+{#
+  The content of the design page (decision 0205), at the end of <main> of
+  the layout. Sections of its own stand in the content column of the
+  page; the examples of the blocks stand like on any page.
+#}
+<section class="fb-design-section" id="fb-design-tokens" aria-labelledby="fb-design-tokens-title">
+  <h2 id="fb-design-tokens-title">{{ t('Tokens') }}</h2>
+  {% for group in tokens %}
+    <h3>{{ group.title }}</h3>
+    {% if group.colors %}
+      <ul class="fb-design-swatches">
+        {% for name, value in group.values %}
+          <li class="fb-design-swatch"><span style="background: var(--{{ name }})"></span><code>{{ name }}</code><code>{{ value }}</code></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <table class="fb-design-tokens">
+        <thead><tr><th scope="col">{{ t('Name') }}</th><th scope="col">{{ t('Value') }}</th></tr></thead>
+        <tbody>
+          {% for name, value in group.values %}
+            <tr><td><code>{{ name }}</code></td><td><code>{{ value }}</code></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  {% endfor %}
+</section>
+
+<section class="fb-design-section" id="fb-design-elements" aria-labelledby="fb-design-elements-title">
+  <h2 id="fb-design-elements-title">{{ t('Basic elements') }}</h2>
+  <p class="fb-design-caption">{{ t('Without classes, like content of modules and other sources') }}</p>
+  <div>
+    <h3>Heading 3</h3>
+    <h4>Heading 4</h4>
+    <h5>Heading 5</h5>
+    <h6>Heading 6</h6>
+    <p>A paragraph with <a href="#fb-design-elements">a link</a>, <strong>strong</strong>, <em>emphasis</em>, <small>small print</small>, <mark>a mark</mark>, <abbr title="HyperText Markup Language">HTML</abbr>, <kbd>Ctrl</kbd> + <kbd>C</kbd>, <code>code</code>, <del>deleted</del> and <ins>inserted</ins> text.</p>
+    <ul>
+      <li>A point of a list</li>
+      <li>Another point</li>
+    </ul>
+    <ol>
+      <li>First step</li>
+      <li>Second step</li>
+    </ol>
+    <dl>
+      <dt>A term</dt>
+      <dd>Its description</dd>
+    </dl>
+    <blockquote><p>A quote, set apart from the text around it.</p></blockquote>
+    <pre><code>echo 'A block of code';</code></pre>
+    <hr>
+    <table>
+      <caption>A table</caption>
+      <thead><tr><th scope="col">Day</th><th scope="col">Hours</th></tr></thead>
+      <tbody><tr><td>Monday to Friday</td><td>8 am to 6 pm</td></tr><tr><td>Saturday</td><td>9 am to 2 pm</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="fb-design-section" id="fb-design-richtext" aria-labelledby="fb-design-richtext-title">
+  <h2 id="fb-design-richtext-title">{{ t('Rich text') }}</h2>
+  <p class="fb-design-caption">{{ t('Everything the text editor can make') }}</p>
+  <div>{{ richText }}</div>
+</section>
+
+<section class="fb-design-section" id="fb-design-blocks" aria-labelledby="fb-design-blocks-title">
+  <h2 id="fb-design-blocks-title">{{ t('Blocks') }}</h2>
+</section>
+{% for group in groups %}
+  <section class="fb-design-section" aria-label="{{ group.title }}">
+    <h3>{{ group.title }}</h3>
+    {% if group.missing %}
+      <p>{{ t('Without an example yet:') }}</p>
+      <ul class="fb-design-missing">
+        {% for title in group.missing %}<li>{{ title }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+  {% for block in group.blocks %}
+    <p class="fb-design-caption">{{ block.caption }}</p>
+    {{ block.html }}
+  {% endfor %}
+{% endfor %}
