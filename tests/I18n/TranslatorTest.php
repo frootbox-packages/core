@@ -62,7 +62,7 @@ final class TranslatorTest extends TestCase
 
     public function testListsTheLanguagesWithTexts(): void
     {
-        self::assertSame(['de' => 'Deutsch', 'en' => 'English', 'nl' => 'Nederlands'], $this->translator()->available());
+        self::assertSame(['de' => 'Deutsch', 'en' => 'English', 'nl' => 'Nederlands'], $this->translator()->available(), 'Texts of a theme for visitors, here in Arabic, do not make a language of the backend.');
         self::assertTrue($this->translator()->offers('nl'));
         self::assertFalse($this->translator()->offers('fr'));
     }
@@ -118,13 +118,14 @@ final class TranslatorTest extends TestCase
             $this->package('acme/core', ['de' => ['Title' => 'Titel'], 'nl' => ['Title' => 'Titel']]),
             $this->package('acme/theme', ['de' => ['Title' => 'Überschrift'], 'en' => ['Dachzeile' => 'Eyebrow']]),
             $this->package('acme/other', ['de' => ['Title' => 'Titel']]),
+            $this->package('acme/look', ['ar' => ['Skip to content' => 'انتقل إلى المحتوى']], theme: true),
         ]), new ProjectPaths($this->project->root), $this->context, $users);
     }
 
     /**
      * @param array<string, array<string, string>> $texts By language
      */
-    private function package(string $name, array $texts): ExtensionPackage
+    private function package(string $name, array $texts, bool $theme = false): ExtensionPackage
     {
         $folder = $this->project->root . '/' . str_replace('/', '-', $name);
 
@@ -136,6 +137,6 @@ final class TranslatorTest extends TestCase
             file_put_contents($folder . '/translations/' . $language . '.yaml', Yaml::dump($messages));
         }
 
-        return new ExtensionPackage($name, $folder, $name);
+        return new ExtensionPackage($name, $folder, $name, theme: $theme ? [] : null);
     }
 }

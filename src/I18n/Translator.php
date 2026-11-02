@@ -95,6 +95,8 @@ final class Translator
     /**
      * The languages a user may choose: English and every language some
      * package has texts for, by code with the name in that language.
+     * Themes do not count, their texts are mostly for visitors (decision
+     * 0168), e.g. an Arabic theme does not translate the backend.
      *
      * @return array<string, string>
      */
@@ -103,6 +105,10 @@ final class Translator
         $codes = [self::ENGLISH];
 
         foreach ($this->extensions as $package) {
+            if (null !== $package->theme) {
+                continue;
+            }
+
             $files = glob($package->path . '/' . self::FOLDER . '/*.yaml');
 
             foreach (false === $files ? [] : $files as $file) {
