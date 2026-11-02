@@ -15,7 +15,10 @@ use Frootbox\Core\Site\SiteAccessMiddleware;
 use Throwable;
 
 /**
- * Renders error pages. Details are only shown in development.
+ * The plain error page of the core: before the installation, for the
+ * access to the website and when no other page is responsible (decisions
+ * 0132, 0189). Calm like the one of the backend: the status small, title,
+ * text, the technical details collapsed and only in development.
  */
 final class ErrorPageRenderer
 {
@@ -32,16 +35,22 @@ final class ErrorPageRenderer
     public function render(int $status, Throwable $throwable, bool $showDetails): string
     {
         $title = self::TITLES[$status] ?? ($status >= 500 ? self::TITLES[500] : 'Fehler');
-        $details = $showDetails ? $this->details($throwable) : '';
+        $body = '';
         $reason = $throwable instanceof HttpException ? $throwable->reason : null;
 
         // The password of the website and preview links (decisions 0152, 0153).
         if ('preview-expired' === $reason) {
             $title = 'Vorschaulink abgelaufen';
-            $details = '<p>Dieser Vorschaulink ist abgelaufen oder wurde zurückgezogen. Frag nach einem neuen Link.</p><p><a href="/">Zur Website</a></p>' . $details;
+            $body = '<p>Dieser Vorschaulink ist abgelaufen oder wurde zurückgezogen. Frag nach einem neuen Link.</p><p><a href="/">Zur Website</a></p>';
         } elseif ('site-protected' === $reason || 'site-protected-closed' === $reason) {
-            $details = $this->passwordForm($throwable, 'site-protected' === $reason) . $details;
+            $body = $this->passwordForm($throwable, 'site-protected' === $reason);
         }
+
+        if ($showDetails) {
+            $body .= ErrorDetails::html($throwable, 'Technische Details');
+        }
+
+        $details = ErrorDetails::CLASS_NAME;
 
         return <<<HTML
             <!doctype html>
@@ -52,21 +61,33 @@ final class ErrorPageRenderer
             <meta name="robots" content="noindex">
             <title>{$status} {$this->escape($title)}</title>
             <style>
-            body { font: 16px/1.6 system-ui, sans-serif; max-width: 60rem; margin: 4rem auto; padding: 0 1rem; color: #222; }
-            h1 { font-size: 1.75rem; margin: 0 0 1rem; }
-            .status { color: #888; font-weight: 400; }
-            .exception { border-top: 1px solid #ddd; padding-top: 1rem; margin-top: 2rem; }
-            .class { color: #888; font-size: .875rem; }
-            .message { font-size: 1.125rem; margin: .25rem 0; }
+            body { font: 16px/1.6 system-ui, sans-serif; max-width: 40rem; margin: 0 auto; padding: 4rem 1rem; color: #1f2328; background: #fff; }
+            .status { margin: 0 0 .25rem; color: #6e7781; font-size: .875rem; }
+            h1 { font-size: 1.75rem; line-height: 1.25; margin: 0 0 1rem; }
+            a { color: #0b57d0; }
             form { display: grid; gap: .5rem; max-width: 20rem; }
             input, button { font: inherit; padding: .5rem .75rem; }
             .error { color: #b00020; }
-            pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; font-size: .8125rem; }
+            .{$details} { margin-top: 2.5rem; border-top: 1px solid #d0d7de; padding-top: 1rem; font-size: .875rem; }
+            .{$details} summary { cursor: pointer; color: #6e7781; }
+            .{$details}__exception { margin-top: 1rem; }
+            .{$details}__exception p { margin: 0; }
+            .{$details}__class, .{$details}__file { color: #6e7781; }
+            .{$details}__message { font-size: 1rem; }
+            .{$details} pre { background: #f6f8fa; padding: 1rem; overflow-x: auto; font-size: .8125rem; }
+            @media (prefers-color-scheme: dark) {
+              body { color: #e6edf3; background: #0d1117; }
+              a { color: #79b8ff; }
+              .{$details} pre { background: #161b22; }
+            }
             </style>
             </head>
             <body>
-            <h1><span class="status">{$status}</span> {$this->escape($title)}</h1>
-            {$details}
+            <main>
+            <p class="status">Fehler {$status}</p>
+            <h1>{$this->escape($title)}</h1>
+            {$body}
+            </main>
             </body>
             </html>
             HTML;
@@ -93,24 +114,6 @@ final class ErrorPageRenderer
             <button type="submit">Weiter</button>
             </form>
             HTML;
-    }
-
-    private function details(Throwable $throwable): string
-    {
-        $html = '';
-
-        for ($current = $throwable; null !== $current; $current = $current->getPrevious()) {
-            $html .= \sprintf(
-                '<section class="exception"><div class="class">%s</div><p class="message">%s</p><p>%s:%d</p><pre>%s</pre></section>',
-                $this->escape($current::class),
-                $this->escape($current->getMessage()),
-                $this->escape($current->getFile()),
-                $current->getLine(),
-                $this->escape($current->getTraceAsString()),
-            );
-        }
-
-        return $html;
     }
 
     private function escape(string $value): string

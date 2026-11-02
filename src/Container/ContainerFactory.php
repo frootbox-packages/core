@@ -38,6 +38,7 @@ use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\I18n\UserLanguages;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Log\LoggerFactory;
+use Frootbox\Core\Page\ThemeErrorPage;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Theme\ThemeChain;
@@ -181,7 +182,8 @@ final class ContainerFactory
 
     public static function createErrorPages(Registry $registry, ContainerInterface $container, LoggerInterface $logger): ErrorPages
     {
-        return new ErrorPages($registry->errorPages(), $container, $logger);
+        // The page of the theme after those of extensions, so the backend keeps its own (decision 0189).
+        return new ErrorPages([...$registry->errorPages(), ThemeErrorPage::class], $container, $logger);
     }
 
     /**
