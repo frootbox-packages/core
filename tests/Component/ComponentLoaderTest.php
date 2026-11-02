@@ -196,7 +196,7 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/Fields/views/Default.twig → fields.slides.fields: is missing: the fields of each entry',
             'acme/broken: blocks/Fields/views/Default.twig → fields.text.maxLength: must be at least 1.',
             'acme/broken: blocks/Fields/views/Default.twig → fields.text.multiline: must be true or false.',
-            'acme/broken: blocks/Fields/views/Default.twig → fields.title.type: there is no field type "headlin". Known: headline, text, richtext, link, list, image, video, icon, file',
+            'acme/broken: blocks/Fields/views/Default.twig → fields.title.type: there is no field type "headlin". Known: headline, text, richtext, link, list, image, video, icon, file, table',
             'acme/broken: blocks/Fields/views/Default.twig → fields.untyped.type: is missing, e.g. "type: headline"',
             'acme/broken: blocks/Fields/views/Default.twig → group: has the wrong format.',
             'acme/broken: blocks/Fields/views/Default.twig → keywords.1: must be text.',
