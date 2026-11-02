@@ -10,11 +10,13 @@ namespace Frootbox\Core\Extension;
 
 use Frootbox\Core\Account\ChangePassword;
 use Frootbox\Core\Account\CreateToken;
+use Frootbox\Core\Account\ListLanguages;
 use Frootbox\Core\Account\ListTokens;
 use Frootbox\Core\Account\RevokeToken;
 use Frootbox\Core\Account\ShowAccount;
 use Frootbox\Core\Account\SignIn;
 use Frootbox\Core\Account\SignOut;
+use Frootbox\Core\Account\UpdateLanguage;
 use Frootbox\Core\Action\ActionExecuted;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Api\ApiHandler;
@@ -201,7 +203,7 @@ final class CoreExtension implements Extension
         $registry->query(ListRoles::class);
         $registry->query(ListPermissions::class);
 
-        foreach ([SignIn::class, SignOut::class, ChangePassword::class, CreateToken::class, RevokeToken::class] as $action) {
+        foreach ([SignIn::class, SignOut::class, ChangePassword::class, UpdateLanguage::class, CreateToken::class, RevokeToken::class] as $action) {
             $registry->action($action);
         }
 
@@ -279,6 +281,7 @@ final class CoreExtension implements Extension
         $registry->get(Previews::ROUTE, PreviewHandler::class, 'previews');
 
         $registry->query(ShowAccount::class);
+        $registry->query(ListLanguages::class);
         $registry->query(ListTokens::class);
         $registry->sensitive(Users::TABLE, 'password');
 

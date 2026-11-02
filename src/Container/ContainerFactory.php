@@ -35,12 +35,14 @@ use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\I18n\UserLanguages;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\TargetLink;
+use Frootbox\Core\User\StoredUserLanguages;
 use Frootbox\Core\View\TwigFactory;
 use Frootbox\Database\Writer;
 use Frootbox\RichText\RichText;
@@ -98,6 +100,7 @@ final class ContainerFactory
             ConsoleApplication::class => factory([ConsoleFactory::class, 'create']),
             Catalog::class => factory([self::class, 'createCatalog']),
             Permissions::class => get(RolePermissions::class),
+            UserLanguages::class => get(StoredUserLanguages::class),
             SensitiveColumns::class => factory([self::class, 'createSensitiveColumns']),
             FieldTypes::class => factory([self::class, 'createFieldTypes']),
             BlockGroups::class => factory([self::class, 'createBlockGroups']),
