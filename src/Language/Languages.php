@@ -116,7 +116,13 @@ final readonly class Languages
                 throw new ConfigException(\sprintf('The language "%s" in config/app.yaml: "direction" must be "ltr" or "rtl". Without it the code decides.', $code));
             }
 
-            $languages[] = new Language($code, $title, trim($prefix, '/'), null === $domain ? null : strtolower($domain), false === $fallback ? null : $fallback, null === $direction ? null : Direction::from($direction));
+            $script = $settings['script'] ?? null;
+
+            if (null !== $script && !(\is_string($script) && 1 === preg_match(Script::PATTERN, $script))) {
+                throw new ConfigException(\sprintf('The language "%s" in config/app.yaml: "script" must be a code of ISO 15924 in lower case, e.g. "latn" or "arab". Without it the code decides.', $code));
+            }
+
+            $languages[] = new Language($code, $title, trim($prefix, '/'), null === $domain ? null : strtolower($domain), false === $fallback ? null : $fallback, null === $direction ? null : Direction::from($direction), $script);
         }
 
         return new self($languages, $reserved);

@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Theme;
 
 use Frootbox\Core\Extension\ExtensionPackage;
+use Frootbox\Core\Language\Script;
 
 /**
  * An extension with "theme:" in its frootbox.yaml:
@@ -21,6 +22,10 @@ use Frootbox\Core\Extension\ExtensionPackage;
  *         radius: 4px
  *       fonts:
  *         lora: { label: Lora, family: '"Lora", serif' }
+ *       scripts:
+ *         arab:
+ *           font: { body: '"Noto Naskh Arabic", Tahoma, sans-serif' }
+ *           leading: 1.8
  *       fields:
  *         address: { type: text, label: Address, optional: true }
  *       navigations:
@@ -30,13 +35,16 @@ use Frootbox\Core\Extension\ExtensionPackage;
  * Tokens become CSS variables such as --color-primary. Those with a type
  * may be changed by editors, the short form stays fixed; fonts are what a
  * font token can choose besides the system fonts (decision 0127).
+ * Scripts give content in languages of a script, by its code of ISO
+ * 15924, other values for tokens, e.g. fonts with its letters (decision
+ * 0159).
  * Fields hold content that is the same on every page, read by
  * Site\SiteFields (decision 0128). Navigations are the menus the theme
  * shows (decision 0106).
  */
 final readonly class Theme
 {
-    private const array KEYS = ['parent', 'tokens', 'fonts', 'fields', 'navigations'];
+    private const array KEYS = ['parent', 'tokens', 'fonts', 'scripts', 'fields', 'navigations'];
 
     private const array DESCRIPTION = ['value', 'type', 'label', 'contrast', 'min', 'max', 'step', 'unit', 'options'];
 
@@ -51,6 +59,7 @@ final readonly class Theme
      * @param array<string, TokenDefinition> $definitions The tokens with a type, by name
      * @param array<string, Font>            $fonts       By key
      * @param array<string, array<mixed>>    $fields      By name, as in the manifest; read by Site\SiteFields
+     * @param array<string, array<string, string>> $scripts Flat tokens by script, e.g. "arab" => ["font-body" => …]
      */
     public function __construct(
         public string $name,
@@ -61,6 +70,7 @@ final readonly class Theme
         public array $definitions = [],
         public array $fonts = [],
         public array $fields = [],
+        public array $scripts = [],
     ) {}
 
     public static function fromPackage(ExtensionPackage $package): ?self
@@ -115,7 +125,36 @@ final readonly class Theme
         $definitions = [];
         $flat = self::flatten($tokens, '', $where, $definitions);
 
-        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where), $fields);
+        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where), $fields, self::scripts($package->theme['scripts'] ?? [], $where));
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    private static function scripts(mixed $scripts, string $where): array
+    {
+        if (!\is_array($scripts)) {
+            throw new ThemeException(\sprintf('%s: "scripts" must list tokens by script, e.g. "arab: { font: { body: \'"Noto Naskh Arabic", sans-serif\' } }".', $where));
+        }
+
+        $list = [];
+
+        foreach ($scripts as $script => $tokens) {
+            $script = (string) $script;
+
+            if (1 !== preg_match(Script::PATTERN, $script) || !\is_array($tokens)) {
+                throw new ThemeException(\sprintf('%s: the script "%s" needs a code of ISO 15924 in lower case, e.g. "arab", and tokens below it.', $where, $script));
+            }
+
+            $definitions = [];
+            $list[$script] = self::flatten($tokens, '', $where, $definitions);
+
+            if ([] !== $definitions) {
+                throw new ThemeException(\sprintf('%s: the tokens of the script "%s" are values only, editors change them under "tokens".', $where, $script));
+            }
+        }
+
+        return $list;
     }
 
     /**

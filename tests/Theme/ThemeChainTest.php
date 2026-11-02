@@ -99,6 +99,26 @@ final class ThemeChainTest extends TestCase
         self::assertNull($chain->definitions()[$name]->problem($chain->tokens()[$name], $chain->fonts()));
     }
 
+    public function testGivesScriptsTheirOwnTokens(): void
+    {
+        $chain = ThemeChain::resolve(new Extensions([
+            self::theme('acme/base', ['tokens' => ['font' => ['body' => ['value' => 'sans', 'type' => 'font', 'label' => 'Text']], 'leading' => 1.6], 'scripts' => ['arab' => ['font' => ['body' => '"Noto Naskh Arabic", sans-serif'], 'leading' => 1.9], 'hebr' => ['leading' => 1.7]]]),
+            self::theme('acme/site', ['parent' => 'acme/base', 'scripts' => ['arab' => ['leading' => 2], 'hebr' => ['font-body' => 'serif']]]),
+        ]), 'acme/site');
+
+        self::assertSame(['arab' => ['font-body' => '"Noto Naskh Arabic", sans-serif', 'leading' => '2'], 'hebr' => ['leading' => '1.7', 'font-body' => 'serif']], $chain->scripts(), 'A child overrides single tokens of a script.');
+        self::assertSame(
+            ':root{--font-body:' . Font::system()['sans']->family . ';--leading:1.6;}'
+            . ':lang(de),:lang(he){--font-body:' . Font::system()['sans']->family . ';--leading:1.6;}'
+            . ':lang(ar),:lang(fa){--font-body:"Noto Naskh Arabic", sans-serif;--leading:2;}'
+            . ':lang(de),:lang(ar),:lang(fa){--leading:1.6;--font-body:' . Font::system()['sans']->family . ';}'
+            . ':lang(he){--leading:1.7;--font-body:' . Font::system()['serif']->family . ';}',
+            $chain->css([], ['latn' => ['de'], 'arab' => ['ar', 'fa'], 'hebr' => ['he']]),
+            'A font key becomes its family, a list of fonts stays as written; other languages get the values of :root back.',
+        );
+        self::assertStringNotContainsString(':lang', $chain->css([], ['latn' => ['de']]), 'Scripts without a language of the website are left out.');
+    }
+
     public function testWorksWithoutTheme(): void
     {
         $chain = ThemeChain::resolve(FixtureSite::extensions(), null);
@@ -130,6 +150,9 @@ final class ThemeChainTest extends TestCase
         yield 'value of the wrong type' => [new Extensions([self::theme('acme/a', ['tokens' => ['font' => ['body' => ['type' => 'font', 'value' => 'Arial']]]])]), 'acme/a', 'The token "font-body" of the theme acme/a is "Arial" but must be one of the fonts sans, serif'];
         yield 'contrast without colour' => [new Extensions([self::theme('acme/a', ['tokens' => ['color' => ['a' => ['type' => 'color', 'value' => '#fff', 'contrast' => 'b']]]])]), 'acme/a', 'is read against "b", which is no colour token'];
         yield 'bad font' => [new Extensions([self::theme('acme/a', ['fonts' => ['lora' => ['label' => 'Lora']]])]), 'acme/a', 'the font "lora" needs a lower case key, a "label" and a "family"'];
+        yield 'bad script' => [new Extensions([self::theme('acme/a', ['tokens' => ['x' => '1'], 'scripts' => ['Arabic' => ['x' => '2']]])]), 'acme/a', 'the script "Arabic" needs a code of ISO 15924'];
+        yield 'script with a type' => [new Extensions([self::theme('acme/a', ['tokens' => ['x' => '1'], 'scripts' => ['arab' => ['x' => ['type' => 'color', 'value' => '#fff']]]])]), 'acme/a', 'the tokens of the script "arab" are values only'];
+        yield 'script with unknown token' => [new Extensions([self::theme('acme/a', ['tokens' => ['x' => '1'], 'scripts' => ['arab' => ['y' => '2']]])]), 'acme/a', 'The script "arab" of the theme acme/a changes tokens the themes do not have: y.'];
         yield 'bad parent' => [new Extensions([self::theme('acme/a', ['parent' => 5])]), 'acme/a', '"parent" must be the package name of a theme'];
     }
 

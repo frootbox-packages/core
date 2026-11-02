@@ -142,13 +142,36 @@ final readonly class ThemeChain
     }
 
     /**
+     * The tokens of each script, children overriding their parents per
+     * token (decision 0159).
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function scripts(): array
+    {
+        $scripts = [];
+
+        foreach (array_reverse($this->themes) as $theme) {
+            foreach ($theme->scripts as $script => $tokens) {
+                $scripts[$script] = [...$scripts[$script] ?? [], ...$tokens];
+            }
+        }
+
+        return $scripts;
+    }
+
+    /**
      * The tokens as CSS variables, e.g. ":root{--color-primary:#0a6e4f;}".
      * Overrides are values editors chose; those the themes do not
-     * describe or that do not fit are left out.
+     * describe or that do not fit are left out. The tokens of a script
+     * follow for the languages written in it, e.g.
+     * ":lang(ar),:lang(fa){--font-body:…;}", after a rule that gives the
+     * other languages the values of :root back (decision 0159).
      *
-     * @param array<string, string> $overrides
+     * @param array<string, string>       $overrides
+     * @param array<string, list<string>> $languages Language codes by script
      */
-    public function css(array $overrides = []): string
+    public function css(array $overrides = [], array $languages = []): string
     {
         $tokens = $this->tokens();
 
@@ -159,6 +182,7 @@ final readonly class ThemeChain
         $definitions = $this->definitions();
         $fonts = $this->fonts();
         $lines = '';
+        $resolved = [];
 
         foreach ($tokens as $name => $value) {
             $definition = $definitions[$name] ?? null;
@@ -168,10 +192,49 @@ final readonly class ThemeChain
                 $value = $definition->css(null !== $override && null === $definition->problem($override, $fonts) ? $override : $value, $fonts);
             }
 
+            $resolved[$name] = $value;
             $lines .= '--' . $name . ':' . $value . ';';
         }
 
-        return ':root{' . $lines . '}';
+        $css = ':root{' . $lines . '}';
+        $all = array_merge(...array_values($languages));
+
+        foreach ($this->scripts() as $script => $values) {
+            $codes = $languages[$script] ?? [];
+
+            if ([] === $codes || [] === $values) {
+                continue;
+            }
+
+            $lines = '';
+            $reset = '';
+
+            foreach ($values as $name => $value) {
+                // A font key such as "serif" becomes its family, anything else stays as written.
+                $definition = $definitions[$name] ?? null;
+                $lines .= '--' . $name . ':' . (null !== $definition && null === $definition->problem($value, $fonts) ? $definition->css($value, $fonts) : $value) . ';';
+                $reset .= '--' . $name . ':' . $resolved[$name] . ';';
+            }
+
+            // Content of another language inside, e.g. a German fallback on an Arabic page, gets the values back.
+            $others = array_values(array_diff($all, $codes));
+
+            if ([] !== $others) {
+                $css .= self::lang($others) . '{' . $reset . '}';
+            }
+
+            $css .= self::lang($codes) . '{' . $lines . '}';
+        }
+
+        return $css;
+    }
+
+    /**
+     * @param list<string> $codes
+     */
+    private static function lang(array $codes): string
+    {
+        return implode(',', array_map(static fn(string $code): string => ':lang(' . $code . ')', $codes));
     }
 
     /**
@@ -183,6 +246,14 @@ final readonly class ThemeChain
     {
         $tokens = $this->tokens();
         $fonts = $this->fonts();
+
+        foreach ($this->scripts() as $script => $values) {
+            $unknown = array_keys(array_diff_key($values, $tokens));
+
+            if ([] !== $unknown) {
+                throw new ThemeException(\sprintf('The script "%s" of the theme %s changes tokens the themes do not have: %s.', $script, $this->active()?->name, implode(', ', $unknown)));
+            }
+        }
 
         foreach ($this->definitions() as $name => $definition) {
             $value = $tokens[$name] ?? '';

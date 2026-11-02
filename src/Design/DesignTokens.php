@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Design;
 
 use Frootbox\Core\Config\Config;
+use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Revision\Revision;
 use Frootbox\Core\Revision\Revisions;
@@ -28,6 +29,7 @@ final readonly class DesignTokens
         private Revisions $revisions,
         private EditMode $editMode,
         private Config $config,
+        private Languages $languages,
     ) {}
 
     /**
@@ -39,10 +41,26 @@ final readonly class DesignTokens
 
         // Before the installation there is nothing to read.
         if (!\is_string($database) || '' === $database) {
-            return $this->themes->css();
+            return $this->themes->css([], $this->scripts());
         }
 
-        return $this->themes->css($this->overrides($this->editMode->active()));
+        return $this->themes->css($this->overrides($this->editMode->active()), $this->scripts());
+    }
+
+    /**
+     * The codes of the languages of the website by their script (decision 0159).
+     *
+     * @return array<string, list<string>>
+     */
+    private function scripts(): array
+    {
+        $scripts = [];
+
+        foreach ($this->languages->all() as $language) {
+            $scripts[$language->script][] = $language->code;
+        }
+
+        return $scripts;
     }
 
     /**
