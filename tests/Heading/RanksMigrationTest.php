@@ -46,9 +46,9 @@ final class RanksMigrationTest extends NotesTestCase
             self::heading(3, 'Small'),
         ]]]];
 
-        self::assertSame($expected, $translation);
-        self::assertSame(['translations' => ['de' => ['content' => $expected]]], $revision);
-        self::assertSame('{"title":"Plain"}', $this->connection()->fetchOne("SELECT data FROM revisions WHERE entity_id = '01JBX0000000000000000000AB'"));
+        self::assertSameJson($expected, $translation);
+        self::assertSameJson(['translations' => ['de' => ['content' => $expected]]], $revision);
+        self::assertSame(['title' => 'Plain'], $this->json("SELECT data FROM revisions WHERE entity_id = '01JBX0000000000000000000AB'"));
     }
 
     private function json(string $sql): mixed

@@ -89,12 +89,13 @@ final class OutlineTest extends NotesTestCase
         return $this->runner()->run(new CreatePage($layout, ['de' => ['title' => $title, 'content' => ['fields' => $fields, 'areas' => ['main' => $main]]]]))->id;
     }
 
+    /** The id of the first block; MySQL writes JSON with a space after the colon. */
     private function blockId(string $page): string
     {
         $content = $this->connection()->fetchOne('SELECT data FROM revisions WHERE entity_id = ? AND status = ?', [$page, 'draft']);
         $content = \is_string($content) ? $content : $this->connection()->fetchOne('SELECT content FROM page_translations WHERE page_id = ?', [$page]);
         self::assertIsString($content);
-        self::assertSame(1, preg_match('/"id":"([^"]+)"/', $content, $match));
+        self::assertSame(1, preg_match('/"id":\s*"([^"]+)"/', $content, $match));
 
         return $match[1];
     }
