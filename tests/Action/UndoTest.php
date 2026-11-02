@@ -131,6 +131,17 @@ final class UndoTest extends NotesTestCase
         self::assertSame(0, $this->notes()->count());
     }
 
+    public function testTheJournalNamesTheLastUndoableAction(): void
+    {
+        $journal = $this->get(Journal::class);
+
+        $this->runner()->run(new CreateNotes(['One', 'Two']));
+        self::assertSame($this->log()->recent(3)[2]->id, $journal->lastUndoableEntryId(), 'The outer action, not a nested one.');
+
+        $this->runner()->run(new CreateNoteWithSql('Raw'));
+        self::assertNull($journal->lastUndoableEntryId(), 'Nothing to undo.');
+    }
+
     public function testNestedActionsCannotBeUndoneAlone(): void
     {
         $this->runner()->run(new CreateNotes(['One']));

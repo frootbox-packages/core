@@ -25,6 +25,8 @@ final class Journal
 
     private int $trusted = 0;
 
+    private ?int $lastUndoable = null;
+
     public function isRecording(): bool
     {
         return [] !== $this->frames;
@@ -46,10 +48,20 @@ final class Journal
         return $this->frames[0]['entry'] ?? null;
     }
 
+    /**
+     * The log entry of the last outermost action that ended, if it can be
+     * undone, e.g. for a button "Undo" right after it (decision 0176).
+     */
+    public function lastUndoableEntryId(): ?int
+    {
+        return $this->lastUndoable;
+    }
+
     public function begin(int $entryId, bool $undoable): void
     {
         if ([] === $this->frames) {
             $this->undoable = true;
+            $this->lastUndoable = null;
         }
 
         $this->frames[] = ['entry' => $entryId, 'undoable' => $undoable, 'compensated' => false];
@@ -68,7 +80,13 @@ final class Journal
             $this->undoable = false;
         }
 
-        return [] === $this->frames ? $this->undoable : null;
+        if ([] !== $this->frames) {
+            return null;
+        }
+
+        $this->lastUndoable = null !== $frame && $this->undoable ? $frame['entry'] : null;
+
+        return $this->undoable;
     }
 
     /**
