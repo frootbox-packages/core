@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Search;
 
 use Frootbox\Core\Action\Change;
+use Frootbox\Core\ProjectPaths;
 
 /**
  * Keeps the index current (decision 0214): after an action only the items
@@ -16,10 +17,29 @@ use Frootbox\Core\Action\Change;
  */
 final readonly class SearchIndexer
 {
+    /** Where the fingerprints of sources from files are kept, e.g. of the help. */
+    private const string FINGERPRINTS = 'cache/search/%s.fingerprint';
+
     public function __construct(
         private SearchSources $sources,
         private SearchIndex $index,
+        private ProjectPaths $paths,
     ) {}
+
+    /**
+     * Reads the sources from files again whose files changed, e.g. after
+     * an update brought new help pages (decision 0218).
+     */
+    public function refresh(): void
+    {
+        foreach (array_keys($this->sources->all()) as $name) {
+            $source = $this->sources->get($name);
+
+            if ($source instanceof Fingerprinted && $this->stored($name) !== $source->fingerprint()) {
+                $this->rebuild($name);
+            }
+        }
+    }
 
     /**
      * Writes the entries of the items these changes concern again.
@@ -74,9 +94,36 @@ final readonly class SearchIndexer
                 $this->index->replace($name, $items, $source->entries($items));
                 $counts[$name] += \count($items);
             }
+
+            if ($source instanceof Fingerprinted) {
+                $this->store($name, $source->fingerprint());
+            }
         }
 
         return $counts;
+    }
+
+    private function stored(string $source): ?string
+    {
+        $file = $this->file($source);
+
+        return is_file($file) ? (string) file_get_contents($file) : null;
+    }
+
+    private function store(string $source, string $fingerprint): void
+    {
+        $file = $this->file($source);
+
+        if (!is_dir(\dirname($file))) {
+            mkdir(\dirname($file), 0o775, true);
+        }
+
+        file_put_contents($file, $fingerprint, \LOCK_EX);
+    }
+
+    private function file(string $source): string
+    {
+        return $this->paths->var(\sprintf(self::FINGERPRINTS, str_replace('/', '--', $source)));
     }
 
     /**

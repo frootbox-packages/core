@@ -68,6 +68,8 @@ use Frootbox\Core\Field\Types\TableType;
 use Frootbox\Core\Field\Types\TextType;
 use Frootbox\Core\Field\Types\VideoType;
 use Frootbox\Core\Heading\ShowOutline;
+use Frootbox\Core\Help\ListHelp;
+use Frootbox\Core\Help\ShowHelp;
 use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Media\AddMediaSource;
 use Frootbox\Core\Media\CreateMediaFolder;
@@ -131,6 +133,7 @@ use Frootbox\Core\Preview\RevokePreview;
 use Frootbox\Core\Preview\UpdatePreview;
 use Frootbox\Core\Search\Search;
 use Frootbox\Core\Search\SearchRebuildCommand;
+use Frootbox\Core\Search\Sources\HelpSource;
 use Frootbox\Core\Search\Sources\MediumSource;
 use Frootbox\Core\Search\Sources\NavigationSource;
 use Frootbox\Core\Search\Sources\PageSource;
@@ -258,9 +261,13 @@ final class CoreExtension implements Extension
         $registry->listen(ActionExecuted::class, UpdateSearchIndex::class);
         $registry->command(SearchRebuildCommand::class);
 
-        foreach ([PageSource::class, MediumSource::class, NavigationSource::class, SiteSource::class, UserSource::class, RoleSource::class, RedirectSource::class] as $source) {
+        foreach ([PageSource::class, MediumSource::class, NavigationSource::class, SiteSource::class, UserSource::class, RoleSource::class, RedirectSource::class, HelpSource::class] as $source) {
             $registry->searchSource($source);
         }
+
+        // The help of the CMS from the folders help/ (decisions 0215, 0218).
+        $registry->query(ListHelp::class);
+        $registry->query(ShowHelp::class);
 
         foreach ([CreateMedium::class, UpdateMedium::class, ReplaceMedium::class, AddMediaSource::class, DeleteMediaSource::class, DeleteMedium::class, PublishMedia::class, DiscardMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class, RebuildMediaUsages::class] as $action) {
             $registry->action($action);

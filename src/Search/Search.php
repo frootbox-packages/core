@@ -59,9 +59,12 @@ final readonly class Search implements Query
             return [];
         }
 
-        // A new installation or an emptied index fills itself once.
+        // A new installation or an emptied index fills itself once, help
+        // pages and other files are read again when they changed.
         if ($index->isEmpty()) {
             $indexer->rebuild();
+        } else {
+            $indexer->refresh();
         }
 
         $known = $sources->all();
