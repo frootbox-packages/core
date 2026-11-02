@@ -14,8 +14,8 @@ use Frootbox\Core\Page\Slug;
 use LogicException;
 
 /**
- * Addresses of image sizes (decision 0126), and of the files of videos
- * with video() (decision 0177):
+ * Addresses of image sizes (decision 0126), of the files of videos with
+ * video() (decision 0177) and of documents with file() (decision 0179):
  *
  *     /media/<id>/<version>/<name>-<width>x<height>-<signature>.<extension>
  *
@@ -34,6 +34,9 @@ final readonly class MediaUrls
 
     /** A file of a video (decision 0177): "main" for the one of the medium, else the id of the source. */
     public const string VIDEO_PATTERN = '/^(?<name>[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-(?<source>main|[0-9a-z]{26})-(?<signature>[0-9a-f]{16})\.(?<extension>mp4|webm)$/';
+
+    /** The file of a document (decision 0179). */
+    public const string DOCUMENT_PATTERN = '/^(?<name>[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-(?<source>main)-(?<signature>[0-9a-f]{16})\.(?<extension>pdf|docx|xlsx|pptx|odt|ods|odp|txt|csv|zip)$/';
 
     public function __construct(
         private Config $config,
@@ -80,6 +83,28 @@ final readonly class MediaUrls
             $name,
             $key,
             $this->signature($medium->id, $medium->version, $name . '-' . $key, 0, 0, $extension),
+            $extension,
+        );
+    }
+
+    /**
+     * The address of the file of a document (decision 0179), built like
+     * that of a video.
+     *
+     *     /media/<id>/<version>/<name>-main-<signature>.<extension>
+     */
+    public function file(Medium $medium): string
+    {
+        $name = self::name($medium->fileName, $this->languages->default()->code);
+        $extension = Documents::TYPES[$medium->type] ?? 'bin';
+
+        return \sprintf(
+            '%s%s/%d/%s-main-%s.%s',
+            self::PREFIX,
+            $medium->id,
+            $medium->version,
+            $name,
+            $this->signature($medium->id, $medium->version, $name . '-main', 0, 0, $extension),
             $extension,
         );
     }

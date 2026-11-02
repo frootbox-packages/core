@@ -18,7 +18,8 @@ use DateTimeImmutable;
  * draft, focus point, version and texts are those of the draft
  * (decision 0147). A video (kind "video", decision 0177) has its codec,
  * its format to read (e.g. "MP4 (avc1)"), further files in $sources and
- * the address of its file as preview.
+ * the address of its file as preview. A document (kind "document",
+ * decision 0179) has its format, e.g. "PDF", and the address of its file.
  */
 final readonly class MediumDetails
 {

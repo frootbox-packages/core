@@ -44,6 +44,7 @@ final readonly class MediaEditor
         private MediaUsages $usages,
         private Videos $videos,
         private MediaSources $sources,
+        private Documents $documents,
     ) {}
 
     /**
@@ -76,7 +77,7 @@ final readonly class MediaEditor
         }
 
         $id = Ulid::generate();
-        $facts = $this->prepare($path, $this->files->original($id), null);
+        $facts = $this->prepare($path, $this->files->original($id), null, $this->uploads->name($upload));
 
         if ($facts instanceof Message) {
             throw new InvalidInputException($action, ['/upload' => $facts]);
@@ -125,6 +126,8 @@ final readonly class MediaEditor
             $errors['/focusX'] = 'needs focusY as well, both as shares from 0 to 1.';
         } elseif (null !== $focusX && $medium->isVideo()) {
             $errors['/focusX'] = 'A video has no focus point.';
+        } elseif (null !== $focusX && $medium->isDocument()) {
+            $errors['/focusX'] = 'A document has no focus point.';
         }
 
         if ([] !== $errors) {
@@ -204,7 +207,7 @@ final readonly class MediaEditor
         }
 
         $name = MediaFiles::newName($id);
-        $facts = $this->prepare($path, $this->files->original($name), $medium->kind());
+        $facts = $this->prepare($path, $this->files->original($name), $medium->kind(), $this->uploads->name($upload));
 
         if ($facts instanceof Message) {
             @unlink($this->files->original($name));
@@ -562,6 +565,8 @@ final readonly class MediaEditor
                     'url' => $this->urls->video($medium, $source),
                 ];
             }
+        } elseif ($medium->isDocument()) {
+            $preview = $this->urls->file($medium);
         } else {
             $formats = $this->urls->formats($medium);
             $preview = $this->urls->url($medium, min(480, $medium->width), 0, \in_array('webp', $formats, true) ? 'webp' : $formats[\count($formats) - 1]);
@@ -587,7 +592,11 @@ final readonly class MediaEditor
             $medium->kind(),
             $medium->codec,
             $sources,
-            $medium->isVideo() ? self::format($medium->type, $medium->codec) : '',
+            match (true) {
+                $medium->isVideo() => self::format($medium->type, $medium->codec),
+                $medium->isDocument() => Documents::format($medium->type),
+                default => '',
+            },
         );
     }
 
@@ -659,31 +668,49 @@ final readonly class MediaEditor
     }
 
     /**
-     * Writes the original of an image or video.
+     * Writes the original of an image, video or document.
      *
-     * @param string|null $kind "image" or "video" when the file has to be of that kind
+     * @param string|null $kind "image", "video" or "document" when the file has to be of that kind
+     * @param string      $name The name of the uploaded file, it tells documents apart (decision 0179)
      *
      * @return array{type: string, codec: string, width: int, height: int, size: int}|Message
      */
-    private function prepare(string $path, string $target, ?string $kind): array|Message
+    private function prepare(string $path, string $target, ?string $kind, string $name): array|Message
     {
-        $video = Videos::isVideo($path);
+        $found = match (true) {
+            Videos::isVideo($path) => 'video',
+            Images::isImage($path) => 'image',
+            Documents::isDocument($path, $name) => 'document',
+            default => null,
+        };
 
-        if (null !== $kind && ($video ? 'video' : 'image') !== $kind) {
-            return new Message('video' === $kind ? 'Replace a video only with a video.' : 'Replace an image only with an image.');
+        if (null !== $kind && null === $found) {
+            return match ($kind) {
+                'video' => Videos::notAVideo(),
+                'document' => Documents::notADocument(),
+                default => Images::notAnImage(),
+            };
         }
 
-        if ($video) {
-            return $this->videos->prepare($path, $target);
+        if (null !== $kind && $found !== $kind) {
+            return match ($kind) {
+                'video' => new Message('Replace a video only with a video.'),
+                'document' => new Message('Replace a document only with a document.'),
+                default => new Message('Replace an image only with an image.'),
+            };
         }
 
-        if (!Images::isImage($path)) {
-            return null === $kind ? UploadReceiver::notMedia() : Images::notAnImage();
+        if ('image' === $found) {
+            $facts = $this->images->prepare($path, $target);
+
+            return $facts instanceof Message ? $facts : [...$facts, 'codec' => ''];
         }
 
-        $facts = $this->images->prepare($path, $target);
-
-        return $facts instanceof Message ? $facts : [...$facts, 'codec' => ''];
+        return match ($found) {
+            'video' => $this->videos->prepare($path, $target),
+            'document' => $this->documents->prepare($path, $target, $name),
+            default => UploadReceiver::notMedia(),
+        };
     }
 
     /**

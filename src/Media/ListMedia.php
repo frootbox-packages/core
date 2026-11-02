@@ -19,7 +19,7 @@ use Frootbox\Database\Where;
 /**
  * @implements Query<MediaPage>
  */
-#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere, only those with a draft, only those a page uses, only images or only videos')]
+#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere, only those with a draft, only those a page uses, only images, videos or documents')]
 final readonly class ListMedia implements Query, Scoped
 {
     public function __construct(
@@ -34,7 +34,7 @@ final readonly class ListMedia implements Query, Scoped
         public bool $changed = false,
         #[Description('Only media this page uses: its draft, or the published state if it has none')]
         public ?string $pageId = null,
-        #[Description('"image" or "video" for only images or only videos (decision 0177); none for both')]
+        #[Description('"image", "video" or "document" for only images, videos (decision 0177) or documents (decision 0179); none for all')]
         public ?string $kind = null,
         #[Range(1)]
         public int $page = 1,
@@ -65,8 +65,15 @@ final readonly class ListMedia implements Query, Scoped
             $where['id'] = self::ids($tags->fetch(['where' => ['tag' => trim($this->tag)]])->all());
         }
 
-        if ('image' === $this->kind || 'video' === $this->kind) {
-            $where['type'] = array_keys('video' === $this->kind ? Videos::TYPES : Images::TYPES);
+        $types = match ($this->kind) {
+            'image' => Images::TYPES,
+            'video' => Videos::TYPES,
+            'document' => Documents::TYPES,
+            default => null,
+        };
+
+        if (null !== $types) {
+            $where['type'] = array_keys($types);
         }
 
         $search = null === $this->search ? '' : trim($this->search);

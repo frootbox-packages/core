@@ -12,8 +12,8 @@ use DateTimeImmutable;
 use Frootbox\Database\Entity;
 
 /**
- * An image or video of the media library (decisions 0126, 0177). The original lies in
- * storage/media/ under the name in $file, the id for the first file
+ * An image, video or document of the media library (decisions 0126,
+ * 0177, 0179). The original lies in storage/media/ under the name in $file, the id for the first file
  * (decision 0147); the focus point is in thousandths of width and
  * height. The version grows with every change that alters the sizes.
  * The hash is the SHA-256 of the uploaded file, none for media from
@@ -49,11 +49,31 @@ final readonly class Medium extends Entity
     }
 
     /**
-     * "image" or "video".
+     * Whether the medium is a document, e.g. a PDF (decision 0179).
+     */
+    public function isDocument(): bool
+    {
+        return Documents::isDocumentType($this->type);
+    }
+
+    /**
+     * Whether the medium is an image: neither video nor document.
+     */
+    public function isImage(): bool
+    {
+        return !$this->isVideo() && !$this->isDocument();
+    }
+
+    /**
+     * "image", "video" or "document".
      */
     public function kind(): string
     {
-        return $this->isVideo() ? 'video' : 'image';
+        return match (true) {
+            $this->isVideo() => 'video',
+            $this->isDocument() => 'document',
+            default => 'image',
+        };
     }
 
     /**

@@ -28,7 +28,7 @@ use Throwable;
  * A file can come whole or in parts (decision 0177): each part sends
  * "total" (the size of the whole file) and "offset", from the second part
  * on also "upload", the token of the first answer. The first part has to
- * hold the start of the file, it tells image from video. Until the last
+ * hold the start of the file, it tells image, video and document apart. Until the last
  * part the answer is {upload, received, complete: false}.
  */
 final readonly class UploadReceiver
@@ -40,6 +40,9 @@ final readonly class UploadReceiver
 
     /** Default for media.max_video_mb. */
     public const int MAX_VIDEO_MB = 2000;
+
+    /** Default for media.max_document_mb (decision 0179). */
+    public const int MAX_DOCUMENT_MB = 100;
 
     public function __construct(
         private Uploads $uploads,
@@ -100,7 +103,7 @@ final readonly class UploadReceiver
 
     public static function notMedia(): Message
     {
-        return new Message('The file is no image (JPEG, PNG, WebP, GIF) or video (MP4, WebM).');
+        return new Message('The file is no image (JPEG, PNG, WebP, GIF), video (MP4, WebM) or document (PDF, Office, OpenDocument, text, CSV, ZIP).');
     }
 
     /**
@@ -108,7 +111,7 @@ final readonly class UploadReceiver
      */
     private function whole(string $path, string $name): array
     {
-        $kind = self::kind($path) ?? throw self::invalid(self::notMedia());
+        $kind = self::kind($path, $name) ?? throw self::invalid(self::notMedia());
         $this->checkSize((int) filesize($path), $kind);
         $token = $this->uploads->store($path, $name, move: is_uploaded_file($path));
 
@@ -139,7 +142,7 @@ final readonly class UploadReceiver
                 throw new InvalidInputException('media.create', ['/offset' => 'The first part starts at 0.']);
             }
 
-            $kind = self::kind($path) ?? throw self::invalid(self::notMedia());
+            $kind = self::kind($path, $name) ?? throw self::invalid(self::notMedia());
             $this->checkSize($total, $kind);
             $token = $this->uploads->begin($path, $name, $total);
             $received = (int) filesize($path);
@@ -163,7 +166,7 @@ final readonly class UploadReceiver
 
         $file = $this->uploads->finish($token);
 
-        if (null === self::kind($file)) {
+        if (null === self::kind($file, $this->uploads->name($token))) {
             $this->uploads->remove($token);
 
             throw self::invalid(self::notMedia());
@@ -181,13 +184,14 @@ final readonly class UploadReceiver
     }
 
     /**
-     * "image" or "video", null for other files.
+     * "image", "video" or "document", null for other files.
      */
-    private static function kind(string $path): ?string
+    private static function kind(string $path, string $name): ?string
     {
         return match (true) {
             Images::isImage($path) => 'image',
             Videos::isVideo($path) => 'video',
+            Documents::isDocument($path, $name) => 'document',
             default => null,
         };
     }
@@ -206,9 +210,11 @@ final readonly class UploadReceiver
 
     private function limit(string $kind): int
     {
-        return 'video' === $kind
-            ? $this->config->int('media.max_video_mb', self::MAX_VIDEO_MB)
-            : $this->config->int('media.max_upload_mb', self::MAX_MB);
+        return match ($kind) {
+            'video' => $this->config->int('media.max_video_mb', self::MAX_VIDEO_MB),
+            'document' => $this->config->int('media.max_document_mb', self::MAX_DOCUMENT_MB),
+            default => $this->config->int('media.max_upload_mb', self::MAX_MB),
+        };
     }
 
     private static function invalid(Message $message): InvalidInputException

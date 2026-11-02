@@ -56,6 +56,7 @@ use Frootbox\Core\Design\PublishDesign;
 use Frootbox\Core\Design\RestoreDesign;
 use Frootbox\Core\Design\ShowDesign;
 use Frootbox\Core\Design\UpdateDesign;
+use Frootbox\Core\Field\Types\FileType;
 use Frootbox\Core\Field\Types\HeadlineType;
 use Frootbox\Core\Field\Types\IconType;
 use Frootbox\Core\Field\Types\ImageType;
@@ -193,7 +194,7 @@ final class CoreExtension implements Extension
         $registry->command(MediaPruneCommand::class);
         $registry->command(MediaUsagesCommand::class);
 
-        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class] as $fieldType) {
+        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class, FileType::class] as $fieldType) {
             $registry->fieldType($fieldType);
         }
 

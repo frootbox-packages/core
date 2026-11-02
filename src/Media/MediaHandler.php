@@ -21,7 +21,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Generates a size of an image on its first request (decision 0126) and
- * delivers the files of videos with Range (decision 0177). A
+ * delivers the files of videos (decision 0177) and documents (decision
+ * 0179) with Range. A
  * public medium is written to public/media/, so the web server delivers it
  * from then on. A medium that is not public yet, and the version of a
  * draft (decision 0147), are only shown to those who may see the media
@@ -68,6 +69,10 @@ final readonly class MediaHandler implements RequestHandlerInterface
             return $this->video($request, $id, $version, $file, $match);
         }
 
+        if (1 === preg_match(MediaUrls::DOCUMENT_PATTERN, $file, $match)) {
+            return $this->document($request, $id, $version, $file, $match);
+        }
+
         if (1 !== preg_match(MediaUrls::FILE_PATTERN, $file, $match)) {
             throw HttpException::notFound($path);
         }
@@ -78,7 +83,7 @@ final readonly class MediaHandler implements RequestHandlerInterface
         [$medium, $private] = $this->find($request, $id, $version) ?? throw HttpException::notFound($path);
 
         if (
-            $medium->isVideo()
+            !$medium->isImage()
             || !$this->urls->isValid($id, $version, $match['name'], $width, $height, $extension, $match['signature'])
             || !MediaUrls::allows($medium, $width)
             || !\in_array($extension, $this->urls->formats($medium), true)
@@ -178,6 +183,35 @@ final readonly class MediaHandler implements RequestHandlerInterface
         }
 
         return $this->ranged($request, $original, $type, $private);
+    }
+
+    /**
+     * The file of a document (decision 0179): a public one is copied to
+     * public/media/ for the web server, like a video.
+     *
+     * @param array<array-key, string> $match
+     */
+    private function document(ServerRequestInterface $request, string $id, int $version, string $file, array $match): ResponseInterface
+    {
+        $path = $request->getUri()->getPath();
+        [$medium, $private] = $this->find($request, $id, $version) ?? throw HttpException::notFound($path);
+        $original = $this->files->original($medium->original());
+
+        if (
+            !$medium->isDocument()
+            || (Documents::TYPES[$medium->type] ?? null) !== $match['extension']
+            || !$this->urls->isValidVideo($id, $version, $match['name'], 'main', $match['extension'], $match['signature'])
+            || !is_file($original)
+        ) {
+            throw HttpException::notFound($path);
+        }
+
+        if (!$private) {
+            $this->files->copyPublic($original, $id . '/' . $version . '/' . $file);
+        }
+
+        // Text without a charset would be read in the encoding of the browser.
+        return $this->ranged($request, $original, str_starts_with($medium->type, 'text/') ? $medium->type . '; charset=utf-8' : $medium->type, $private);
     }
 
     /**
