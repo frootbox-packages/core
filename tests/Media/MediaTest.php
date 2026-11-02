@@ -418,8 +418,11 @@ final class MediaTest extends NotesTestCase
         $inList = $this->medium('liste.png', 400, 300, 'png');
         $unused = $this->medium('unused.jpg', 100, 100);
 
+        $hero = $this->medium('hero.jpg', 1600, 900);
+        $this->runner()->run(new UpdateMedium($inList->id, focusX: 0.25, focusY: 0.8));
+
         $page = $this->runner()->run(new CreatePage('acme/base/Page', ['de' => ['title' => 'Start', 'content' => ['fields' => ['heading' => 'Bilder'], 'areas' => ['main' => [
-            ['block' => 'acme/media/Gallery', 'fields' => ['cover' => ['media' => $cover->id], 'pictures' => [['picture' => ['media' => $inList->id, 'alt' => 'Eigener Text']]]]],
+            ['block' => 'acme/media/Gallery', 'fields' => ['cover' => ['media' => $cover->id], 'hero' => ['media' => $hero->id], 'pictures' => [['picture' => ['media' => $inList->id, 'alt' => 'Eigener Text']]]]],
         ]]]]]))->id;
 
         self::assertFalse($this->get(Media::class)->getById($cover->id)->public, 'A draft does not make media public.');
@@ -443,7 +446,8 @@ final class MediaTest extends NotesTestCase
         self::assertMatchesRegularExpression('#<picture>' . implode('', $sources) . '<img #', $html);
         self::assertStringContainsString(' 1920w" sizes="50vw">', $html);
         self::assertMatchesRegularExpression('#<img src="/media/' . $cover->id . '/1/cover-960x540-[0-9a-f]{16}\.jpg" srcset="[^"]+" sizes="50vw" width="960" height="540" alt="Aus der Bibliothek" loading="lazy" decoding="async">#', $html);
-        self::assertMatchesRegularExpression('#<img src="/media/' . $inList->id . '/1/liste-320x0-[0-9a-f]{16}\.png" srcset="[^"]+" sizes="100vw" width="320" height="240" alt="Eigener Text"#', $html);
+        self::assertMatchesRegularExpression('#<img src="/media/' . $inList->id . '/2/liste-320x0-[0-9a-f]{16}\.png" srcset="[^"]+" sizes="100vw" width="320" height="240" alt="Eigener Text" loading="lazy" decoding="async" style="object-position: 25% 80%">#', $html, 'Without a ratio the focus point keeps its place under object-fit: cover.');
+        self::assertMatchesRegularExpression('#<img src="/media/' . $hero->id . '/1/hero-[^>]+ loading="eager" fetchpriority="high" decoding="async">#', $html, 'The first image of a page loads at once.');
 
         // A published page keeps its media (decision 0147); one gone anyway shows nothing.
         $this->expectConflict(fn() => $this->runner()->run(new DeleteMedium($cover->id)), '1 published place');

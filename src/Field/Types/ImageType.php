@@ -28,7 +28,9 @@ use Twig\Markup;
  *
  * Settings: "ratio" cuts it around its focus point, e.g. "16:9"; "sizes"
  * tells the browser how wide it is shown, e.g. "(min-width: 60rem) 50vw,
- * 100vw". {{ field('image') }} gives a <picture> with modern formats and
+ * 100vw"; "eager" loads it at once with high priority, for the first
+ * image on a page such as in a hero. Without "ratio" the <img> gets its
+ * focus point as object-position, so CSS with object-fit: cover keeps it. {{ field('image') }} gives a <picture> with modern formats and
  * all widths; a deleted medium gives nothing. The editing mode shows the
  * draft of the medium, visitors the published state (decision 0147).
  */
@@ -50,6 +52,7 @@ final readonly class ImageType implements ReferencesMedia
         return [
             'ratio' => ['type' => 'string', 'pattern' => self::RATIO_PATTERN],
             'sizes' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 300],
+            'eager' => ['type' => 'boolean'],
         ];
     }
 
@@ -104,6 +107,7 @@ final readonly class ImageType implements ReferencesMedia
             $sources .= Html::open('source', ['type' => 'image/' . $extension, 'srcset' => $srcset($extension), 'sizes' => $sizes]);
         }
 
+        $eager = true === $field->setting('eager');
         $width = self::fallbackWidth($widths);
         $height = self::height($width, $ratio);
         $img = Html::open('img', [
@@ -113,8 +117,10 @@ final readonly class ImageType implements ReferencesMedia
             'width' => $width,
             'height' => 0 === $height ? max(1, (int) round($width * $medium->height / $medium->width)) : $height,
             'alt' => $this->alt($value, $medium),
-            'loading' => 'lazy',
+            'loading' => $eager ? 'eager' : 'lazy',
+            'fetchpriority' => $eager ? 'high' : null,
             'decoding' => 'async',
+            'style' => null === $ratio ? self::focus($medium) : null,
         ]);
 
         return new Markup(Html::element('picture', $sources . $img), 'UTF-8');
@@ -136,6 +142,18 @@ final readonly class ImageType implements ReferencesMedia
         $ratio = max(0.25, $width / $height);
 
         return abs($ratio - $medium->width / $medium->height) < 0.01 ? null : $ratio;
+    }
+
+    /**
+     * The focus point as object-position, null in the middle.
+     */
+    private static function focus(Medium $medium): ?string
+    {
+        if (500 === $medium->focusX && 500 === $medium->focusY) {
+            return null;
+        }
+
+        return \sprintf('object-position: %s%% %s%%', $medium->focusX / 10, $medium->focusY / 10);
     }
 
     /**
