@@ -36,6 +36,17 @@ final class PartialsTest extends NotesTestCase
         self::assertFalse($loader->exists('@theme/../frootbox.yaml'));
     }
 
+    public function testTranslatesTextsOfTheThemeIntoTheLanguageOfThePage(): void
+    {
+        $twig = $this->get(Environment::class);
+
+        self::assertSame(
+            'Zum Inhalt|Hauptnavigation|Hallo Lena|Unknown text',
+            $twig->createTemplate("{{ t('Skip to content') }}|{{ t('Main navigation') }}|{{ t('Hello {name}', {name: 'Lena'}) }}|{{ t('Unknown text') }}")->render(),
+            'The child first, then its parents; without a translation as written.',
+        );
+    }
+
     public function testExplainsWhatIsMissing(): void
     {
         $loader = $this->get(Environment::class)->getLoader();
@@ -63,6 +74,6 @@ final class PartialsTest extends NotesTestCase
 
     protected function config(): array
     {
-        return ['theme' => 'acme/site'];
+        return ['theme' => 'acme/site', 'languages' => ['de' => ['title' => 'Deutsch']]];
     }
 }

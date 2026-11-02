@@ -8,14 +8,18 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\View;
 
+use Frootbox\Core\I18n\Translator;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Navigation\MenuItem;
 use Frootbox\Core\Navigation\Menus;
 use Frootbox\Core\Site\SiteFields;
+use Frootbox\Core\Theme\Theme;
+use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
 use Frootbox\RichText\Html;
 use Psr\Container\ContainerInterface;
+use Stringable;
 use Twig\Error\RuntimeError;
 use Twig\Extension\AbstractExtension;
 use Twig\Markup;
@@ -40,6 +44,7 @@ use Twig\TwigFunction;
  *     {{ site_field('address') }}     a field of the website, the same on every page
  *     {{ site_value('brand') }}       its stored value
  *     {% for item in alternates() %}  the page in all languages, for a language switcher
+ *     {{ t('Skip to content') }}       a text of the theme in the language of the page
  */
 final class ViewExtension extends AbstractExtension
 {
@@ -69,6 +74,7 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('site_field', fn(string $name): mixed => $this->site()->field($name)),
             new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
             new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),
+            new TwigFunction('t', $this->text(...)),
         ];
     }
 
@@ -205,6 +211,20 @@ final class ViewExtension extends AbstractExtension
     /**
      * The fields of the website in the language of the visitor (decision 0128).
      */
+    /**
+     * A text of the theme in the language of the page, the themes of the
+     * chain first (decision 0162).
+     *
+     * @param string|array{string, string}                         $text
+     * @param array<string, bool|float|int|string|Stringable|null> $parameters
+     */
+    private function text(string|array $text, array $parameters = []): string
+    {
+        $themes = array_map(static fn(Theme $theme): string => $theme->name, $this->service(ThemeChain::class)->themes);
+
+        return $this->service(Translator::class)->in($this->service(Delivery::class)->language()->code, $text, $themes, $parameters);
+    }
+
     private function site(): Scope
     {
         return $this->service(SiteFields::class)->scope($this->service(Delivery::class)->language()->code);

@@ -26,11 +26,23 @@ final readonly class Catalogue
     }
 
     /**
+     * The message of the first of the packages that has one, else of any.
+     *
+     * @param string|list<string>|null $packages
+     *
      * @return string|array{one: string, other: string}|null
      */
-    public function find(string $key, ?string $package = null): string|array|null
+    public function find(string $key, string|array|null $packages = null): string|array|null
     {
-        return (null === $package ? null : $this->packages[$package][$key] ?? null) ?? $this->all[$key] ?? null;
+        foreach (\is_string($packages) ? [$packages] : $packages ?? [] as $package) {
+            $message = $this->packages[$package][$key] ?? null;
+
+            if (null !== $message) {
+                return $message;
+            }
+        }
+
+        return $this->all[$key] ?? null;
     }
 
     /**

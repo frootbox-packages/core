@@ -149,7 +149,22 @@ final class Translator
      */
     public function get(string|array $text, array $parameters = []): string
     {
-        return $this->translate($text, $parameters, null);
+        return $this->translate($text, $parameters, null, $this->language());
+    }
+
+    /**
+     * A text of a theme for visitors in the language of the page, e.g.
+     * "Skip to content" (decision 0162): the translation of the first of
+     * the packages that has one, then that of any package. Without one
+     * it shows as written, English in official themes.
+     *
+     * @param string|array{string, string}                         $text
+     * @param list<string>                                         $packages
+     * @param array<string, bool|float|int|string|Stringable|null> $parameters
+     */
+    public function in(string $language, string|array $text, array $packages = [], array $parameters = []): string
+    {
+        return $this->translate($text, $parameters, $packages, $language);
     }
 
     /**
@@ -159,19 +174,20 @@ final class Translator
      */
     public function label(string $text, ?string $package = null): string
     {
-        return '' === $text ? '' : $this->translate($text, [], $package);
+        return '' === $text ? '' : $this->translate($text, [], $package, $this->language());
     }
 
     /**
      * @param string|array{string, string}                         $text
      * @param array<string, bool|float|int|string|Stringable|null> $parameters
+     * @param string|list<string>|null                             $packages
      */
-    private function translate(string|array $text, array $parameters, ?string $package): string
+    private function translate(string|array $text, array $parameters, string|array|null $packages, string $language): string
     {
         $count = $parameters['count'] ?? null;
         $one = !(\is_int($count) || \is_float($count)) || 1.0 === (float) $count;
         $key = \is_array($text) ? $text[0] : $text;
-        $message = $this->catalogue()->find($key, $package);
+        $message = $this->catalogue($language)->find($key, $packages);
 
         if (\is_array($message)) {
             $message = $one ? $message['one'] : $message['other'];
@@ -188,10 +204,8 @@ final class Translator
         return strtr($message, $replace);
     }
 
-    private function catalogue(): Catalogue
+    private function catalogue(string $language): Catalogue
     {
-        $language = $this->language();
-
         if (isset($this->catalogues[$language])) {
             return $this->catalogues[$language];
         }
