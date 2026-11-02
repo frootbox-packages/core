@@ -121,7 +121,7 @@ final readonly class PageHandler implements RequestHandlerInterface
                 return $this->page($html, null);
             }
 
-            $cache->put($request, $html);
+            $cache->put($request, $html, $this->service(Delivery::class)->parameters());
 
             return $this->page($html, 'miss');
         }
@@ -227,6 +227,7 @@ final readonly class PageHandler implements RequestHandlerInterface
         $languages = $this->service(Languages::class);
         $urls = $this->service(Urls::class);
         $this->service(Delivery::class)->set($languages->get($page->language), $languages->get($page->contentLanguage), $page->target());
+        $this->service(Delivery::class)->setQuery($request->getQueryParams());
 
         $assets = new AssetList();
         $layout = Instance::fromArray(['layout' => $page->data->layout, 'variant' => $page->data->variant, ...$page->translation->content], ComponentKind::Layout);

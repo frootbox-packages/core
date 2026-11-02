@@ -179,6 +179,7 @@ final readonly class ComponentLoader
         $group = $schema->group ?? null;
         $keywords = $schema->keywords ?? [];
         $examples = $schema->examples ?? [];
+        $query = $schema->query ?? [];
 
         // Default first, then the others by name.
         uksort($templates, static fn(string $a, string $b): int => [Variant::DEFAULT !== $a, $a] <=> [Variant::DEFAULT !== $b, $b]);
@@ -200,7 +201,7 @@ final readonly class ComponentLoader
             if (!$holdsSchema && !$hasSchemaFile && Variant::DEFAULT === $variant) {
                 // An overriding Default view: the schema still comes from the original.
                 $original = $this->reader->read($this->header($views[Variant::DEFAULT], $where . '/views/Default.twig', $errors) ?? [], DefinitionReader::FULL_KEYS, true, $package->name, $where . '/views/Default.twig', $errors);
-                [$title, $description, $fields, $areas, $widget, $group, $keywords, $examples] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget, $original->group, $original->keywords, $original->examples];
+                [$title, $description, $fields, $areas, $widget, $group, $keywords, $examples, $query] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget, $original->group, $original->keywords, $original->examples, $original->query];
             }
 
             $definition = $this->reader->read(
@@ -213,7 +214,7 @@ final readonly class ComponentLoader
             );
 
             if ($holdsSchema) {
-                [$title, $description, $fields, $areas, $widget, $group, $keywords, $examples] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget, $definition->group, $definition->keywords, $definition->examples];
+                [$title, $description, $fields, $areas, $widget, $group, $keywords, $examples, $query] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget, $definition->group, $definition->keywords, $definition->examples, $definition->query];
             }
 
             $variants[$variant] = new Variant(
@@ -233,7 +234,48 @@ final readonly class ComponentLoader
 
         self::checkExamples($examples, $variants, $fields, $areas, $where, $errors);
 
-        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides), $this->tailored($package->name, $overrides), $examples);
+        [$controller, $controllerFile] = $this->controller($kind, $package, $name, $path, $where, $errors);
+
+        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides), $this->tailored($package->name, $overrides), $examples, $query, $controller, $controllerFile);
+    }
+
+    /**
+     * The controller in <Name>.php next to views/ (decisions 0074, 0219):
+     * the class <namespace of the extension>\Blocks\<Name>, or \Layouts\
+     * for a layout.
+     *
+     * @return array{string|null, string|null}
+     */
+    private function controller(ComponentKind $kind, ExtensionPackage $package, string $name, string $path, string $where, DefinitionErrors $errors): array
+    {
+        $file = $path . '/' . $name . '.php';
+
+        if (!is_file($file)) {
+            return [null, null];
+        }
+
+        $namespace = self::namespace($package);
+
+        if (null === $namespace) {
+            $errors->add($where, '', $name . '.php needs a namespace: give the package an extension class or a PSR-4 namespace.');
+
+            return [null, null];
+        }
+
+        return [$namespace . '\\' . ucfirst($kind->folder()) . '\\' . $name, $file];
+    }
+
+    private static function namespace(ExtensionPackage $package): ?string
+    {
+        $slash = null === $package->extensionClass ? false : strrpos($package->extensionClass, '\\');
+
+        if (null !== $package->extensionClass && false !== $slash) {
+            return substr($package->extensionClass, 0, $slash);
+        }
+
+        $prefix = array_key_first($package->psr4);
+
+        return null === $prefix ? null : rtrim($prefix, '\\');
     }
 
     /**

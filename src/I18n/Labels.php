@@ -67,6 +67,9 @@ final class Labels
             $component->previews,
             $component->tailored,
             $component->examples,
+            $component->query,
+            $component->controller,
+            $component->controllerFile,
         );
     }
 

@@ -1,0 +1,8 @@
+{# frootbox
+title: Greeting
+description: Greets whoever the query names.
+query: [name, page]
+options:
+  loud: { type: boolean, label: Loud, default: false }
+#}
+<p class="greeting" data-page="{{ page }}" data-target="{{ target }}">{{ options.loud ? greeting|upper : greeting }}</p>

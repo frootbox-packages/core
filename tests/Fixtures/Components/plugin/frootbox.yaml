@@ -1,0 +1,3 @@
+title: Plugin
+description: A small plugin with the extension points of the core, without News (decisions 0216, 0219).
+extension: Frootbox\Core\Tests\Fixtures\Plugin\PluginExtension

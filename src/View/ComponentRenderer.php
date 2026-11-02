@@ -9,6 +9,9 @@ declare(strict_types=1);
 namespace Frootbox\Core\View;
 
 use Frootbox\Core\Asset\AssetList;
+use Frootbox\Core\Component\BlockContext;
+use Frootbox\Core\Component\BlockController;
+use Frootbox\Core\Component\Component;
 use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\Instance;
@@ -176,9 +179,11 @@ final readonly class ComponentRenderer
             $this->editMode->anchors() => $this->markup->forPreview(),
             default => null,
         };
+        $options = $component->variant($instance->variant)->options($instance->options);
         $html = $this->service(Twig::class)->render($component->variant($instance->variant)->template, [
+            ...$this->controllerData($component, $instance, $options),
             'id' => $instance->id,
-            'options' => $component->variant($instance->variant)->options($instance->options),
+            'options' => $options,
             Frame::VARIABLE => new Frame($component, $instance, new Scope($component->fields, $instance->fields, $this->types, $markup, headings: $headings), $depth, $assets, $headings),
         ]);
 
@@ -188,6 +193,46 @@ final readonly class ComponentRenderer
             $markup->anchors => $markup->strip($markup->unwrap(EmptyElements::remove($html), keepRoot: ComponentKind::Block === $kind)),
             default => $markup->unwrap($html, keepRoot: ComponentKind::Block === $kind),
         };
+    }
+
+    /**
+     * What the controller of the component adds for its view (decision 0219).
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function controllerData(Component $component, Instance $instance, array $options): array
+    {
+        if (null === $component->controller) {
+            return [];
+        }
+
+        // Tippen und F5: a new controller works without composer dump-autoload (decision 0073).
+        if (!class_exists($component->controller) && null !== $component->controllerFile && is_file($component->controllerFile)) {
+            require_once $component->controllerFile;
+        }
+
+        if (!class_exists($component->controller)) {
+            throw new ViewException(\sprintf('The controller of %s must be the class %s in %s.', $component->name, $component->controller, $component->controllerFile ?? $component->name . '.php'));
+        }
+
+        $controller = $this->container->get($component->controller);
+
+        if (!$controller instanceof BlockController) {
+            throw new ViewException(\sprintf('%s must implement %s.', $component->controller, BlockController::class));
+        }
+
+        $delivery = $this->service(Delivery::class);
+
+        return $controller->data(new BlockContext(
+            $instance,
+            $options,
+            $delivery->language()->code,
+            $delivery->contentLanguage()->code,
+            $delivery->target(),
+            $delivery->query($component->query),
+        ));
     }
 
     /**

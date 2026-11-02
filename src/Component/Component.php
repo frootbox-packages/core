@@ -45,6 +45,12 @@ final readonly class Component
         public bool $tailored = false,
         /** Content for the design page, like blocks on a page (decisions 0205, 0206) */
         public array $examples = [],
+        /** @var list<string> Query parameters the block reads (decision 0219) */
+        public array $query = [],
+        /** The class of its controller, a BlockController (decision 0219) */
+        public ?string $controller = null,
+        /** The file of the controller, loaded if Composer does not know the class */
+        public ?string $controllerFile = null,
     ) {}
 
     public function package(): string

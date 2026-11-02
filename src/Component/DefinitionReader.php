@@ -20,10 +20,10 @@ use Frootbox\Core\Field\HasSubfields;
 final readonly class DefinitionReader
 {
     /** Keys of block.yaml and layout.yaml. */
-    public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas', 'examples'];
+    public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas', 'examples', 'query'];
 
     /** Keys of the header of views/Default.twig when there is no block.yaml. */
-    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'examples'];
+    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'examples', 'query'];
 
     /** Keys of the header of any other view, including views that override. */
     public const array VARIANT_KEYS = ['title', 'description', 'options'];
@@ -44,6 +44,8 @@ final readonly class DefinitionReader
         'areas' => self::ANY_MAP,
         // Content for the design page, each like a block on a page (decisions 0205, 0206).
         'examples' => ['type' => 'array'],
+        // Query parameters the block reads, e.g. [page, category] (decision 0219).
+        'query' => ['type' => 'array', 'items' => ['type' => 'string', 'pattern' => '^[a-z][a-zA-Z0-9]*$'], 'uniqueItems' => true],
     ];
 
     /** Keys of an example (decision 0206). */
@@ -101,6 +103,7 @@ final readonly class DefinitionReader
             self::string($raw['group'] ?? null),
             \is_array($raw['keywords'] ?? null) ? array_values(array_filter($raw['keywords'], \is_string(...))) : [],
             $this->examples($raw['examples'] ?? null, $where, $errors),
+            \is_array($raw['query'] ?? null) ? array_values(array_filter($raw['query'], static fn(mixed $name): bool => \is_string($name) && 1 === preg_match(self::NAME, $name))) : [],
         );
     }
 

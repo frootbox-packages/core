@@ -29,6 +29,9 @@ final class PageCache
 
     private ?string $generation = null;
 
+    /** @var list<string>|null */
+    private ?array $parameters = null;
+
     public function __construct(
         private readonly ProjectPaths $paths,
         private readonly Environment $environment,
@@ -38,8 +41,8 @@ final class PageCache
      * Whether the answer to the request may come from the cache: a GET or
      * HEAD of a guest, not in development mode.
      *
-     * The query does not count: only parameters that blocks declare may
-     * change a page, and none do so far. Tracking parameters such as
+     * Of the query only parameters that blocks declare count (decision
+     * 0219), e.g. "page" of a list. Tracking parameters such as
      * utm_source get the page of the plain URL.
      */
     public function accepts(ServerRequestInterface $request): bool
@@ -64,12 +67,16 @@ final class PageCache
         return false === $html ? null : $html;
     }
 
-    public function put(ServerRequestInterface $request, string $html): void
+    /**
+     * @param list<string> $parameters The query parameters the blocks of the page declared
+     */
+    public function put(ServerRequestInterface $request, string $html, array $parameters = []): void
     {
         if (!$this->accepts($request)) {
             return;
         }
 
+        $this->declare($parameters);
         $file = $this->file($request);
         $directory = \dirname($file);
 
@@ -104,6 +111,7 @@ final class PageCache
         }
 
         $this->generation = $generation;
+        $this->parameters = null;
 
         foreach (self::entries($root) as $entry) {
             if ($entry !== $generation && is_dir($root . '/' . $entry)) {
@@ -115,10 +123,51 @@ final class PageCache
     private function file(ServerRequestInterface $request): string
     {
         $uri = $request->getUri();
+        // Only the parameters some block declared, in a fixed order.
+        $query = array_intersect_key(array_filter($request->getQueryParams(), \is_string(...)), array_flip($this->parameters()));
+        ksort($query);
         // "%d9%85" and "%D9%85" are the same page (decision 0158).
-        $key = hash('sha256', strtolower($uri->getHost()) . ':' . ($uri->getPort() ?? '') . (UrlPath::decode($uri->getPath()) ?? $uri->getPath()));
+        $key = hash('sha256', strtolower($uri->getHost()) . ':' . ($uri->getPort() ?? '') . (UrlPath::decode($uri->getPath()) ?? $uri->getPath()) . ([] === $query ? '' : '?' . http_build_query($query)));
 
         return $this->paths->var(\sprintf('cache/pages/%s/%s/%s.html', $this->generation(), substr($key, 0, 2), $key));
+    }
+
+    /**
+     * The query parameters blocks declared, of all pages of this
+     * generation. A page with a declared parameter adds it when it is
+     * cached, before its own key is computed.
+     *
+     * @return list<string>
+     */
+    private function parameters(): array
+    {
+        if (null === $this->parameters) {
+            $file = $this->paths->var(\sprintf('cache/pages/%s/parameters', $this->generation()));
+            $content = is_file($file) ? @file_get_contents($file) : false;
+            $this->parameters = false === $content || '' === $content ? [] : explode("\n", $content);
+        }
+
+        return $this->parameters;
+    }
+
+    /**
+     * @param list<string> $parameters
+     */
+    private function declare(array $parameters): void
+    {
+        $new = array_diff($parameters, $this->parameters());
+
+        if ([] === $new) {
+            return;
+        }
+
+        $this->parameters = [...$this->parameters(), ...array_values($new)];
+        sort($this->parameters);
+        $file = $this->paths->var(\sprintf('cache/pages/%s/parameters', $this->generation()));
+
+        if (is_dir(\dirname($file)) || @mkdir(\dirname($file), 0o775, true) || is_dir(\dirname($file))) {
+            @file_put_contents($file, implode("\n", $this->parameters), \LOCK_EX);
+        }
     }
 
     private function generation(): string

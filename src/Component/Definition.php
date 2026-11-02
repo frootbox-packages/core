@@ -34,5 +34,7 @@ final readonly class Definition
         public array $keywords = [],
         /** @var list<array<string, mixed>> Content for the design page (decisions 0205, 0206) */
         public array $examples = [],
+        /** @var list<string> Query parameters the block reads, e.g. "page" (decision 0219) */
+        public array $query = [],
     ) {}
 }
