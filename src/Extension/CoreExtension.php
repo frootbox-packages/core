@@ -72,6 +72,7 @@ use Frootbox\Core\Heading\ShowOutline;
 use Frootbox\Core\Help\ListHelp;
 use Frootbox\Core\Help\ShowHelp;
 use Frootbox\Core\Install\InstallCommand;
+use Frootbox\Core\Mail\SendMail;
 use Frootbox\Core\Media\AddMediaSource;
 use Frootbox\Core\Media\CreateMediaFolder;
 use Frootbox\Core\Media\CreateMedium;
@@ -337,6 +338,8 @@ final class CoreExtension implements Extension
         $registry->query(ShowQueueStatus::class);
         $registry->action(RetryJob::class);
         $registry->action(DeleteJob::class);
+        // Mails leave through the queue (decision 0222).
+        $registry->job(SendMail::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListLanguages::class);
