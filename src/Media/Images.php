@@ -42,6 +42,9 @@ final class Images
         'png' => Format::PNG,
     ];
 
+    /** @var array<string, bool> Whether a test image came out, per format, once per process. */
+    private static array $writes = [];
+
     private ?DriverInterface $driver = null;
 
     private ?ImageManager $manager = null;
@@ -138,7 +141,14 @@ final class Images
             default => [],
         };
 
-        return $image->encodeUsingFormat($format, ...$options)->toString();
+        $contents = $image->encodeUsingFormat($format, ...$options)->toString();
+
+        // Never an empty file, it would be cached as the image for a year.
+        if ('' === $contents) {
+            throw new RuntimeException(\sprintf('The image driver wrote nothing for "%s" as %s.', $original, $extension));
+        }
+
+        return $contents;
     }
 
     /**
@@ -164,12 +174,28 @@ final class Images
 
     /**
      * Whether the driver can write files of this extension, e.g. "avif".
+     * Some builds of GD claim AVIF but have no encoder and write empty
+     * files (decision 0173), so a tiny test image has to come out.
      */
     public function supports(string $extension): bool
     {
         $format = self::FORMATS[$extension] ?? null;
 
-        return null !== $format && $this->driver()->supports($format);
+        if (null === $format || !$this->driver()->supports($format)) {
+            return false;
+        }
+
+        $key = $this->driver()::class . ' ' . $extension;
+
+        if (!isset(self::$writes[$key])) {
+            try {
+                self::$writes[$key] = '' !== $this->manager()->createImage(2, 2)->encodeUsingFormat($format)->toString();
+            } catch (Throwable) {
+                self::$writes[$key] = false;
+            }
+        }
+
+        return self::$writes[$key];
     }
 
     private function manager(): ImageManager
