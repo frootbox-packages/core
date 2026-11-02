@@ -211,6 +211,12 @@ final class PreviewLinksTest extends NotesTestCase
         $old = $this->create();
         $recent = $this->create();
         $valid = $this->create();
+
+        // Created within the same second, the order would rest on random ULIDs.
+        foreach ([$old, $recent, $valid] as $minutes => $link) {
+            $this->connection()->update('preview_links', ['created_at' => new DateTimeImmutable(\sprintf('-%d minutes', 3 - $minutes))->format('Y-m-d H:i:s')], ['id' => $link->id]);
+        }
+
         $this->connection()->update('preview_links', ['expires_at' => new DateTimeImmutable('-31 days')->format('Y-m-d H:i:s')], ['id' => $old->id]);
         $this->connection()->update('preview_links', ['revoked_at' => new DateTimeImmutable('-29 days')->format('Y-m-d H:i:s')], ['id' => $recent->id]);
 
