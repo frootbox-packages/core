@@ -13,6 +13,7 @@ use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Navigation\MenuItem;
 use Frootbox\Core\Navigation\Menus;
+use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Site\SiteFields;
 use Frootbox\Core\Theme\Theme;
 use Frootbox\Core\Theme\ThemeChain;
@@ -47,6 +48,9 @@ use Twig\TwigFunction;
  *     {{ site_value('brand') }}       its stored value
  *     {% for item in alternates() %}  the page in all languages, for a language switcher
  *     {{ t('Skip to content') }}       a text of the theme in the language of the page
+ *     <section{{ {id: jump_mark()}|attributes }}> the id of the block's jump mark, null without one
+ *     {% for mark in jump_marks() %}  the jump marks of the page, each with id and label
+ *     {% if editing() %}              shown for editing, e.g. a hint where visitors see nothing
  */
 final class ViewExtension extends AbstractExtension
 {
@@ -78,6 +82,9 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
             new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),
             new TwigFunction('t', $this->text(...)),
+            new TwigFunction('jump_mark', fn(array $context): ?string => $this->service(JumpMarks::class)->id(self::frame($context, 'jump_mark')->instance), ['needs_context' => true]),
+            new TwigFunction('jump_marks', fn(): array => $this->service(JumpMarks::class)->all()),
+            new TwigFunction('editing', fn(): bool => $this->service(EditMode::class)->marking()),
         ];
     }
 

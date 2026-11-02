@@ -56,7 +56,10 @@ final readonly class ComponentRenderer
      */
     public function block(Instance|array $block, ?AssetList $assets = null, ?Headings $headings = null): string
     {
-        return $this->render(ComponentKind::Block, $block instanceof Instance ? $block : Instance::fromArray($block), 0, $assets, $headings ?? new Headings());
+        $block = $block instanceof Instance ? $block : Instance::fromArray($block);
+        $this->collectJumpMarks($block);
+
+        return $this->render(ComponentKind::Block, $block, 0, $assets, $headings ?? new Headings());
     }
 
     /**
@@ -71,7 +74,9 @@ final readonly class ComponentRenderer
      */
     public function layout(Instance|array $layout, ?AssetList $assets = null, ?string $title = null, ?Outline $outline = null): string
     {
-        $html = $this->render(ComponentKind::Layout, $layout instanceof Instance ? $layout : Instance::fromArray($layout, ComponentKind::Layout), 0, $assets, new Headings($outline ?? new Outline()));
+        $layout = $layout instanceof Instance ? $layout : Instance::fromArray($layout, ComponentKind::Layout);
+        $this->collectJumpMarks($layout);
+        $html = $this->render(ComponentKind::Layout, $layout, 0, $assets, new Headings($outline ?? new Outline()));
 
         if (null === $title || '' === trim($title) || 1 === preg_match('/<h1[\s>]/i', $html)) {
             return $html;
@@ -126,6 +131,15 @@ final readonly class ComponentRenderer
         }
 
         return $marking && '' === $html ? $this->markup->emptyArea($name) : $html;
+    }
+
+    /**
+     * The jump marks of what is about to be rendered, before the first
+     * template, so a jump bar at the top knows the marks below it.
+     */
+    private function collectJumpMarks(Instance $root): void
+    {
+        $this->service(JumpMarks::class)->collect($root, $this->service(Delivery::class)->contentLanguage()->code);
     }
 
     /**
