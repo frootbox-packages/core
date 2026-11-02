@@ -55,7 +55,7 @@ use Frootbox\Core\Language\Script;
  */
 final readonly class Theme
 {
-    private const array KEYS = ['parent', 'tokens', 'fonts', 'scripts', 'fields', 'navigations', 'blocks', 'layouts'];
+    private const array KEYS = ['parent', 'tokens', 'fonts', 'scripts', 'fields', 'navigations', 'blocks', 'layouts', 'design'];
 
     private const array FONT = ['label', 'family', 'files', 'fallback'];
 
@@ -73,6 +73,8 @@ final readonly class Theme
      * @param array<string, Font>            $fonts       By key
      * @param array<string, array<mixed>>    $fields      By name, as in the manifest; read by Site\SiteFields
      * @param array<string, array<string, string>> $scripts Flat tokens by script, e.g. "arab" => ["font-body" => …]
+     * @param array<string, Frame>|null      $places      Frames of the design page, null if a parent names them (decision 0208)
+     * @param array<string, Frame>|null      $surfaces    As $places
      */
     public function __construct(
         public string $name,
@@ -86,6 +88,8 @@ final readonly class Theme
         public array $scripts = [],
         public Offer $blocks = new Offer(),
         public Offer $layouts = new Offer(),
+        public ?array $places = null,
+        public ?array $surfaces = null,
     ) {}
 
     public static function fromPackage(ExtensionPackage $package): ?self
@@ -140,7 +144,7 @@ final readonly class Theme
         $definitions = [];
         $flat = self::flatten($tokens, '', $where, $definitions);
 
-        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where, $package->path), $fields, self::scripts($package->theme['scripts'] ?? [], $where), Offer::from($package->theme['blocks'] ?? null, 'blocks', $where), Offer::from($package->theme['layouts'] ?? null, 'layouts', $where));
+        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where, $package->path), $fields, self::scripts($package->theme['scripts'] ?? [], $where), Offer::from($package->theme['blocks'] ?? null, 'blocks', $where), Offer::from($package->theme['layouts'] ?? null, 'layouts', $where), Frame::list($package->theme['design'] ?? null, Frame::PLACES, $package->name, $where), Frame::list($package->theme['design'] ?? null, Frame::SURFACES, $package->name, $where));
     }
 
     /**

@@ -12,6 +12,7 @@ use Frootbox\Core\Extension\ExtensionPackage;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Theme\Font;
+use Frootbox\Core\Theme\Frame;
 use Frootbox\Core\Theme\Theme;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Theme\ThemeException;
@@ -23,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 
 #[CoversClass(Theme::class)]
 #[CoversClass(ThemeChain::class)]
+#[CoversClass(Frame::class)]
 #[CoversClass(TokenDefinition::class)]
 #[CoversClass(Font::class)]
 final class ThemeChainTest extends TestCase
@@ -119,6 +121,24 @@ final class ThemeChainTest extends TestCase
         self::assertStringNotContainsString(':lang', $chain->css([], ['latn' => ['de']]), 'Scripts without a language of the website are left out.');
     }
 
+    public function testTakesEachListOfFramesFromTheFirstThemeThatNamesIt(): void
+    {
+        // Decision 0208: the child replaces a list, short block names belong to the theme.
+        $chain = ThemeChain::resolve(new Extensions([
+            self::theme('acme/a', ['design' => [
+                'places' => ['column' => ['label' => 'In a column', 'block' => 'Section', 'variant' => 'Two', 'area' => 'first']],
+                'surfaces' => ['dark' => ['label' => 'On dark', 'block' => 'Section', 'options' => ['background' => 'dark'], 'area' => 'first']],
+            ]]),
+            self::theme('acme/b', ['parent' => 'acme/a', 'design' => ['places' => ['side' => ['label' => 'At the side', 'block' => 'acme/x/Grid', 'area' => 'side']]]]),
+        ]), 'acme/b');
+
+        self::assertSame(['side'], array_keys($chain->frames(Frame::PLACES)));
+        self::assertSame('acme/x/Grid', $chain->frames(Frame::PLACES)['side']->block);
+        $dark = $chain->frames(Frame::SURFACES)['dark'];
+        self::assertSame(['acme/a/Section', 'first', ['background' => 'dark'], 'On dark'], [$dark->block, $dark->area, $dark->options, $dark->label]);
+        self::assertSame([], ThemeChain::resolve(new Extensions([self::theme('acme/c', [])]), 'acme/c')->frames(Frame::PLACES));
+    }
+
     public function testWorksWithoutTheme(): void
     {
         $chain = ThemeChain::resolve(FixtureSite::extensions(), null);
@@ -153,6 +173,11 @@ final class ThemeChainTest extends TestCase
         yield 'bad script' => [new Extensions([self::theme('acme/a', ['tokens' => ['x' => '1'], 'scripts' => ['Arabic' => ['x' => '2']]])]), 'acme/a', 'the script "Arabic" needs a code of ISO 15924'];
         yield 'script with a type' => [new Extensions([self::theme('acme/a', ['tokens' => ['x' => '1'], 'scripts' => ['arab' => ['x' => ['type' => 'color', 'value' => '#fff']]]])]), 'acme/a', 'the tokens of the script "arab" are values only'];
         yield 'script with unknown token' => [new Extensions([self::theme('acme/a', ['tokens' => ['x' => '1'], 'scripts' => ['arab' => ['y' => '2']]])]), 'acme/a', 'The script "arab" of the theme acme/a changes tokens the themes do not have: y.'];
+        yield 'design with unknown list' => [new Extensions([self::theme('acme/a', ['design' => ['columns' => []]])]), 'acme/a', '"design" may contain "places" and "surfaces"'];
+        yield 'frame as a list' => [new Extensions([self::theme('acme/a', ['design' => ['places' => [['block' => 'Section']]]])]), 'acme/a', '"design.places" must list frames by name'];
+        yield 'frame without area' => [new Extensions([self::theme('acme/a', ['design' => ['places' => ['column' => ['label' => 'Column', 'block' => 'Section']]]])]), 'acme/a', '"design.places.column" needs "area" as text'];
+        yield 'frame with unknown key' => [new Extensions([self::theme('acme/a', ['design' => ['surfaces' => ['dark' => ['label' => 'Dark', 'block' => 'Section', 'area' => 'first', 'class' => 'dark']]]])]), 'acme/a', '"design.surfaces.dark" contains unknown keys: class. Allowed are label, block, variant, area, options'];
+        yield 'frame with a bad name' => [new Extensions([self::theme('acme/a', ['design' => ['places' => ['Column' => ['label' => 'Column', 'block' => 'Section', 'area' => 'first']]]])]), 'acme/a', 'the name must be small letters'];
         yield 'bad parent' => [new Extensions([self::theme('acme/a', ['parent' => 5])]), 'acme/a', '"parent" must be the package name of a theme'];
     }
 

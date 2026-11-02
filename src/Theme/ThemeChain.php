@@ -68,6 +68,27 @@ final readonly class ThemeChain
     }
 
     /**
+     * The frames of the design page by name (decision 0208): of the first
+     * theme in the chain that names the list, the child first.
+     *
+     * @param Frame::PLACES|Frame::SURFACES $list
+     *
+     * @return array<string, Frame>
+     */
+    public function frames(string $list): array
+    {
+        foreach ($this->themes as $theme) {
+            $frames = Frame::PLACES === $list ? $theme->places : $theme->surfaces;
+
+            if (null !== $frames) {
+                return $frames;
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * All tokens, children overriding their parents.
      *
      * @return array<string, string>

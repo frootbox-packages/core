@@ -86,6 +86,36 @@ final class DesignPageTest extends NotesTestCase
         self::assertStringContainsString('<h4>Roasted next door</h4>', $html, 'Without a translation it stays as written.');
     }
 
+    public function testShowsTheBlocksAtAPlaceOnASurface(): void
+    {
+        // Decision 0208: a place and a surface of the same block are one frame.
+        $html = (string) $this->request('/_design?place=column&surface=dark')->getBody();
+
+        self::assertStringContainsString('<div class="columns columns--dark"><section class="hero"><h4>Fresh coffee</h4></section></div>', $html);
+        self::assertStringContainsString('<p class="fb-design-caption">Blocks · In a column · On dark</p>', $html);
+        self::assertMatchesRegularExpression('/Not at this place:<\/p>\s*<ul class="fb-design-missing">\s*<li>Broken<\/li>/', $html, 'The area does not allow it.');
+        self::assertStringContainsString('<dd><a href="/_design?surface=dark">Main area</a></dd>', $html, 'Each link keeps the rest of the view.');
+        self::assertStringContainsString('<dd><a href="/_design?place=column&amp;surface=dark" aria-current="page">On dark</a></dd>', $html);
+        self::assertStringContainsString('<dd><a href="/_design?language=de&amp;place=column&amp;surface=dark">Deutsch</a></dd>', $html);
+    }
+
+    public function testSetsTheDirectionAndShowsTheOwnParts(): void
+    {
+        $html = (string) $this->request('/_design?direction=rtl')->getBody();
+
+        self::assertStringContainsString('<html lang="en" dir="rtl">', $html, 'The mirror with known texts.');
+        self::assertMatchesRegularExpression('/<h2>States<\/h2>\s*<div><p class="states">Hover and focus<\/p>/', $html, 'A part of the child theme.');
+        self::assertLessThan(strpos($html, 'fb-design-blocks-title'), strpos($html, 'Hover and focus'), 'Before the blocks.');
+    }
+
+    public function testNamesAWrongFrame(): void
+    {
+        $html = (string) $this->request('/_design?place=lost')->getBody();
+
+        self::assertStringContainsString('<p role="alert">The frame &quot;lost&quot; of acme/kit names the block acme/kit/Nothing, which does not exist.</p>', $html);
+        self::assertStringContainsString('<section class="hero"><h4>Fresh coffee</h4></section>', $html, 'The blocks stay in the main area.');
+    }
+
     public function testDoesNotExistForGuests(): void
     {
         $this->get(CurrentContext::class)->set(Context::guest());
@@ -126,7 +156,8 @@ final class DesignPageTest extends NotesTestCase
         $kit = $this->packages->root . '/kit';
         $look = $this->packages->root . '/look';
         $files = [
-            $kit . '/frootbox.yaml' => "title: Kit\ntheme:\n  tokens:\n    color:\n      primary: '#c00'\n",
+            $kit . '/frootbox.yaml' => "title: Kit\ntheme:\n  tokens:\n    color:\n      primary: '#c00'\n  design:\n    places:\n      column: { label: In a column, block: Columns, area: first }\n      lost: { label: Lost, block: Nothing, area: first }\n    surfaces:\n      dark: { label: On dark, block: Columns, options: { background: dark }, area: first }\n",
+            $kit . '/blocks/Columns/views/Default.twig' => "{# frootbox\ntitle: Columns\ngroup: structure\noptions:\n  background: { type: choice, label: Background, choices: { none: None, dark: Dark }, default: none }\nareas:\n  first: { label: First, allow: [Hero, Note] }\n#}<div class=\"columns columns--{{ options.background }}\">{{ area('first') }}</div>",
             $kit . '/layouts/Page/views/Default.twig' => "{# frootbox\ntitle: Page\nfields:\n  title: { type: headline }\nareas:\n  main: {}\n#}<header>Head</header><main>{{ heading('title', 0) }}{{ area('main') }}</main>",
             $kit . '/translations/de.yaml' => "Fresh coffee: Frischer Kaffee\nBeans: Bohnen\n",
             $kit . '/blocks/Hero/views/Default.twig' => "{# frootbox\ntitle: Hero\ngroup: header\nfields:\n  title: { type: headline }\n  image: { type: image, optional: true }\nexamples:\n  - fields: { title: 'Fresh coffee' }\n  - variant: Split\n    options: { side: end }\n    fields: { title: 'Roasted next door', image: { sample: examples/beans.png, alt: Beans } }\n#}<section class=\"hero\">{{ heading('title', 0) }}</section>",
@@ -135,6 +166,7 @@ final class DesignPageTest extends NotesTestCase
             $kit . '/blocks/Note/views/Default.twig' => "{# frootbox\ntitle: Note\ngroup: text\n#}<p>Note</p>",
             $kit . '/blocks/Secret/views/Default.twig' => "{# frootbox\ntitle: Secret\nexamples: [{}]\n#}<p>Secret</p>",
             $kit . '/blocks/Broken/views/Default.twig' => "{# frootbox\ntitle: Broken\nexamples: [{}]\n#}{{ area('nowhere') }}",
+            $look . '/partials/design/States.twig' => '<p class="states">Hover and focus</p>',
             $look . '/frootbox.yaml' => "title: Look\ntheme:\n  parent: acme/kit\n  blocks:\n    hide: [acme/kit/Secret]\n",
         ];
 

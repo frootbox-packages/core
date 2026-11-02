@@ -2,7 +2,21 @@
   The content of the design page (decision 0205), at the end of <main> of
   the layout. Sections of its own stand in the content column of the
   page; the examples of the blocks stand like on any page.
+  The view (decision 0208) is a set of links, so every view has an address.
 #}
+<nav class="fb-design-section" aria-label="{{ t('View') }}">
+  <dl class="fb-design-view">
+    {% for group in view.nav %}
+      <div>
+        <dt>{{ group.label }}</dt>
+        {% for link in group.links %}
+          <dd><a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.label }}</a></dd>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </dl>
+</nav>
+
 <section class="fb-design-section" id="fb-design-tokens" aria-labelledby="fb-design-tokens-title">
   <h2 id="fb-design-tokens-title">{{ t('Tokens') }}</h2>
   {% for group in tokens %}
@@ -64,8 +78,17 @@
   <div>{{ richText }}</div>
 </section>
 
+{% for part in parts %}
+  <section class="fb-design-section" aria-label="{{ part.title }}">
+    <h2>{{ part.title }}</h2>
+    <div>{% include part.template %}</div>
+  </section>
+{% endfor %}
+
 <section class="fb-design-section" id="fb-design-blocks" aria-labelledby="fb-design-blocks-title">
   <h2 id="fb-design-blocks-title">{{ t('Blocks') }}</h2>
+  <p class="fb-design-caption">{{ view.current }}</p>
+  {% for error in view.errors %}<p role="alert">{{ error }}</p>{% endfor %}
 </section>
 {% for group in groups %}
   <section class="fb-design-section" aria-label="{{ group.title }}">
@@ -74,6 +97,12 @@
       <p>{{ t('Without an example yet:') }}</p>
       <ul class="fb-design-missing">
         {% for title in group.missing %}<li>{{ title }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+    {% if group.elsewhere %}
+      <p>{{ t('Not at this place:') }}</p>
+      <ul class="fb-design-missing">
+        {% for title in group.elsewhere %}<li>{{ title }}</li>{% endfor %}
       </ul>
     {% endif %}
   </section>

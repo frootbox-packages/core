@@ -24,16 +24,17 @@ use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Heading\Headings;
 use Frootbox\Core\Heading\Outline;
 use Frootbox\Core\Http\Exception\HttpException;
-use Frootbox\Core\I18n\Labels;
 use Frootbox\Core\I18n\Translator;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Preview\PreviewAccess;
+use Frootbox\Core\Theme\Frame;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\View\ComponentRenderer;
 use Frootbox\Core\View\Delivery;
 use Frootbox\Core\View\Document;
+use Frootbox\Core\View\FileLoader;
 use Frootbox\Core\View\Head;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -58,6 +59,9 @@ final readonly class DesignPage implements RequestHandlerInterface
 
     // The head of the page gets the request with the attribute DesignPage::class set to true,
     // e.g. for the editor bar (decision 0207).
+
+    /** Own parts of the themes, partials/design/<Name>.twig (decision 0208). */
+    private const string PARTS = 'design';
 
     private const string TEMPLATE = __DIR__ . '/../../resources/views/design.twig';
 
@@ -89,6 +93,11 @@ final readonly class DesignPage implements RequestHandlerInterface
         .fb-design-tokens{inline-size:100%;border-collapse:collapse;font-size:.875rem}
         .fb-design-tokens :is(th,td){padding:.375rem .75rem .375rem 0;border-block-end:1px solid #8884;text-align:start;vertical-align:top}
         .fb-design-missing{margin:0;padding-inline-start:1.25rem}
+        .fb-design-view{display:grid;gap:.5rem;margin:0;font-size:.875rem}
+        .fb-design-view div{display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:baseline}
+        .fb-design-view dt{font-weight:600}
+        .fb-design-view dd{margin:0}
+        .fb-design-view a[aria-current]{font-weight:600;text-decoration:none}
         CSS;
 
     public function __construct(
@@ -100,7 +109,6 @@ final readonly class DesignPage implements RequestHandlerInterface
         private DesignTokens $tokens,
         private Languages $languages,
         private Translator $translator,
-        private Labels $labels,
         private ExampleContent $examples,
         private EditMode $editMode,
         private Delivery $delivery,
@@ -130,6 +138,7 @@ final readonly class DesignPage implements RequestHandlerInterface
         $this->delivery->set($language);
 
         $t = fn(string $english): string => $this->translator->in($language->code, $english);
+        $view = $this->view($request->getQueryParams(), $language, $t);
         $assets = new AssetList();
         $assets->addStyle(self::STYLE);
         $title = $t('Design');
@@ -139,11 +148,13 @@ final readonly class DesignPage implements RequestHandlerInterface
             't' => $t,
             'tokens' => $this->tokenGroups($t),
             'richText' => $this->types->get('richtext')->output(RichTextSample::DOCUMENT, new Field('sample', 'richtext', 'Text')),
-            'groups' => $this->blocks($assets, $language, $t),
+            'view' => $view,
+            'parts' => $this->parts($language),
+            'groups' => $this->blocks($assets, $language, $t, $view['frames']),
         ]);
         $html = self::intoMain($html, $body);
 
-        $head = new Head($language->code, $title . ' – ' . $this->config->string('app.name', 'Frootbox'), direction: $language->direction->value);
+        $head = new Head($language->code, $title . ' – ' . $this->config->string('app.name', 'Frootbox'), direction: $view['direction'] ?? $language->direction->value);
         $head->add('<meta name="robots" content="noindex">');
 
         return $this->responses->createResponse(200)
@@ -241,9 +252,11 @@ final readonly class DesignPage implements RequestHandlerInterface
      *
      * @param \Closure(string): string $t
      *
-     * @return list<array{title: string, blocks: list<array{caption: string, html: Markup}>, missing: list<string>}>
+     * @param list<Frame> $frames The block stands in the first, each in the next
+     *
+     * @return list<array{title: string, blocks: list<array{caption: string, html: Markup}>, missing: list<string>, elsewhere: list<string>}>
      */
-    private function blocks(AssetList $assets, Language $language, \Closure $t): array
+    private function blocks(AssetList $assets, Language $language, \Closure $t, array $frames): array
     {
         $blocks = array_filter(
             $this->components->all(ComponentKind::Block),
@@ -262,17 +275,26 @@ final readonly class DesignPage implements RequestHandlerInterface
             $groupTitle = null === $group ? $t('Other') : $t($group->title);
             $shown = [];
             $missing = [];
+            $elsewhere = [];
 
             foreach ($members as $block) {
-                $labelled = $this->labels->component($block);
+                // Texts in the language of the page, like the rest of it.
+                $label = fn(string $text): string => '' === $text ? '' : $this->translator->in($language->code, $text, [$block->package()]);
+                $title = $label($block->title);
 
                 if ([] === $block->examples) {
-                    $missing[] = $labelled->title;
+                    $missing[] = $title;
 
                     continue;
                 }
 
-                foreach ($labelled->variants as $variant) {
+                if ([] !== $frames && !$this->fits($block->name, $block->widget, $frames[0])) {
+                    $elsewhere[] = $title;
+
+                    continue;
+                }
+
+                foreach ($block->variants as $variant) {
                     foreach ($block->examples as $example) {
                         if (isset($example['variant']) && $example['variant'] !== $variant->name) {
                             continue;
@@ -280,30 +302,28 @@ final readonly class DesignPage implements RequestHandlerInterface
 
                         $options = \is_array($example['options'] ?? null) ? $example['options'] : [];
                         $shown[] = [
-                            'caption' => implode(' · ', array_unique([$groupTitle, $labelled->title, $variant->title, ...self::chosen($variant, $options)])),
-                            'html' => new Markup($this->render($block, $variant->name, $example, $language, $assets, $t), 'UTF-8'),
+                            'caption' => implode(' · ', array_unique([$groupTitle, $title, $label($variant->title), ...self::chosen($variant, $options, $label)])),
+                            'html' => new Markup($this->render($block, $variant->name, $example, $language, $assets, $t, $frames), 'UTF-8'),
                         ];
                     }
                 }
             }
 
-            $groups[] = ['title' => $groupTitle, 'blocks' => $shown, 'missing' => $missing];
+            $groups[] = ['title' => $groupTitle, 'blocks' => $shown, 'missing' => $missing, 'elsewhere' => $elsewhere];
         }
 
         return $groups;
     }
 
     /**
-     * @param \Closure(string): string $t
-     */
-    /**
      * The options an example sets, by their labels, e.g. "Size: Large".
      *
-     * @param array<mixed> $options
+     * @param array<mixed>             $options
+     * @param \Closure(string): string $label Translates a text of the block
      *
      * @return list<string>
      */
-    private static function chosen(Variant $variant, array $options): array
+    private static function chosen(Variant $variant, array $options, \Closure $label): array
     {
         $chosen = [];
 
@@ -316,11 +336,11 @@ final readonly class DesignPage implements RequestHandlerInterface
 
             $text = match (true) {
                 \is_bool($value) => $value ? '✓' : '–',
-                (\is_string($value) || \is_int($value)) && isset($option->choices[$value]) => $option->choices[$value],
+                (\is_string($value) || \is_int($value)) && isset($option->choices[$value]) => $label($option->choices[$value]),
                 \is_scalar($value) => (string) $value,
                 default => '',
             };
-            $chosen[] = $option->label . ': ' . $text;
+            $chosen[] = $label($option->label) . ': ' . $text;
         }
 
         return $chosen;
@@ -329,11 +349,18 @@ final readonly class DesignPage implements RequestHandlerInterface
     /**
      * @param array<string, mixed>     $example
      * @param \Closure(string): string $t
+     * @param list<Frame>              $frames
      */
-    private function render(Component $block, string $variant, array $example, Language $language, AssetList $assets, \Closure $t): string
+    private function render(Component $block, string $variant, array $example, Language $language, AssetList $assets, \Closure $t, array $frames = []): string
     {
         try {
-            $instance = Instance::fromArray($this->examples->block($block, $variant, $example, $language->code));
+            $data = $this->examples->block($block, $variant, $example, $language->code);
+
+            foreach ($frames as $frame) {
+                $data = ['block' => $frame->block, 'variant' => $frame->variant, 'options' => $frame->options, 'fields' => [], 'areas' => [$frame->area => [$data]]];
+            }
+
+            $instance = Instance::fromArray($data);
 
             return $this->renderer->block($instance, $assets, new Headings(new Outline(), self::BLOCK_LEVEL, floor: self::BLOCK_LEVEL));
         } catch (Throwable $exception) {
@@ -342,6 +369,167 @@ final readonly class DesignPage implements RequestHandlerInterface
 
             return '<p class="fb-design-caption">' . htmlspecialchars(strtr($t('This block cannot be shown: {message}'), ['{message}' => $exception->getMessage()])) . '</p>';
         }
+    }
+
+    /**
+     * The view the address asks for (decision 0208): language, direction,
+     * place and surface, with links to every other choice.
+     *
+     * @param array<mixed>             $query
+     * @param \Closure(string): string $t
+     *
+     * @return array{frames: list<Frame>, direction: ?string, nav: list<array{label: string, links: list<array{label: string, url: string, current: bool}>}>, current: string, errors: list<string>}
+     */
+    private function view(array $query, Language $language, \Closure $t): array
+    {
+        $chosen = [
+            'language' => $language->code === $this->languages->default()->code ? null : $language->code,
+            'direction' => 'rtl' === ($query['direction'] ?? null) ? 'rtl' : null,
+            'place' => null,
+            'surface' => null,
+        ];
+        $lists = ['place' => $this->themes->frames(Frame::PLACES), 'surface' => $this->themes->frames(Frame::SURFACES)];
+        $errors = [];
+
+        foreach ($lists as $key => $frames) {
+            $name = $query[$key] ?? null;
+
+            if (\is_string($name) && isset($frames[$name])) {
+                $error = $this->check($frames[$name]);
+                $chosen[$key] = $name;
+
+                if (null !== $error) {
+                    $errors[] = $error;
+                    $chosen[$key] = null;
+                }
+            }
+        }
+
+        $place = null === $chosen['place'] ? null : $lists['place'][$chosen['place']];
+        $surface = null === $chosen['surface'] ? null : $lists['surface'][$chosen['surface']];
+        $frames = self::frames($place, $surface);
+
+        // A place in a surface of another block must be allowed there.
+        if (2 === \count($frames) && !$this->fits($frames[0]->block, true === $this->components->block($frames[0]->block)?->widget, $frames[1])) {
+            $errors[] = strtr($t('The place "{place}" cannot stand on the surface "{surface}".'), ['{place}' => $this->frameLabel($frames[0], $language), '{surface}' => $this->frameLabel($frames[1], $language)]);
+            $frames = [$frames[0]];
+        }
+
+        $link = static function (array $changes) use ($chosen): string {
+            $query = http_build_query(array_filter([...$chosen, ...$changes], static fn(mixed $value): bool => null !== $value));
+
+            return self::ROUTE . ('' === $query ? '' : '?' . $query);
+        };
+        $nav = [];
+
+        if (\count($this->languages->all()) > 1) {
+            $nav[] = ['label' => $t('Language'), 'links' => array_map(
+                fn(Language $other): array => ['label' => $other->title, 'url' => $link(['language' => $other->code === $this->languages->default()->code ? null : $other->code]), 'current' => $other->code === $language->code],
+                $this->languages->all(),
+            )];
+        }
+
+        $nav[] = ['label' => $t('Direction'), 'links' => [
+            ['label' => $t('As the language'), 'url' => $link(['direction' => null]), 'current' => null === $chosen['direction']],
+            ['label' => $t('Right to left'), 'url' => $link(['direction' => 'rtl']), 'current' => 'rtl' === $chosen['direction']],
+        ]];
+
+        foreach (['place' => [$t('Place'), $t('Main area')], 'surface' => [$t('Surface'), $t('None')]] as $key => [$label, $none]) {
+            if ([] === $lists[$key]) {
+                continue;
+            }
+
+            $links = [['label' => $none, 'url' => $link([$key => null]), 'current' => null === $chosen[$key]]];
+
+            foreach ($lists[$key] as $name => $frame) {
+                $links[] = ['label' => $this->frameLabel($frame, $language), 'url' => $link([$key => $name]), 'current' => $name === $chosen[$key]];
+            }
+
+            $nav[] = ['label' => $label, 'links' => $links];
+        }
+
+        $current = array_map(fn(Frame $frame): string => $this->frameLabel($frame, $language), array_values(array_filter([$place, $surface])));
+
+        return [
+            'frames' => $frames,
+            'direction' => $chosen['direction'],
+            'nav' => $nav,
+            'current' => implode(' · ', [$t('Blocks'), ...([] === $current ? [$t('Main area')] : $current)]),
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * The frames from the inside out: one if place and surface are the same
+     * block, the place in the surface else.
+     *
+     * @return list<Frame>
+     */
+    private static function frames(?Frame $place, ?Frame $surface): array
+    {
+        if (null !== $place && null !== $surface && $place->block === $surface->block) {
+            return [new Frame($place->name, $place->label, $place->block, $place->area, $place->variant ?? $surface->variant, [...$surface->options, ...$place->options], $place->theme)];
+        }
+
+        return array_values(array_filter([$place, $surface]));
+    }
+
+    /**
+     * What is wrong with the names of a frame, null if nothing.
+     */
+    private function check(Frame $frame): ?string
+    {
+        $block = $this->components->block($frame->block);
+
+        return match (true) {
+            null === $block => \sprintf('The frame "%s" of %s names the block %s, which does not exist.', $frame->name, $frame->theme, $frame->block),
+            null !== $frame->variant && !isset($block->variants[$frame->variant]) => \sprintf('The frame "%s" of %s names the variant "%s", which %s does not have.', $frame->name, $frame->theme, $frame->variant, $frame->block),
+            !isset($block->areas[$frame->area]) => \sprintf('The frame "%s" of %s names the area "%s", which %s does not have.', $frame->name, $frame->theme, $frame->area, $frame->block),
+            default => null,
+        };
+    }
+
+    private function fits(string $block, bool $widget, Frame $frame): bool
+    {
+        return $this->components->block($frame->block)?->areas[$frame->area]?->allows($block, $widget) ?? false;
+    }
+
+    private function frameLabel(Frame $frame, Language $language): string
+    {
+        return $this->translator->in($language->code, $frame->label, $this->themeNames());
+    }
+
+    /**
+     * Own parts of the themes, the child replaces a file of its parent.
+     *
+     * @return list<array{title: string, template: string}>
+     */
+    private function parts(Language $language): array
+    {
+        $names = [];
+
+        foreach ($this->themes->themes as $theme) {
+            $files = glob($theme->path . '/partials/' . self::PARTS . '/*.twig');
+
+            foreach (false === $files ? [] : $files as $file) {
+                $names[basename($file, '.twig')] ??= true;
+            }
+        }
+
+        ksort($names, \SORT_STRING);
+
+        return array_map(
+            fn(string $name): array => ['title' => $this->translator->in($language->code, $name, $this->themeNames()), 'template' => FileLoader::NAMESPACE . self::PARTS . '/' . $name . '.twig'],
+            array_map(strval(...), array_keys($names)),
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function themeNames(): array
+    {
+        return array_map(static fn($theme): string => $theme->name, $this->themes->themes);
     }
 
     /**
