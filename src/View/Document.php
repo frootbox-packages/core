@@ -96,9 +96,14 @@ final readonly class Document
      * Styles and scripts directly in assets/ of the themes, parents
      * first. They are on every page, in the layer "theme", unless named
      * after a layer: reset.css goes into "reset", base.css into "base".
+     * A child replaces a file of its parents by giving its own the same
+     * name, like a partial; an empty file switches it off, e.g. reset.css
+     * for a framework that brings its own.
      */
     private function addThemeAssets(AssetList $assets): void
     {
+        $chosen = [];
+
         foreach (array_reverse($this->themes->themes) as $theme) {
             $files = array_filter(
                 self::files($theme->path . '/' . PublicAssets::FOLDER),
@@ -107,9 +112,18 @@ final readonly class Document
             sort($files);
 
             foreach ($files as $file) {
-                $name = pathinfo($file, \PATHINFO_FILENAME);
-                $assets->add($file, \in_array($name, AssetList::LAYERS, true) && 'tokens' !== $name ? $name : 'theme');
+                // A replaced file keeps the place of the parent's, so the order stays.
+                $chosen[basename($file)] = $file;
             }
+        }
+
+        foreach ($chosen as $file) {
+            if (0 === filesize($file)) {
+                continue;
+            }
+
+            $name = pathinfo($file, \PATHINFO_FILENAME);
+            $assets->add($file, \in_array($name, AssetList::LAYERS, true) && 'tokens' !== $name ? $name : 'theme');
         }
     }
 

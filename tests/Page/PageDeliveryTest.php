@@ -61,6 +61,10 @@ final class PageDeliveryTest extends NotesTestCase
         self::assertStringContainsString('/assets/acme/base/assets/reset.css?v=', $html);
         self::assertStringContainsString('/assets/acme/site/overrides/acme/base/blocks/Teaser/assets/teaser.css?v=', $html);
         self::assertStringContainsString('/assets/acme/site/assets/site.css?v=', $html);
+        self::assertStringContainsString('/assets/acme/site/assets/base.css?v=', $html, 'A child replaces a file of its parent with one of the same name.');
+        self::assertStringNotContainsString('/assets/acme/base/assets/base.css', $html);
+        self::assertStringNotContainsString('print.css', $html, 'An empty file switches the file of the parent off.');
+        self::assertLessThan(strpos($html, 'site/assets/site.css'), strpos($html, 'site/assets/base.css'), 'The replacement keeps the layer of the name.');
         self::assertStringContainsString('<script type="module" src="/assets/acme/base/blocks/Teaser/assets/teaser.js?v=', $html);
         self::assertSame(2, preg_match_all('/layer\(blocks\)/', $html), 'The Teaser override brings teaser.css and extra.css.');
 
