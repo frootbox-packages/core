@@ -30,7 +30,10 @@ final class Labels
 
     public function __construct(private readonly Translator $translator) {}
 
-    public function text(string $text, ?string $package = null): string
+    /**
+     * @param string|list<string>|null $package One or several, the first that has it wins
+     */
+    public function text(string $text, string|array|null $package = null): string
     {
         return $this->translator->label($text, $package);
     }

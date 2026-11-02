@@ -78,6 +78,19 @@ final class TranslatorTest extends TestCase
         self::assertSame('', $german->label(''));
     }
 
+    public function testTextsOfAThemeAnswerOnlyForThemes(): void
+    {
+        $german = $this->translator(['backend' => ['language' => 'de']]);
+
+        self::assertSame('Titel', $german->get('Title'), 'A theme does not change a text of the backend.');
+        self::assertSame('Titel', $german->label('Title', 'acme/other'), 'Nor a label of another package.');
+        self::assertSame('Bezeichnung', $german->label('Title', 'acme/look'));
+        self::assertSame('Bezeichnung', $german->in('de', 'Title', ['acme/look']));
+        self::assertSame('Menü', $german->in('de', 'Menu', ['acme/look']), 'A theme still takes texts of others it does not have.');
+        self::assertSame('Bezeichnung', $this->translator(['backend' => ['language' => 'de']], environment: Environment::Production)->label('Title', 'acme/look'));
+        self::assertSame('Titel', $this->translator(['backend' => ['language' => 'de']], environment: Environment::Production)->get('Title'), 'Also from the cache.');
+    }
+
     public function testEnglishCanHaveTextsToo(): void
     {
         self::assertSame('Eyebrow', $this->translator(['backend' => ['language' => 'en']])->label('Dachzeile', 'acme/theme'));
@@ -115,10 +128,10 @@ final class TranslatorTest extends TestCase
         };
 
         return new Translator($config, Languages::fromConfig($config), new Extensions([
-            $this->package('acme/core', ['de' => ['Title' => 'Titel'], 'nl' => ['Title' => 'Titel']]),
+            $this->package('acme/core', ['de' => ['Title' => 'Titel', 'Menu' => 'Menü'], 'nl' => ['Title' => 'Titel']]),
             $this->package('acme/theme', ['de' => ['Title' => 'Überschrift'], 'en' => ['Dachzeile' => 'Eyebrow']]),
             $this->package('acme/other', ['de' => ['Title' => 'Titel']]),
-            $this->package('acme/look', ['ar' => ['Skip to content' => 'انتقل إلى المحتوى']], theme: true),
+            $this->package('acme/look', ['ar' => ['Skip to content' => 'انتقل إلى المحتوى'], 'de' => ['Title' => 'Bezeichnung']], theme: true),
         ]), new ProjectPaths($this->project->root), $this->context, $users);
     }
 

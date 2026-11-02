@@ -10,23 +10,33 @@ namespace Frootbox\Core\I18n;
 
 /**
  * The texts of one language, by package. A later package replaces the
- * text of an earlier one for everything but its own labels.
+ * text of an earlier one for everything but its own labels. Texts of
+ * themes answer only when a theme asks (decision 0172), so a theme
+ * cannot change a text of the backend.
  */
 final readonly class Catalogue
 {
-    /** @var array<string, string|array{one: string, other: string}> */
+    /** @var array<string, string|array{one: string, other: string}> Of all packages */
     private array $all;
+
+    /** @var array<string, string|array{one: string, other: string}> Of all packages but themes */
+    private array $shared;
 
     /**
      * @param array<string, array<string, string|array{one: string, other: string}>> $packages By package name
+     * @param list<string>                                                          $themes   Names of the packages that are themes
      */
-    public function __construct(private array $packages)
-    {
+    public function __construct(
+        private array $packages,
+        private array $themes = [],
+    ) {
         $this->all = array_merge(...array_values($packages));
+        $this->shared = array_merge(...array_values(array_diff_key($packages, array_flip($themes))));
     }
 
     /**
-     * The message of the first of the packages that has one, else of any.
+     * The message of the first of the packages that has one, else of any;
+     * of any theme too only if one of the packages is a theme.
      *
      * @param string|list<string>|null $packages
      *
@@ -34,7 +44,9 @@ final readonly class Catalogue
      */
     public function find(string $key, string|array|null $packages = null): string|array|null
     {
-        foreach (\is_string($packages) ? [$packages] : $packages ?? [] as $package) {
+        $packages = \is_string($packages) ? [$packages] : $packages ?? [];
+
+        foreach ($packages as $package) {
             $message = $this->packages[$package][$key] ?? null;
 
             if (null !== $message) {
@@ -42,7 +54,7 @@ final readonly class Catalogue
             }
         }
 
-        return $this->all[$key] ?? null;
+        return ([] === array_intersect($packages, $this->themes) ? $this->shared : $this->all)[$key] ?? null;
     }
 
     /**
@@ -54,9 +66,10 @@ final readonly class Catalogue
     }
 
     /**
-     * @param array<mixed> $data As toArray() gave it, e.g. from a cache file
+     * @param array<mixed> $data   As toArray() gave it, e.g. from a cache file
+     * @param list<string> $themes Names of the packages that are themes
      */
-    public static function fromArray(array $data, string $file): self
+    public static function fromArray(array $data, string $file, array $themes = []): self
     {
         $packages = [];
 
@@ -64,7 +77,7 @@ final readonly class Catalogue
             $packages[(string) $package] = self::messagesOf(\is_array($messages) ? $messages : [], $file);
         }
 
-        return new self($packages);
+        return new self($packages, $themes);
     }
 
     /**

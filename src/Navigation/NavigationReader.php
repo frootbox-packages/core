@@ -10,6 +10,8 @@ namespace Frootbox\Core\Navigation;
 
 use Frootbox\Core\I18n\Labels;
 use Frootbox\Core\Revision\Revisions;
+use Frootbox\Core\Theme\Theme;
+use Frootbox\Core\Theme\ThemeChain;
 
 /**
  * Reads navigations with their drafts, the way editors see them.
@@ -22,6 +24,7 @@ final readonly class NavigationReader
         private Navigations $navigations,
         private Revisions $revisions,
         private Labels $labels,
+        private ThemeChain $themes,
     ) {}
 
     /**
@@ -65,7 +68,10 @@ final readonly class NavigationReader
             default => NavigationStatus::Changed,
         };
 
-        return new NavigationDetails($definition->name, $this->labels->text($definition->title), $definition->depth, $status, $version, $draft, $published);
+        // The title comes from the manifest of a theme, so its texts count (decision 0172).
+        $title = $this->labels->text($definition->title, array_map(static fn(Theme $theme): string => $theme->name, $this->themes->themes));
+
+        return new NavigationDetails($definition->name, $title, $definition->depth, $status, $version, $draft, $published);
     }
 
     /**

@@ -176,9 +176,12 @@ final class Translator
     /**
      * A label from the manifest or schema of a package, e.g. the title of
      * a block: the translation of that package first, then that of any
-     * package (decision 0161).
+     * package (decision 0161); of a theme only if a theme asks (decision
+     * 0172).
+     *
+     * @param string|list<string>|null $package One or several, the first that has it wins
      */
-    public function label(string $text, ?string $package = null): string
+    public function label(string $text, string|array|null $package = null): string
     {
         return '' === $text ? '' : $this->translate($text, [], $package, $this->language());
     }
@@ -222,7 +225,7 @@ final class Translator
         $cached = $this->config->environment->isDevelopment() ? null : CacheFile::read($cache, $fingerprint, []);
 
         if (\is_array($cached)) {
-            return $this->catalogues[$language] = Catalogue::fromArray($cached, $cache);
+            return $this->catalogues[$language] = Catalogue::fromArray($cached, $cache, $this->themes());
         }
 
         $packages = [];
@@ -231,13 +234,32 @@ final class Translator
             $packages[$file['package']] = [...$packages[$file['package']] ?? [], ...self::read($file['path'])];
         }
 
-        $catalogue = new Catalogue($packages);
+        $catalogue = new Catalogue($packages, $this->themes());
 
         if (!$this->config->environment->isDevelopment()) {
             CacheFile::write($cache, $fingerprint, $catalogue->toArray());
         }
 
         return $this->catalogues[$language] = $catalogue;
+    }
+
+    /**
+     * Names of the packages that are themes: their texts answer only when
+     * a theme asks (decision 0172).
+     *
+     * @return list<string>
+     */
+    private function themes(): array
+    {
+        $themes = [];
+
+        foreach ($this->extensions as $package) {
+            if (null !== $package->theme) {
+                $themes[] = $package->name;
+            }
+        }
+
+        return $themes;
     }
 
     /**
