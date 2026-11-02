@@ -20,11 +20,15 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Creates a project extension in extensions/ and registers the folder as
- * a Composer path repository.
+ * a Composer path repository. With --theme it creates a child theme
+ * instead: a manifest with its parent and assets/site.css, no class, as
+ * themes bring no actions or tables (decisions 0074, 0193).
  */
 #[AsCommand(name: 'make:extension', description: 'Creates a new project extension in extensions/')]
 final class MakeExtensionCommand extends Command
 {
+    private const string PARENT = 'frootbox/theme-base';
+
     private const string NAME_PATTERN = '/^[a-z0-9]([_.-]?[a-z0-9]+)*\/[a-z0-9](([_.]|-{1,2})?[a-z0-9]+)*$/';
 
     public function __construct(private readonly ProjectPaths $paths)
@@ -36,7 +40,9 @@ final class MakeExtensionCommand extends Command
     {
         $this
             ->addArgument('name', InputArgument::REQUIRED, 'Composer package name, e.g. acme/website')
-            ->addOption('title', null, InputOption::VALUE_REQUIRED, 'Title shown in the backend');
+            ->addOption('title', null, InputOption::VALUE_REQUIRED, 'Title shown in the backend')
+            ->addOption('theme', null, InputOption::VALUE_NONE, 'Create a child theme instead of an extension with a class')
+            ->addOption('parent', null, InputOption::VALUE_REQUIRED, 'Parent of the theme, the package name of an installed theme', self::PARENT);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -60,13 +66,30 @@ final class MakeExtensionCommand extends Command
             return Command::FAILURE;
         }
 
-        $namespace = self::studly($vendor) . '\\' . self::studly($package);
-        $class = self::studly($package) . 'Extension';
         $title = \is_string($input->getOption('title')) ? $input->getOption('title') : self::title($package);
 
-        $this->write($directory . '/composer.json', $this->composerJson($name, $title, $namespace));
-        $this->write($directory . '/' . ExtensionPackage::MANIFEST, $this->manifest($title, $namespace . '\\' . $class));
-        $this->write($directory . '/src/' . $class . '.php', $this->extensionClass($namespace, $class));
+        if (true === $input->getOption('theme')) {
+            $parent = $input->getOption('parent');
+            $parent = \is_string($parent) ? $parent : self::PARENT;
+
+            if (1 !== preg_match(self::NAME_PATTERN, $parent)) {
+                $io->error(\sprintf('"%s" is not a valid package name for the parent.', $parent));
+
+                return Command::INVALID;
+            }
+
+            $this->write($directory . '/composer.json', $this->themeComposerJson($name, $title, $parent));
+            $this->write($directory . '/' . ExtensionPackage::MANIFEST, $this->themeManifest($title, $parent));
+            $this->write($directory . '/assets/site.css', $this->themeStylesheet($title, $parent));
+        } else {
+            $namespace = self::studly($vendor) . '\\' . self::studly($package);
+            $class = self::studly($package) . 'Extension';
+
+            $this->write($directory . '/composer.json', $this->composerJson($name, $title, $namespace));
+            $this->write($directory . '/' . ExtensionPackage::MANIFEST, $this->manifest($title, $namespace . '\\' . $class));
+            $this->write($directory . '/src/' . $class . '.php', $this->extensionClass($namespace, $class));
+        }
+
         $repositoryAdded = $this->addPathRepository();
 
         $io->success(\sprintf('Created %s', $this->relative($directory)));
@@ -76,6 +99,10 @@ final class MakeExtensionCommand extends Command
         }
 
         $io->text(['Install it once, changes then show up immediately:', '', \sprintf('  composer require %s', $name)]);
+
+        if (true === $input->getOption('theme')) {
+            $io->text(['', \sprintf('Then choose it in config/app.yaml with "theme: %s".', $name)]);
+        }
 
         return Command::SUCCESS;
     }
@@ -95,6 +122,59 @@ final class MakeExtensionCommand extends Command
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Without autoload, a theme has no PHP. The fixed version lets
+     * "composer require" take the path package without @dev.
+     */
+    private function themeComposerJson(string $name, string $title, string $parent): string
+    {
+        return self::json([
+            'name' => $name,
+            'description' => $title,
+            'type' => 'frootbox-extension',
+            'version' => '1.0.0',
+            'license' => 'proprietary',
+            'require' => [$parent => '*'],
+        ]);
+    }
+
+    private function themeManifest(string $title, string $parent): string
+    {
+        $title = self::yamlString($title);
+
+        return <<<YAML
+            title: {$title}
+            description: ''
+            # A child theme: a file in views/, partials/, layouts/, blocks/ or
+            # assets/ with the same path as one of the parent replaces it. The
+            # tokens below change the parent's; uncomment what you need.
+            theme:
+              parent: {$parent}
+              # tokens:
+              #   color:
+              #     primary: '#8a4b2a'
+              #     primary-contrast: '#ffffff'
+              #     accent: '#e8b04b'
+              #   font:
+              #     heading: serif
+              #   radius: 14px
+
+            YAML;
+    }
+
+    private function themeStylesheet(string $title, string $parent): string
+    {
+        return <<<CSS
+            /*
+             * {$title} over {$parent}: the look of the website on the classes
+             * of the parent. Colours, fonts, rounding and spacing come from the
+             * tokens in frootbox.yaml, as custom properties such as
+             * var(--color-primary). Plain CSS, no @layer or @import needed.
+             */
+
+            CSS;
     }
 
     private function manifest(string $title, string $class): string

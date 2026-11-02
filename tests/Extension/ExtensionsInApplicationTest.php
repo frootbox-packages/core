@@ -14,6 +14,7 @@ use Frootbox\Core\Console\MakeExtensionCommand;
 use Frootbox\Core\Container\ContainerFactory;
 use Frootbox\Core\Extension\Extension;
 use Frootbox\Core\Extension\ExtensionLoader;
+use Frootbox\Core\Extension\ExtensionPackage;
 use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Tests\Fixtures\Extensions\NewsExtension;
 use Frootbox\Core\Tests\Support\FakeComposer;
@@ -95,6 +96,41 @@ final class ExtensionsInApplicationTest extends TestCase
         self::assertSame([['type' => 'path', 'url' => 'extensions/*']], $project['repositories']);
     }
 
+    public function testMakeExtensionCreatesAChildTheme(): void
+    {
+        [$exitCode, $output] = $this->console(['command' => 'make:extension', 'name' => 'acme/theme', '--theme' => true, '--title' => 'Acme']);
+
+        self::assertSame(0, $exitCode, $output);
+        self::assertStringContainsString('theme: acme/theme', $output);
+
+        $directory = $this->project->root . '/extensions/acme-theme';
+        self::assertDirectoryDoesNotExist($directory . '/src', 'A theme has no class (decision 0193).');
+        self::assertFileExists($directory . '/assets/site.css');
+
+        $composer = json_decode((string) file_get_contents($directory . '/composer.json'), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($composer);
+        self::assertSame(['frootbox/theme-base' => '*'], $composer['require']);
+        self::assertArrayNotHasKey('autoload', $composer);
+
+        $package = ExtensionPackage::fromManifest('acme/theme', $directory);
+        self::assertSame('Acme', $package->title);
+        self::assertNull($package->extensionClass);
+        self::assertSame(['parent' => 'frootbox/theme-base'], $package->theme, 'The sample tokens are comments.');
+
+        $project = json_decode((string) file_get_contents($this->project->root . '/composer.json'), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($project);
+        self::assertSame([['type' => 'path', 'url' => 'extensions/*']], $project['repositories']);
+    }
+
+    public function testMakeExtensionTakesTheParentOfATheme(): void
+    {
+        self::assertSame(0, $this->console(['command' => 'make:extension', 'name' => 'acme/dark', '--theme' => true, '--parent' => 'acme/theme'])[0]);
+        self::assertSame(['parent' => 'acme/theme'], ExtensionPackage::fromManifest('acme/dark', $this->project->root . '/extensions/acme-dark')->theme);
+
+        self::assertSame(2, $this->console(['command' => 'make:extension', 'name' => 'acme/light', '--theme' => true, '--parent' => 'Acme Theme'])[0]);
+        self::assertDirectoryDoesNotExist($this->project->root . '/extensions/acme-light');
+    }
+
     public function testMakeExtensionAddsTheRepositoryOnlyOnce(): void
     {
         $this->console(['command' => 'make:extension', 'name' => 'acme/one']);
@@ -120,7 +156,7 @@ final class ExtensionsInApplicationTest extends TestCase
     }
 
     /**
-     * @param array<string, string> $input
+     * @param array<string, bool|string> $input
      *
      * @return array{int, string}
      */
