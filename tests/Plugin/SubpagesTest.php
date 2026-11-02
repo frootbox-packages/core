@@ -12,6 +12,8 @@ use DateTimeImmutable;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Http\Exception\HttpException;
+use Frootbox\Core\Navigation\MenuItem;
+use Frootbox\Core\Navigation\Menus;
 use Frootbox\Core\Page\CreatePage;
 use Frootbox\Core\Page\PageHandler;
 use Frootbox\Core\Page\PublishPages;
@@ -37,6 +39,7 @@ use Psr\Http\Message\ResponseInterface;
 #[CoversClass(SubpageSources::class)]
 #[CoversClass(UrlResolver::class)]
 #[CoversClass(Scheduler::class)]
+#[CoversClass(Menus::class)]
 #[CoversClass(ScheduledTypes::class)]
 final class SubpagesTest extends NotesTestCase
 {
@@ -63,6 +66,7 @@ final class SubpagesTest extends NotesTestCase
         $html = (string) $response->getBody();
 
         self::assertSame(200, $response->getStatusCode());
+        self::assertSame([['Start', false], ['News', false], ['Neue Sorten', true]], array_map(static fn(MenuItem $item): array => [$item->label, $item->current], $this->get(Menus::class)->breadcrumb()), 'The way ends with the item.');
         self::assertStringContainsString('<title>Neue Sorten – Testsite</title>', $html);
         self::assertStringContainsString('<link rel="canonical" href="https://example.org/news/neue-sorten">', $html);
         self::assertMatchesRegularExpression('~<article class="item"><h\d>Neue Sorten</h\d></article>~', $html, 'The block shows the item.');

@@ -85,6 +85,15 @@ final readonly class Menus
             }
         }
 
+        // An object of a plugin below its base page ends the way (decision 0220).
+        $subpage = $this->delivery->subpage();
+        $url = null === $subpage ? null : $this->urls->href($subpage->target);
+
+        if (null !== $subpage && null !== $url) {
+            $items = array_map(static fn(MenuItem $item): MenuItem => new MenuItem($item->id, $item->type, $item->label, $item->url, false, true, $item->newWindow, $item->options, $item->children), $items);
+            $items[] = new MenuItem((string) $subpage->target, 'target', $subpage->title, $url, true, true);
+        }
+
         return $items;
     }
 

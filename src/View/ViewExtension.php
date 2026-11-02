@@ -17,6 +17,7 @@ use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Site\SiteFields;
 use Frootbox\Core\Theme\Theme;
 use Frootbox\Core\Theme\ThemeChain;
+use Frootbox\Core\Url\Subpage;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
 use Frootbox\RichText\Html;
@@ -68,7 +69,7 @@ final class ViewExtension extends AbstractExtension
         return [
             new TwigFunction('field', fn(array $context, string $name, ?string $part = null): mixed => self::frame($context, 'field')->scope->field($name, $part), ['needs_context' => true]),
             new TwigFunction('heading', fn(array $context, string $name, int $rank = 0, array $attributes = []): Markup => self::frame($context, 'heading')->scope->heading($name, $rank, $attributes), ['needs_context' => true]),
-            new TwigFunction('heading_text', fn(array $context, string $text, int $rank = 0, array $attributes = []): Markup => self::frame($context, 'heading_text')->scope->headingText($text, $rank, $attributes), ['needs_context' => true]),
+            new TwigFunction('heading_text', fn(array $context, string $text, int $rank = 0, array $attributes = [], ?string $href = null): Markup => self::frame($context, 'heading_text')->scope->headingText($text, $rank, $attributes, $href), ['needs_context' => true]),
             new TwigFunction('value', fn(array $context, string $name): mixed => self::frame($context, 'value')->scope->value($name), ['needs_context' => true]),
             new TwigFunction('area', fn(array $context, string $name): Markup => new Markup($this->renderer->area(self::frame($context, 'area'), $name), 'UTF-8'), ['needs_context' => true]),
             new TwigFunction('url', $this->url(...)),
@@ -83,6 +84,8 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('site_attributes', $this->siteAttributes(...)),
             new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
             new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),
+            // The object of a plugin shown below its base page, e.g. an article; layouts leave out their heading then (decision 0220).
+            new TwigFunction('subpage', fn(): ?Subpage => $this->service(Delivery::class)->subpage()),
             new TwigFunction('t', $this->text(...)),
             new TwigFunction('jump_mark', fn(array $context): ?string => $this->service(JumpMarks::class)->id(self::frame($context, 'jump_mark')->instance), ['needs_context' => true]),
             new TwigFunction('jump_marks', fn(): array => $this->service(JumpMarks::class)->all()),

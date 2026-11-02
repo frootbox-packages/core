@@ -158,11 +158,12 @@ final readonly class Scope
     /**
      * A heading from data instead of a field, e.g. the title of a news
      * article in a list (decision 0219). The level comes from where it
-     * stands, as with heading(); empty text gives nothing.
+     * stands, as with heading(); empty text gives nothing. With an
+     * address the text is a link inside the heading, e.g. to the article.
      *
      * @param array<mixed> $attributes
      */
-    public function headingText(string $text, int $rank = 0, array $attributes = []): Markup
+    public function headingText(string $text, int $rank = 0, array $attributes = [], ?string $href = null): Markup
     {
         $headings = $this->headings ?? throw new ViewException('heading_text() works only in blocks and layouts; write a fixed level here.');
 
@@ -172,7 +173,9 @@ final readonly class Scope
 
         $tag = 'h' . $headings->take($rank, Html::escape($text), '');
 
-        return new Markup(Html::open($tag, self::attributes($attributes, 'heading_text()')) . Html::escape($text) . Html::close($tag), 'UTF-8');
+        $content = null === $href || '' === $href ? Html::escape($text) : Html::element('a', Html::escape($text), ['href' => $href]);
+
+        return new Markup(Html::open($tag, self::attributes($attributes, 'heading_text()')) . $content . Html::close($tag), 'UTF-8');
     }
 
     /**

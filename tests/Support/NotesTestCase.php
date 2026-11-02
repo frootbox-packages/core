@@ -62,9 +62,20 @@ abstract class NotesTestCase extends TestCase
         $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), $extensions, $registry);
         $this->get(CurrentContext::class)->set(Context::system(Channel::Console));
 
-        TestDatabase::dropTables($this->connection(), ...self::TABLES);
+        TestDatabase::dropTables($this->connection(), ...$this->tables(), ...self::TABLES);
         $this->get(Migrator::class)->migrate();
         Outbox::$messages = [];
+    }
+
+    /**
+     * Tables of further extensions to drop before and after each test,
+     * e.g. those of a module.
+     *
+     * @return list<string>
+     */
+    protected function tables(): array
+    {
+        return [];
     }
 
     /**
@@ -105,7 +116,7 @@ abstract class NotesTestCase extends TestCase
 
     protected function tearDown(): void
     {
-        TestDatabase::dropTables($this->connection(), ...self::TABLES);
+        TestDatabase::dropTables($this->connection(), ...$this->tables(), ...self::TABLES);
         $this->connection()->close();
         $this->project->remove();
     }
