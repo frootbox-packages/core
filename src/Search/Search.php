@@ -216,7 +216,7 @@ final readonly class Search implements Query
     }
 
     /**
-     * The line of the text with the first word found, cut around it.
+     * The line of the text with the most words found, cut around the first.
      *
      * @param list<list<string>> $words
      */
@@ -224,14 +224,15 @@ final readonly class Search implements Query
     {
         $lines = array_values(array_filter(array_map(trim(...), explode("\n", $body)), static fn(string $line): bool => '' !== $line));
         $found = null;
+        $most = 0;
 
+        // The first line with the most words, e.g. the text rather than the address.
         foreach ($lines as $line) {
             $normalized = SearchTerms::normalize($line);
+            $count = \count(array_filter($words, static fn(array $spellings): bool => array_any($spellings, static fn(string $word): bool => str_contains($normalized, $word))));
 
-            if (array_any($words, static fn(array $spellings): bool => array_any($spellings, static fn(string $word): bool => str_contains($normalized, $word)))) {
-                $found = $line;
-
-                break;
+            if ($count > $most) {
+                [$found, $most] = [$line, $count];
             }
         }
 
