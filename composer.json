@@ -2,7 +2,7 @@
     "name": "frootbox/core",
     "description": "Core of the Frootbox CMS",
     "type": "library",
-    "license": "LGPL-3.0-only",
+    "license": "MIT",
     "keywords": [
         "cms",
         "frootbox"
