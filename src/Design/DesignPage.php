@@ -254,7 +254,7 @@ final readonly class DesignPage implements RequestHandlerInterface
      *
      * @param list<Frame> $frames The block stands in the first, each in the next
      *
-     * @return list<array{title: string, blocks: list<array{caption: string, html: Markup}>, missing: list<string>, elsewhere: list<string>}>
+     * @return list<array{name: string, title: string, blocks: list<array{caption: string, html: Markup}>, missing: list<string>, elsewhere: list<string>}>
      */
     private function blocks(AssetList $assets, Language $language, \Closure $t, array $frames): array
     {
@@ -309,7 +309,7 @@ final readonly class DesignPage implements RequestHandlerInterface
                 }
             }
 
-            $groups[] = ['title' => $groupTitle, 'blocks' => $shown, 'missing' => $missing, 'elsewhere' => $elsewhere];
+            $groups[] = ['name' => $group->name ?? 'other', 'title' => $groupTitle, 'blocks' => $shown, 'missing' => $missing, 'elsewhere' => $elsewhere];
         }
 
         return $groups;

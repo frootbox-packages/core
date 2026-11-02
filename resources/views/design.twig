@@ -91,7 +91,7 @@
   {% for error in view.errors %}<p role="alert">{{ error }}</p>{% endfor %}
 </section>
 {% for group in groups %}
-  <section class="fb-design-section" aria-label="{{ group.title }}">
+  <section class="fb-design-section" id="fb-design-group-{{ group.name }}" aria-label="{{ group.title }}">
     <h3>{{ group.title }}</h3>
     {% if group.missing %}
       <p>{{ t('Without an example yet:') }}</p>

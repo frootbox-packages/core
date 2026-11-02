@@ -64,6 +64,7 @@ final class DesignPageTest extends NotesTestCase
         self::assertStringContainsString('<span style="background: var(--color-primary)"></span><code>color-primary</code><code>#c00</code>', $html, 'Colours as swatches of the variable.');
         self::assertStringContainsString('<strong>bold</strong>', $html, 'Rich text through the renderer.');
 
+        self::assertStringContainsString('<section class="fb-design-section" id="fb-design-group-header" aria-label="Headers">', $html, 'Each group has an address of its own.');
         self::assertStringContainsString('<p class="fb-design-caption">Headers · Hero</p>', $html);
         self::assertStringContainsString('<section class="hero"><h4>Fresh coffee</h4></section>', $html, 'The example in each variant, its headings below the group.');
         self::assertStringContainsString('<p class="fb-design-caption">Headers · Hero · Split</p>', $html);
