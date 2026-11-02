@@ -20,7 +20,7 @@ use Frootbox\RichText\Schema;
 use Twig\Markup;
 
 /**
- * A table (decision 0184):
+ * A table (decision 0187):
  *
  *     {"rows": [["Tag", "Öffnungszeit"], ["Montag", "8–18 Uhr"]],
  *      "headerRow": true, "headerColumn": false}

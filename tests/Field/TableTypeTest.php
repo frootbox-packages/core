@@ -21,7 +21,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Twig\Markup;
 
 /**
- * Tables (decision 0184).
+ * Tables (decision 0187).
  */
 #[CoversClass(TableType::class)]
 #[CoversClass(Line::class)]
