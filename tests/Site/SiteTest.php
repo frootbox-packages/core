@@ -179,6 +179,24 @@ final class SiteTest extends NotesTestCase
         self::assertStringContainsString('<footer><p>Bohnenglück</p>', $this->html('/'), 'Undoing the publication brings the old values back.');
     }
 
+    public function testMarksValuesFromTheFirstLanguage(): void
+    {
+        $start = $this->runner()->run(new CreatePage('acme/base/Page', [
+            'de' => ['title' => 'Start', 'content' => ['fields' => ['heading' => 'Start']]],
+            'en' => ['title' => 'Home', 'content' => ['fields' => ['heading' => 'Home']]],
+        ]))->id;
+        $this->runner()->run(new PublishPages([$start]));
+        $this->runner()->run(new UpdateSite('de', ['brand' => 'Bohnenglück', 'address' => 'Hafenstraße 12']));
+        $this->runner()->run(new PublishSite());
+
+        self::assertStringContainsString('<footer><p>Bohnenglück</p><p>Hafenstraße 12</p></footer>', $this->html('/'));
+        self::assertStringContainsString('<footer><p>Bohnenglück</p><p lang="de">Hafenstraße 12</p></footer>', $this->html('/en'), 'The German address on the English page says so, for screen readers and hyphens.');
+
+        $this->runner()->run(new UpdateSite('en', ['address' => 'Harbour Street 12']));
+        $this->runner()->run(new PublishSite());
+        self::assertStringContainsString('<p>Harbour Street 12</p>', $this->html('/en'));
+    }
+
     public function testEditorsMayChangeTheFields(): void
     {
         $editor = $this->context(['editor']);

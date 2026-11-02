@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\View;
 
 use Frootbox\Core\I18n\Translator;
+use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Navigation\MenuItem;
 use Frootbox\Core\Navigation\Menus;
@@ -42,6 +43,7 @@ use Twig\TwigFunction;
  *     {{ content_direction() }}       the one of the content
  *     <p{{ content_attributes()|attributes }}> lang and dir of the content where they differ from the page
  *     {{ site_field('address') }}     a field of the website, the same on every page
+ *     <p{{ site_attributes('address')|attributes }}> lang and dir of a field of the website from the first language
  *     {{ site_value('brand') }}       its stored value
  *     {% for item in alternates() %}  the page in all languages, for a language switcher
  *     {{ t('Skip to content') }}       a text of the theme in the language of the page
@@ -72,6 +74,7 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('alternates', $this->alternates(...)),
             new TwigFunction('navigation', $this->navigation(...)),
             new TwigFunction('site_field', fn(string $name): mixed => $this->site()->field($name)),
+            new TwigFunction('site_attributes', $this->siteAttributes(...)),
             new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
             new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),
             new TwigFunction('t', $this->text(...)),
@@ -94,15 +97,40 @@ final class ViewExtension extends AbstractExtension
     public function contentAttributes(): array
     {
         $delivery = $this->service(Delivery::class);
-        [$page, $content] = [$delivery->language(), $delivery->contentLanguage()];
+
+        return self::differences($delivery->language(), $delivery->contentLanguage());
+    }
+
+    /**
+     * lang and dir of a field of the website whose value comes from the
+     * first language, e.g. the German address on an Arabic page (decision
+     * 0170); empty if it is in the language of the page.
+     *
+     * @return array<string, string>
+     */
+    public function siteAttributes(string $name): array
+    {
+        $page = $this->service(Delivery::class)->language();
+        $code = $this->service(SiteFields::class)->languageOf($name, $page->code);
+
+        return null === $code ? [] : self::differences($page, $this->service(Languages::class)->get($code));
+    }
+
+    /**
+     * lang and dir where the language of a text differs from the page.
+     *
+     * @return array<string, string>
+     */
+    private static function differences(Language $page, Language $text): array
+    {
         $attributes = [];
 
-        if ($content->code !== $page->code) {
-            $attributes['lang'] = $content->code;
+        if ($text->code !== $page->code) {
+            $attributes['lang'] = $text->code;
         }
 
-        if ($content->direction !== $page->direction) {
-            $attributes['dir'] = $content->direction->value;
+        if ($text->direction !== $page->direction) {
+            $attributes['dir'] = $text->direction->value;
         }
 
         return $attributes;

@@ -120,6 +120,49 @@ final class SiteFields
      */
     public function values(string $language, bool $draft): array
     {
+        return $this->merged($this->stored($draft), $language);
+    }
+
+    /**
+     * The language the value of a field comes from: the given one, the
+     * first language as fallback, or null without a value. Templates mark
+     * a fallback with lang and dir (decision 0170).
+     */
+    public function languageOf(string $name, string $language): ?string
+    {
+        $stored = $this->stored($this->editMode->active());
+
+        foreach ([$language, $this->languages->default()->code] as $code) {
+            if (null !== ($stored[$code][$name] ?? null)) {
+                return $code;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The values of a language over those of the first language.
+     *
+     * @param array<string, array<string, mixed>> $languages
+     *
+     * @return array<string, mixed>
+     */
+    public function merged(array $languages, string $language): array
+    {
+        $values = [...$languages[$this->languages->default()->code] ?? [], ...$languages[$language] ?? []];
+
+        return array_filter($values, static fn(mixed $value): bool => null !== $value);
+    }
+
+    /**
+     * The values of all languages, with $draft those of the draft if there
+     * is one.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function stored(bool $draft): array
+    {
         $theme = $this->themes->active();
         $database = $this->config->get('database.url');
 
@@ -136,21 +179,7 @@ final class SiteFields
 
         $revision = ($draft ? $revisions->draft(self::TYPE, $theme->name) : null) ?? $revisions->published(self::TYPE, $theme->name);
 
-        return $this->merged(self::languages($revision), $language);
-    }
-
-    /**
-     * The values of a language over those of the first language.
-     *
-     * @param array<string, array<string, mixed>> $languages
-     *
-     * @return array<string, mixed>
-     */
-    public function merged(array $languages, string $language): array
-    {
-        $values = [...$languages[$this->languages->default()->code] ?? [], ...$languages[$language] ?? []];
-
-        return array_filter($values, static fn(mixed $value): bool => null !== $value);
+        return self::languages($revision);
     }
 
     /**
