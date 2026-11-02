@@ -62,11 +62,14 @@ use Frootbox\Core\Field\Types\LinkType;
 use Frootbox\Core\Field\Types\ListType;
 use Frootbox\Core\Field\Types\RichTextType;
 use Frootbox\Core\Field\Types\TextType;
+use Frootbox\Core\Field\Types\VideoType;
 use Frootbox\Core\Heading\ShowOutline;
 use Frootbox\Core\Install\InstallCommand;
+use Frootbox\Core\Media\AddMediaSource;
 use Frootbox\Core\Media\CreateMediaFolder;
 use Frootbox\Core\Media\CreateMedium;
 use Frootbox\Core\Media\DeleteMediaFolder;
+use Frootbox\Core\Media\DeleteMediaSource;
 use Frootbox\Core\Media\DeleteMedium;
 use Frootbox\Core\Media\DiscardMedium;
 use Frootbox\Core\Media\ListMedia;
@@ -188,7 +191,7 @@ final class CoreExtension implements Extension
         $registry->command(MediaPruneCommand::class);
         $registry->command(MediaUsagesCommand::class);
 
-        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class] as $fieldType) {
+        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class] as $fieldType) {
             $registry->fieldType($fieldType);
         }
 
@@ -235,7 +238,7 @@ final class CoreExtension implements Extension
 
         $registry->listen(ActionExecuted::class, ClearPageCache::class);
 
-        foreach ([CreateMedium::class, UpdateMedium::class, ReplaceMedium::class, DeleteMedium::class, PublishMedia::class, DiscardMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class, RebuildMediaUsages::class] as $action) {
+        foreach ([CreateMedium::class, UpdateMedium::class, ReplaceMedium::class, AddMediaSource::class, DeleteMediaSource::class, DeleteMedium::class, PublishMedia::class, DiscardMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class, RebuildMediaUsages::class] as $action) {
             $registry->action($action);
         }
 

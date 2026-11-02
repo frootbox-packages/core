@@ -131,14 +131,14 @@ final class FieldTypesTest extends TestCase
 
     public function testKnowsItsTypes(): void
     {
-        self::assertSame(['headline', 'text', 'richtext', 'link', 'list', 'image'], $this->types->names());
+        self::assertSame(['headline', 'text', 'richtext', 'link', 'list', 'image', 'video'], $this->types->names());
         self::assertTrue($this->types->has('list'));
-        self::assertFalse($this->types->has('video'));
+        self::assertFalse($this->types->has('audio'));
         self::assertTrue(FieldTypeName::isValid('acme/shop/price'));
         self::assertFalse(FieldTypeName::isValid('Price'));
 
         $this->expectException(DefinitionException::class);
-        $this->types->get('video');
+        $this->types->get('audio');
     }
 
     public function testExtensionsNameTheirTypesAfterThePackage(): void

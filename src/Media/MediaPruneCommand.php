@@ -31,6 +31,7 @@ final class MediaPruneCommand extends Command
         private readonly Uploads $uploads,
         private readonly MediaFiles $files,
         private readonly Media $media,
+        private readonly MediaSources $sources,
         private readonly MediaDrafts $drafts,
         private readonly Config $config,
     ) {
@@ -47,6 +48,10 @@ final class MediaPruneCommand extends Command
         foreach ($this->media->fetch() as $medium) {
             $ids[$medium->id] = true;
             $used[$medium->original()] = true;
+        }
+
+        foreach ($this->sources->fetch() as $source) {
+            $used[$source->file] = true;
         }
 
         $originals = $this->files->pruneOriginals(

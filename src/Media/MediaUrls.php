@@ -14,7 +14,8 @@ use Frootbox\Core\Page\Slug;
 use LogicException;
 
 /**
- * Addresses of image sizes (decision 0126):
+ * Addresses of image sizes (decision 0126), and of the files of videos
+ * with video() (decision 0177):
  *
  *     /media/<id>/<version>/<name>-<width>x<height>-<signature>.<extension>
  *
@@ -30,6 +31,9 @@ final readonly class MediaUrls
     public const array WIDTHS = [160, 320, 480, 640, 960, 1280, 1600, 1920, 2560];
 
     public const string FILE_PATTERN = '/^(?<name>[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-(?<width>[1-9][0-9]*)x(?<height>0|[1-9][0-9]*)-(?<signature>[0-9a-f]{16})\.(?<extension>avif|webp|jpg|png)$/';
+
+    /** A file of a video (decision 0177): "main" for the one of the medium, else the id of the source. */
+    public const string VIDEO_PATTERN = '/^(?<name>[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-(?<source>main|[0-9a-z]{26})-(?<signature>[0-9a-f]{16})\.(?<extension>mp4|webm)$/';
 
     public function __construct(
         private Config $config,
@@ -55,6 +59,34 @@ final readonly class MediaUrls
             $this->signature($medium->id, $medium->version, $name, $width, $height, $extension),
             $extension,
         );
+    }
+
+    /**
+     * The address of a file of a video: its own or one of its sources.
+     *
+     *     /media/<id>/<version>/<name>-<main or source>-<signature>.<extension>
+     */
+    public function video(Medium $medium, ?MediaSource $source = null): string
+    {
+        $name = self::name($medium->fileName, $this->languages->default()->code);
+        $key = null === $source ? 'main' : strtolower($source->id);
+        $extension = Videos::TYPES[$source->type ?? $medium->type] ?? 'mp4';
+
+        return \sprintf(
+            '%s%s/%d/%s-%s-%s.%s',
+            self::PREFIX,
+            $medium->id,
+            $medium->version,
+            $name,
+            $key,
+            $this->signature($medium->id, $medium->version, $name . '-' . $key, 0, 0, $extension),
+            $extension,
+        );
+    }
+
+    public function isValidVideo(string $id, int $version, string $name, string $source, string $extension, string $signature): bool
+    {
+        return hash_equals($this->signature($id, $version, $name . '-' . $source, 0, 0, $extension), $signature);
     }
 
     public function isValid(string $id, int $version, string $name, int $width, int $height, string $extension, string $signature): bool

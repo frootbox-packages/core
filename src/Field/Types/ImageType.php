@@ -85,7 +85,8 @@ final readonly class ImageType implements ReferencesMedia
         $id = $this->media($value, $field)[0] ?? null;
         $medium = null === $id ? null : $this->service(Media::class)->fetchById($id);
 
-        if (null === $medium || !\is_array($value)) {
+        // A video in an image field shows nothing (decision 0177).
+        if (null === $medium || !\is_array($value) || $medium->isVideo()) {
             return '';
         }
 

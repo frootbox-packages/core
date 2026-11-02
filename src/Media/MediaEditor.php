@@ -42,6 +42,8 @@ final readonly class MediaEditor
         private MediaDrafts $drafts,
         private RevisionStore $store,
         private MediaUsages $usages,
+        private Videos $videos,
+        private MediaSources $sources,
     ) {}
 
     /**
@@ -74,7 +76,7 @@ final readonly class MediaEditor
         }
 
         $id = Ulid::generate();
-        $facts = $this->images->prepare($path, $this->files->original($id));
+        $facts = $this->prepare($path, $this->files->original($id), null);
 
         if ($facts instanceof Message) {
             throw new InvalidInputException($action, ['/upload' => $facts]);
@@ -85,6 +87,7 @@ final readonly class MediaEditor
             'folderId' => $folderId,
             'fileName' => $this->uploads->name($upload),
             'type' => $facts['type'],
+            'codec' => $facts['codec'],
             'size' => $facts['size'],
             'width' => $facts['width'],
             'height' => $facts['height'],
@@ -120,6 +123,8 @@ final readonly class MediaEditor
 
         if ((null === $focusX) !== (null === $focusY)) {
             $errors['/focusX'] = 'needs focusY as well, both as shares from 0 to 1.';
+        } elseif (null !== $focusX && $medium->isVideo()) {
+            $errors['/focusX'] = 'A video has no focus point.';
         }
 
         if ([] !== $errors) {
@@ -199,7 +204,7 @@ final readonly class MediaEditor
         }
 
         $name = MediaFiles::newName($id);
-        $facts = $this->images->prepare($path, $this->files->original($name));
+        $facts = $this->prepare($path, $this->files->original($name), $medium->kind());
 
         if ($facts instanceof Message) {
             @unlink($this->files->original($name));
@@ -229,6 +234,105 @@ final readonly class MediaEditor
         $this->files->removePublic($id);
 
         return $this->details($medium);
+    }
+
+    /**
+     * Adds a further file of a video in another format or codec (decision
+     * 0177). It counts at once, as it shows the same film.
+     *
+     * @throws InvalidInputException
+     * @throws EntityNotFoundException
+     */
+    public function addSource(string $action, string $id, string $upload): MediumDetails
+    {
+        $medium = $this->media->getById($id);
+        $path = $this->uploads->path($upload);
+
+        if (null === $path) {
+            throw new InvalidInputException($action, ['/upload' => 'There is no upload with this token (any more). Upload the file first.']);
+        }
+
+        if (!$medium->isVideo()) {
+            throw new InvalidInputException($action, ['/mediaId' => 'Only a video has further files.']);
+        }
+
+        if (!Videos::isVideo($path)) {
+            throw new InvalidInputException($action, ['/upload' => Videos::notAVideo()]);
+        }
+
+        $hash = $this->uploads->hash($upload);
+        $sources = $this->sources->of($id);
+        $draft = $this->drafts->of($id);
+        $seen = null === $draft ? $medium : MediaDrafts::apply($medium, $draft);
+
+        foreach ([$seen->hash, ...array_map(static fn(MediaSource $source): ?string => $source->hash, $sources)] as $other) {
+            if (null !== $hash && $hash === $other) {
+                throw new InvalidInputException($action, ['/upload' => 'The video has this file already.']);
+            }
+        }
+
+        $name = MediaFiles::newName($id);
+        $facts = $this->videos->prepare($path, $this->files->original($name));
+
+        if ($facts instanceof Message) {
+            @unlink($this->files->original($name));
+
+            throw new InvalidInputException($action, ['/upload' => $facts]);
+        }
+
+        $family = static fn(string $type, string $codec): string => $type . ' ' . strtolower(explode('.', $codec)[0]);
+        $taken = [$family($seen->type, $seen->codec), ...array_map(static fn(MediaSource $source): string => $family($source->type, $source->codec), $sources)];
+
+        if (\in_array($family($facts['type'], $facts['codec']), $taken, true)) {
+            @unlink($this->files->original($name));
+
+            throw new InvalidInputException($action, ['/upload' => new Message('The video has a file in {format} already. Delete that one first to replace it.', ['format' => self::format($facts['type'], $facts['codec'])])]);
+        }
+
+        $this->sources->insert([
+            'mediaId' => $id,
+            'file' => $name,
+            'type' => $facts['type'],
+            'codec' => $facts['codec'],
+            'size' => $facts['size'],
+            'width' => $facts['width'],
+            'height' => $facts['height'],
+            'hash' => $hash,
+        ]);
+        $this->uploads->remove($upload);
+
+        return $this->details($medium);
+    }
+
+    /**
+     * @throws InvalidInputException
+     * @throws EntityNotFoundException
+     */
+    public function deleteSource(string $action, string $id, string $sourceId): MediumDetails
+    {
+        $medium = $this->media->getById($id);
+        $source = $this->sources->fetchById($sourceId);
+
+        if (null === $source || $source->mediaId !== $id) {
+            throw new InvalidInputException($action, ['/sourceId' => 'The video has no file with this id.']);
+        }
+
+        $this->sources->delete($source->id);
+        $this->files->release($source->file);
+        $this->files->removePublic($id);
+
+        return $this->details($medium);
+    }
+
+    /**
+     * A name for a format, e.g. "MP4 (avc1)".
+     */
+    public static function format(string $type, string $codec): string
+    {
+        $container = ['video/mp4' => 'MP4', 'video/webm' => 'WebM'][$type] ?? $type;
+        $family = explode('.', $codec)[0];
+
+        return '' === $family ? $container : \sprintf('%s (%s)', $container, $family);
     }
 
     /**
@@ -334,6 +438,11 @@ final readonly class MediaEditor
             $this->tags->delete($tag->id);
         }
 
+        foreach ($this->sources->of($id) as $source) {
+            $this->sources->delete($source->id);
+            $this->files->release($source->file);
+        }
+
         $this->store->discard(MediaDrafts::TYPE, $id);
         $this->media->delete($id);
         $this->files->removePublic($id);
@@ -436,8 +545,27 @@ final readonly class MediaEditor
         $texts = $this->drafts->texts($medium->id, true);
         $medium = null === $draft ? $medium : MediaDrafts::apply($medium, $draft);
 
-        $formats = $this->urls->formats($medium);
-        $preview = \in_array('webp', $formats, true) ? 'webp' : $formats[\count($formats) - 1];
+        $sources = [];
+
+        if ($medium->isVideo()) {
+            $preview = $this->urls->video($medium);
+
+            foreach ($this->sources->of($medium->id) as $source) {
+                $sources[] = [
+                    'id' => $source->id,
+                    'type' => $source->type,
+                    'codec' => $source->codec,
+                    'format' => self::format($source->type, $source->codec),
+                    'size' => $source->size,
+                    'width' => $source->width,
+                    'height' => $source->height,
+                    'url' => $this->urls->video($medium, $source),
+                ];
+            }
+        } else {
+            $formats = $this->urls->formats($medium);
+            $preview = $this->urls->url($medium, min(480, $medium->width), 0, \in_array('webp', $formats, true) ? 'webp' : $formats[\count($formats) - 1]);
+        }
 
         return new MediumDetails(
             $medium->id,
@@ -452,10 +580,14 @@ final readonly class MediaEditor
             $medium->public,
             $texts,
             $this->tags->of($medium->id),
-            $this->urls->url($medium, min(480, $medium->width), 0, $preview),
+            $preview,
             $medium->createdAt,
             $existing,
             null !== $draft,
+            $medium->kind(),
+            $medium->codec,
+            $sources,
+            $medium->isVideo() ? self::format($medium->type, $medium->codec) : '',
         );
     }
 
@@ -527,6 +659,34 @@ final readonly class MediaEditor
     }
 
     /**
+     * Writes the original of an image or video.
+     *
+     * @param string|null $kind "image" or "video" when the file has to be of that kind
+     *
+     * @return array{type: string, codec: string, width: int, height: int, size: int}|Message
+     */
+    private function prepare(string $path, string $target, ?string $kind): array|Message
+    {
+        $video = Videos::isVideo($path);
+
+        if (null !== $kind && ($video ? 'video' : 'image') !== $kind) {
+            return new Message('video' === $kind ? 'Replace a video only with a video.' : 'Replace an image only with an image.');
+        }
+
+        if ($video) {
+            return $this->videos->prepare($path, $target);
+        }
+
+        if (!Images::isImage($path)) {
+            return null === $kind ? UploadReceiver::notMedia() : Images::notAnImage();
+        }
+
+        $facts = $this->images->prepare($path, $target);
+
+        return $facts instanceof Message ? $facts : [...$facts, 'codec' => ''];
+    }
+
+    /**
      * @param DraftFile $file
      *
      * @return array<string, mixed> The columns of a medium for its file
@@ -537,6 +697,7 @@ final readonly class MediaEditor
             'file' => $file['name'],
             'fileName' => $file['fileName'],
             'type' => $file['type'],
+            'codec' => $file['codec'],
             'size' => $file['size'],
             'width' => $file['width'],
             'height' => $file['height'],

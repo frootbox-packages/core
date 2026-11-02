@@ -28,7 +28,7 @@ use Frootbox\Core\Revision\Revisions;
  * Guests see the published state, the editing mode and the media
  * library the draft.
  *
- * @phpstan-type DraftFile array{name: string, fileName: string, type: string, size: int, width: int, height: int, hash: string|null}
+ * @phpstan-type DraftFile array{name: string, fileName: string, type: string, codec: string, size: int, width: int, height: int, hash: string|null}
  * @phpstan-type Draft array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>, file: DraftFile|null}
  */
 final readonly class MediaDrafts
@@ -136,6 +136,7 @@ final readonly class MediaDrafts
             createdAt: $medium->createdAt,
             updatedAt: $medium->updatedAt,
             file: null === $file ? $medium->file : $file['name'],
+            codec: null === $file ? $medium->codec : $file['codec'],
         );
     }
 
@@ -204,6 +205,7 @@ final readonly class MediaDrafts
                 'name' => $file['name'],
                 'fileName' => $text($file['fileName'] ?? null),
                 'type' => $text($file['type'] ?? null),
+                'codec' => $text($file['codec'] ?? null),
                 'size' => $int($file['size'] ?? null),
                 'width' => $int($file['width'] ?? null),
                 'height' => $int($file['height'] ?? null),

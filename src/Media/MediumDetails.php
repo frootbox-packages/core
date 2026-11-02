@@ -16,7 +16,9 @@ use DateTimeImmutable;
  * Existing is true when media.create found the same file in the library
  * and gave that medium instead of a new one (decision 0146). With a
  * draft, focus point, version and texts are those of the draft
- * (decision 0147).
+ * (decision 0147). A video (kind "video", decision 0177) has its codec,
+ * its format to read (e.g. "MP4 (avc1)"), further files in $sources and
+ * the address of its file as preview.
  */
 final readonly class MediumDetails
 {
@@ -24,6 +26,7 @@ final readonly class MediumDetails
      * @param array{x: float, y: float}                       $focus
      * @param array<string, array{alt: string, title: string}> $texts by language
      * @param list<string>                                    $tags
+     * @param list<array{id: string, type: string, codec: string, format: string, size: int, width: int, height: int, url: string}> $sources Further files of a video, in the order of <source>
      */
     public function __construct(
         public string $id,
@@ -42,5 +45,9 @@ final readonly class MediumDetails
         public ?DateTimeImmutable $createdAt,
         public bool $existing = false,
         public bool $draft = false,
+        public string $kind = 'image',
+        public string $codec = '',
+        public array $sources = [],
+        public string $format = '',
     ) {}
 }

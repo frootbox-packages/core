@@ -12,12 +12,12 @@ use DateTimeImmutable;
 use Frootbox\Database\Entity;
 
 /**
- * An image of the media library (decision 0126). The original lies in
+ * An image or video of the media library (decisions 0126, 0177). The original lies in
  * storage/media/ under the name in $file, the id for the first file
  * (decision 0147); the focus point is in thousandths of width and
  * height. The version grows with every change that alters the sizes.
  * The hash is the SHA-256 of the uploaded file, none for media from
- * before decision 0146.
+ * before decision 0146. The codec is only known for videos.
  */
 final readonly class Medium extends Entity
 {
@@ -37,7 +37,24 @@ final readonly class Medium extends Entity
         public ?DateTimeImmutable $createdAt,
         public ?DateTimeImmutable $updatedAt,
         public ?string $file = null,
+        public string $codec = '',
     ) {}
+
+    /**
+     * Whether the medium is a video (decision 0177).
+     */
+    public function isVideo(): bool
+    {
+        return Videos::isVideoType($this->type);
+    }
+
+    /**
+     * "image" or "video".
+     */
+    public function kind(): string
+    {
+        return $this->isVideo() ? 'video' : 'image';
+    }
 
     /**
      * The name of the original below storage/media/.

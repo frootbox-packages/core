@@ -77,6 +77,28 @@ final readonly class MediaFiles
     }
 
     /**
+     * Copies a file, e.g. of a video, so the web server finds it next
+     * time (decision 0177).
+     */
+    public function copyPublic(string $source, string $path): void
+    {
+        $file = $this->public($path);
+        $folder = \dirname($file);
+
+        if (is_file($file) || (!is_dir($folder) && !@mkdir($folder, 0o775, true) && !is_dir($folder))) {
+            return;
+        }
+
+        $temporary = $file . '.' . bin2hex(random_bytes(4));
+
+        if (@copy($source, $temporary)) {
+            @rename($temporary, $file);
+        } else {
+            @unlink($temporary);
+        }
+    }
+
+    /**
      * Removes all generated files of a medium.
      */
     public function removePublic(string $id): void

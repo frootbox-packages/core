@@ -582,7 +582,7 @@ final class MediaTest extends NotesTestCase
     }
 
     /**
-     * @return array{upload: string, name: string, size: int}
+     * @return array{upload: string, name: string, size: int, complete: true}|array{upload: string, received: int, complete: false}
      */
     private function receive(?string $file, string $name): array
     {

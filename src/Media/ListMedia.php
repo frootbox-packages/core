@@ -19,7 +19,7 @@ use Frootbox\Database\Where;
 /**
  * @implements Query<MediaPage>
  */
-#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere, only those with a draft or only those a page uses')]
+#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere, only those with a draft, only those a page uses, only images or only videos')]
 final readonly class ListMedia implements Query, Scoped
 {
     public function __construct(
@@ -34,6 +34,8 @@ final readonly class ListMedia implements Query, Scoped
         public bool $changed = false,
         #[Description('Only media this page uses: its draft, or the published state if it has none')]
         public ?string $pageId = null,
+        #[Description('"image" or "video" for only images or only videos (decision 0177); none for both')]
+        public ?string $kind = null,
         #[Range(1)]
         public int $page = 1,
         #[Range(1, 200)]
@@ -61,6 +63,10 @@ final readonly class ListMedia implements Query, Scoped
 
         if (null !== $this->tag && '' !== trim($this->tag)) {
             $where['id'] = self::ids($tags->fetch(['where' => ['tag' => trim($this->tag)]])->all());
+        }
+
+        if ('image' === $this->kind || 'video' === $this->kind) {
+            $where['type'] = array_keys('video' === $this->kind ? Videos::TYPES : Images::TYPES);
         }
 
         $search = null === $this->search ? '' : trim($this->search);
