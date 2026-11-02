@@ -10,10 +10,14 @@ namespace Frootbox\Core\Page;
 
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
+use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Schema\Description;
 use Frootbox\Core\Action\Schema\Pattern;
 use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
+use Frootbox\Core\Component\ComponentKind;
+use Frootbox\Core\Component\Components;
+use Frootbox\Core\Support\Message;
 use Frootbox\Database\Ulid;
 
 /**
@@ -48,9 +52,14 @@ final readonly class UpdatePage implements Action, Scoped
         return [Scope::page($this->id)];
     }
 
-    public function handle(PageEditor $editor): PageDetails
+    public function handle(PageEditor $editor, Components $components): PageDetails
     {
         $current = $editor->current($this->id);
+
+        // Pages keep a hidden layout, but none changes to it (decision 0162).
+        if (null !== $this->layout && $this->layout !== $current->layout && null !== $components->layout($this->layout) && !$components->offers(ComponentKind::Layout, $this->layout)) {
+            throw new InvalidInputException('page.update', ['/layout' => new Message('The theme does not offer the layout "{layout}" for pages.', ['layout' => $this->layout])]);
+        }
         $translations = null === $this->translations ? $current->translations : $editor->translations('page.update', $this->translations, $current->translations);
 
         return $editor->saveDraft('page.update', $this->id, $current->with(

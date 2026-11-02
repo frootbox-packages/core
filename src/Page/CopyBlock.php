@@ -53,8 +53,10 @@ final readonly class CopyBlock implements Action, Scoped
         $way = $blocks->find($this->block);
         $list = \array_slice($way, 0, -1);
         $index = (int) end($way) + 1;
+        $copy = $blocks->block($way);
+        $blocks->checkOffered(\is_string($copy['block'] ?? null) ? $copy['block'] : '');
 
-        $details = $blocks->insert($list, $index, ContentBlocks::withoutIds($blocks->block($way)))->save($editor, $this->id, $page, $this->language);
+        $details = $blocks->insert($list, $index, ContentBlocks::withoutIds($copy))->save($editor, $this->id, $page, $this->language);
         $saved = ($details->draft ?? $page)->translations[$this->language]->content ?? [];
 
         return new BlockChanged($this->id, $this->language, ContentBlocks::idAt($saved, $list, $index), $journal->currentEntryId());

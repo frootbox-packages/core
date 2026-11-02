@@ -1,0 +1,9 @@
+title: Picky theme
+# Offers only some blocks of its parent and hides a module's (decision 0162).
+theme:
+  parent: acme/base
+  blocks:
+    only: [acme/base/Badge, acme/base/Columns]
+    hide: [acme/news/List]
+  layouts:
+    hide: [acme/base/Page]

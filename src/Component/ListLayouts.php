@@ -37,7 +37,7 @@ final readonly class ListLayouts implements Query, Scoped
      */
     public function handle(Components $components, Labels $labels): array
     {
-        $layouts = array_map(static fn(Component $layout): LayoutSummary => LayoutSummary::of($labels->component($layout)), array_values($components->all(ComponentKind::Layout)));
+        $layouts = array_map(static fn(Component $layout): LayoutSummary => LayoutSummary::of($labels->component($layout), offered: $components->offers(ComponentKind::Layout, $layout->name)), array_values($components->all(ComponentKind::Layout)));
         usort($layouts, static fn(LayoutSummary $a, LayoutSummary $b): int => [$a->title, $a->name] <=> [$b->title, $b->name]);
 
         return $layouts;

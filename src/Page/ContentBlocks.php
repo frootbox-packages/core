@@ -172,6 +172,19 @@ final readonly class ContentBlocks
     }
 
     /**
+     * Fails if the themes do not offer the block for adding (decision
+     * 0162); blocks already on the page stay.
+     */
+    public function checkOffered(string $name): void
+    {
+        $component = $this->components->block($name);
+
+        if (null !== $component && !$this->components->offers(ComponentKind::Block, $name)) {
+            $this->fail('/name', new Message('The theme does not offer "{block}" for new blocks.', ['block' => $component->title]));
+        }
+    }
+
+    /**
      * @param list<string|int> $list  The way to the area's list
      * @param array<mixed>     $block
      */

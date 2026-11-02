@@ -15,13 +15,24 @@ namespace Frootbox\Core\Component;
 final readonly class Components
 {
     /**
-     * @param array<string, Component> $blocks
-     * @param array<string, Component> $layouts
+     * @param array<string, Component>             $blocks
+     * @param array<string, Component>             $layouts
+     * @param array<string, array<string, true>>   $hidden  Names by kind the themes do not offer (decision 0162)
      */
     public function __construct(
         public array $blocks = [],
         public array $layouts = [],
+        public array $hidden = [],
     ) {}
+
+    /**
+     * Whether editors may add the block or choose the layout. Hidden ones
+     * stay usable on pages that have them.
+     */
+    public function offers(ComponentKind $kind, string $name): bool
+    {
+        return isset($this->all($kind)[$name]) && !isset($this->hidden[$kind->value][$name]);
+    }
 
     public function get(ComponentKind $kind, string $name): ?Component
     {

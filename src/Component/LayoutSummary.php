@@ -28,9 +28,11 @@ final readonly class LayoutSummary
         public array $fields = [],
         /** URL of the preview for choosing a layout (decision 0148) */
         public ?string $preview = null,
+        /** False if the themes hide it: pages keep it, new ones cannot choose it (decision 0162) */
+        public bool $offered = true,
     ) {}
 
-    public static function of(Component $layout, Previews $previews = new Previews()): self
+    public static function of(Component $layout, Previews $previews = new Previews(), bool $offered = true): self
     {
         return new self(
             $layout->name,
@@ -40,6 +42,7 @@ final readonly class LayoutSummary
             AreaSummary::all($layout->areas),
             FieldSummary::all($layout->fields),
             $previews->url($layout),
+            $offered,
         );
     }
 }

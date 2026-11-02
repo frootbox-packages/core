@@ -229,6 +229,23 @@ final class ComponentLoaderTest extends TestCase
         ], $this->errors($extensions, 'acme/child'));
     }
 
+    public function testChecksWhatThemesOffer(): void
+    {
+        $root = $this->project->root . '/child';
+        $this->write($root, [
+            'frootbox.yaml' => "title: Child\ntheme:\n  parent: acme/base\n  blocks:\n    only: [acme/base/Teaser, acme/news/List]\n    hide: [acme/base/Teasr, acme/child/Own]\n",
+            'blocks/Own/views/Default.twig' => "{# frootbox\ntitle: Own\n#}",
+        ]);
+
+        $extensions = new Extensions([...FixtureSite::extensions('base', 'news')->packages, ExtensionPackage::fromManifest('acme/child', $root)]);
+
+        self::assertSame([
+            'acme/child: frootbox.yaml theme.blocks: "acme/child/Own" is its own block; a theme offers all of its own',
+            'acme/child: frootbox.yaml theme.blocks: "only" keeps blocks of the parents, "acme/news/List" is none; leave it out or use "hide"',
+            'acme/child: frootbox.yaml theme.blocks: there is no block "acme/base/Teasr"',
+        ], $this->errors($extensions, 'acme/child'));
+    }
+
     public function testCachesInProduction(): void
     {
         $container = FixtureSite::container($this->project, 'acme/site', Environment::Production);

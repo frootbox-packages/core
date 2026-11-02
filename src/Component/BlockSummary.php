@@ -34,9 +34,11 @@ final readonly class BlockSummary
         public array $keywords = [],
         /** URL of the preview, an SVG in the colours of the theme or a picture; null without one */
         public ?string $preview = null,
+        /** False if the themes hide it: it stays on pages, but cannot be added (decision 0162) */
+        public bool $offered = true,
     ) {}
 
-    public static function of(Component $block, Previews $previews = new Previews()): self
+    public static function of(Component $block, Previews $previews = new Previews(), bool $offered = true): self
     {
         return new self(
             $block->name,
@@ -49,6 +51,7 @@ final readonly class BlockSummary
             $block->group,
             $block->keywords,
             $previews->url($block),
+            $offered,
         );
     }
 }

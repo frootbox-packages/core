@@ -31,6 +31,10 @@ use Frootbox\Core\Language\Script;
  *       navigations:
  *         main: { title: Main navigation, depth: 2 }
  *         footer: Footer
+ *       blocks:
+ *         hide: [frootbox/theme-base/Pricing]
+ *       layouts:
+ *         only: [frootbox/theme-base/Page]
  *
  * Tokens become CSS variables such as --color-primary. Those with a type
  * may be changed by editors, the short form stays fixed; fonts are what a
@@ -40,11 +44,12 @@ use Frootbox\Core\Language\Script;
  * 0159).
  * Fields hold content that is the same on every page, read by
  * Site\SiteFields (decision 0128). Navigations are the menus the theme
- * shows (decision 0106).
+ * shows (decision 0106). Blocks and layouts say which of others the
+ * theme offers editors (decision 0162).
  */
 final readonly class Theme
 {
-    private const array KEYS = ['parent', 'tokens', 'fonts', 'scripts', 'fields', 'navigations'];
+    private const array KEYS = ['parent', 'tokens', 'fonts', 'scripts', 'fields', 'navigations', 'blocks', 'layouts'];
 
     private const array DESCRIPTION = ['value', 'type', 'label', 'contrast', 'min', 'max', 'step', 'unit', 'options'];
 
@@ -71,6 +76,8 @@ final readonly class Theme
         public array $fonts = [],
         public array $fields = [],
         public array $scripts = [],
+        public Offer $blocks = new Offer(),
+        public Offer $layouts = new Offer(),
     ) {}
 
     public static function fromPackage(ExtensionPackage $package): ?self
@@ -125,7 +132,7 @@ final readonly class Theme
         $definitions = [];
         $flat = self::flatten($tokens, '', $where, $definitions);
 
-        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where), $fields, self::scripts($package->theme['scripts'] ?? [], $where));
+        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where), $fields, self::scripts($package->theme['scripts'] ?? [], $where), Offer::from($package->theme['blocks'] ?? null, 'blocks', $where), Offer::from($package->theme['layouts'] ?? null, 'layouts', $where));
     }
 
     /**

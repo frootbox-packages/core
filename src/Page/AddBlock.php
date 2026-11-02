@@ -69,6 +69,7 @@ final readonly class AddBlock implements Action, Scoped
         $blocks = ContentBlocks::of('page.add-block', $components, $page, $this->language);
         [$list, $index] = $blocks->place($this->parent, $this->area, $this->after);
         $blocks->checkAllowed($list, $this->name);
+        $blocks->checkOffered($this->name);
 
         $block = ['block' => $this->name];
 

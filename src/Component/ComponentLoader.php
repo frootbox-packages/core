@@ -11,6 +11,7 @@ namespace Frootbox\Core\Component;
 use FilesystemIterator;
 use Frootbox\Core\Extension\ExtensionPackage;
 use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Theme\Theme;
 use Frootbox\Core\Theme\ThemeChain;
 use InvalidArgumentException;
 use RecursiveDirectoryIterator;
@@ -70,12 +71,60 @@ final readonly class ComponentLoader
         }
 
         $this->checkOverrides($found, $errors);
+        $hidden = $this->hidden($found, $errors);
 
         if ($errors->count() > 0) {
             throw new ComponentException($errors->all());
         }
 
-        return new Components($found[ComponentKind::Block->value], $found[ComponentKind::Layout->value]);
+        return new Components($found[ComponentKind::Block->value], $found[ComponentKind::Layout->value], $hidden);
+    }
+
+    /**
+     * The blocks and layouts the themes do not offer (decision 0162). A
+     * theme decides about those of others: "only" keeps some of its
+     * parents, "hide" leaves out any, also of modules.
+     *
+     * @param array<string, array<string, Component>> $found
+     *
+     * @return array<string, array<string, true>>
+     */
+    private function hidden(array $found, DefinitionErrors $errors): array
+    {
+        $hidden = [];
+        $themes = $this->themes->themes;
+
+        foreach ($themes as $index => $theme) {
+            $parents = array_map(static fn(Theme $parent): string => $parent->name, \array_slice($themes, $index + 1));
+
+            foreach (ComponentKind::cases() as $kind) {
+                $offer = ComponentKind::Block === $kind ? $theme->blocks : $theme->layouts;
+                $where = $theme->name . ': ' . ExtensionPackage::MANIFEST . ' theme.' . $kind->folder();
+
+                foreach ([...$offer->only ?? [], ...$offer->hide] as $name) {
+                    $package = substr($name, 0, (int) strrpos($name, '/'));
+
+                    if ($package === $theme->name) {
+                        $errors->add($where, '', \sprintf('"%s" is its own %s; a theme offers all of its own', $name, $kind->value));
+                    } elseif (!isset($found[$kind->value][$name])) {
+                        $errors->add($where, '', \sprintf('there is no %s "%s"', $kind->value, $name));
+                    } elseif (null !== $offer->only && \in_array($name, $offer->only, true) && !\in_array($package, $parents, true)) {
+                        $errors->add($where, '', \sprintf('"only" keeps %ss of the parents, "%s" is none; leave it out or use "hide"', $kind->value, $name));
+                    }
+                }
+
+                foreach ($found[$kind->value] as $name => $component) {
+                    $package = substr($name, 0, (int) strrpos($name, '/'));
+                    $kept = null === $offer->only || !\in_array($package, $parents, true) || \in_array($name, $offer->only, true);
+
+                    if (!$kept || \in_array($name, $offer->hide, true)) {
+                        $hidden[$kind->value][$name] = true;
+                    }
+                }
+            }
+        }
+
+        return $hidden;
     }
 
     /**
