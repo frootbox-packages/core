@@ -1,0 +1,7 @@
+{# frootbox
+title: Figure
+fields:
+  image: { type: image, caption: true, optional: true }
+  plain: { type: image, optional: true }
+#}
+<figure class="figure">{{ field('image') }}<figcaption><span>{{ field('image', 'caption') }}</span><small>{{ field('image', 'copyright') }}</small></figcaption></figure>

@@ -39,6 +39,6 @@ final readonly class UpdateSiteField implements Action
     {
         $updated = $editor->updateField('site.update-field', $this->language, $this->path, $this->value, $this->previous);
 
-        return new SiteFieldUpdated($updated->language, $updated->path, $updated->value, $updated->html, $journal->currentEntryId());
+        return new SiteFieldUpdated($updated->language, $updated->path, $updated->value, $updated->html, $journal->currentEntryId(), $updated->parts);
     }
 }

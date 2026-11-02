@@ -17,7 +17,8 @@ use Frootbox\Database\Entity;
  * (decision 0147); the focus point is in thousandths of width and
  * height. The version grows with every change that alters the sizes.
  * The hash is the SHA-256 of the uploaded file, none for media from
- * before decision 0146. The codec is only known for videos.
+ * before decision 0146. The codec is only known for videos. The
+ * copyright names the photographer or image agency (decision 0203).
  */
 final readonly class Medium extends Entity
 {
@@ -38,6 +39,7 @@ final readonly class Medium extends Entity
         public ?DateTimeImmutable $updatedAt,
         public ?string $file = null,
         public string $codec = '',
+        public string $copyright = '',
     ) {}
 
     /**

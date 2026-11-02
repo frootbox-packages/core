@@ -10,6 +10,7 @@ namespace Frootbox\Core\Field\Types;
 
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
+use Frootbox\Core\Field\HasParts;
 use Frootbox\Core\Field\ReferencesMedia;
 use Frootbox\Core\Media\Media;
 use Frootbox\Core\Media\MediaDrafts;
@@ -24,7 +25,8 @@ use Twig\Markup;
 /**
  * An image from the media library (decision 0126):
  *
- *     {"media": "01J…", "alt": "Optional, else the one of the library"}
+ *     {"media": "01J…", "alt": "Optional, else the one of the library",
+ *      "caption": "Only with caption: true", "copyright": "Optional, else the one of the library"}
  *
  * Settings: "ratio" cuts it around its focus point, e.g. "16:9"; "sizes"
  * tells the browser how wide it is shown, e.g. "(min-width: 60rem) 50vw,
@@ -33,10 +35,18 @@ use Twig\Markup;
  * focus point as object-position, so CSS with object-fit: cover keeps it. {{ field('image') }} gives a <picture> with modern formats and
  * all widths, an SVG a single <img> (decision 0182); a deleted medium gives nothing. The editing mode shows the
  * draft of the medium, visitors the published state (decision 0147).
+ *
+ * Parts (decision 0203): {{ field('image', 'copyright') }} gives the
+ * copyright of this place or else of the medium, {{ field('image',
+ * 'caption') }} the caption, which the setting "caption: true" offers.
  */
 #[AsFieldType('image', 'An image from the media library')]
-final readonly class ImageType implements ReferencesMedia
+final readonly class ImageType implements ReferencesMedia, HasParts
 {
+    public const string CAPTION = 'caption';
+
+    public const string COPYRIGHT = 'copyright';
+
     public const string RATIO_PATTERN = '^[1-9][0-9]?:[1-9][0-9]?$';
 
     /** The width of the fallback in <img src>. */
@@ -53,6 +63,7 @@ final readonly class ImageType implements ReferencesMedia
             'ratio' => ['type' => 'string', 'pattern' => self::RATIO_PATTERN],
             'sizes' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 300],
             'eager' => ['type' => 'boolean'],
+            self::CAPTION => ['type' => 'boolean'],
         ];
     }
 
@@ -65,8 +76,36 @@ final readonly class ImageType implements ReferencesMedia
             'properties' => [
                 'media' => ['type' => 'string', 'pattern' => '^[0-9A-HJKMNP-TV-Z]{26}$'],
                 'alt' => ['type' => 'string', 'maxLength' => 500],
+                self::CAPTION => ['type' => 'string', 'maxLength' => 300],
+                self::COPYRIGHT => ['type' => 'string', 'maxLength' => 300],
             ],
         ];
+    }
+
+    public function parts(Field $field): array
+    {
+        return true === $field->setting(self::CAPTION) ? [self::CAPTION, self::COPYRIGHT] : [self::COPYRIGHT];
+    }
+
+    public function part(mixed $value, Field $field, string $part): string
+    {
+        if (!\is_array($value) || !\in_array($part, $this->parts($field), true)) {
+            return '';
+        }
+
+        if (self::CAPTION === $part) {
+            return \is_string($value[self::CAPTION] ?? null) ? trim($value[self::CAPTION]) : '';
+        }
+
+        if (\is_string($value[self::COPYRIGHT] ?? null) && '' !== trim($value[self::COPYRIGHT])) {
+            return trim($value[self::COPYRIGHT]);
+        }
+
+        $id = $this->media($value, $field)[0] ?? null;
+        $medium = null === $id ? null : $this->service(Media::class)->fetchById($id);
+
+        // Nothing for a deleted medium, as the image itself is gone too.
+        return null === $medium ? '' : $this->service(MediaDrafts::class)->seen($medium)->copyright;
     }
 
     public function validate(mixed $value, Field $field): array

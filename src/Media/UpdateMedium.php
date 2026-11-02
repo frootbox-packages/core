@@ -11,6 +11,7 @@ namespace Frootbox\Core\Media;
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\Description;
+use Frootbox\Core\Action\Schema\Length;
 use Frootbox\Core\Action\Schema\ListOf;
 use Frootbox\Core\Action\Schema\Range;
 use Frootbox\Core\Auth\Scope;
@@ -19,7 +20,7 @@ use Frootbox\Core\Auth\Scoped;
 /**
  * @implements Action<MediumDetails>
  */
-#[AsAction('media.update', 'Changes folder, focus point, texts or tags of a medium; what is left out stays. Folder and tags count at once; focus point and texts of a public medium go into its draft until media.publish')]
+#[AsAction('media.update', 'Changes folder, focus point, texts, copyright or tags of a medium; what is left out stays. Folder and tags count at once; focus point, texts and copyright of a public medium go into its draft until media.publish')]
 final readonly class UpdateMedium implements Action, Scoped
 {
     /**
@@ -41,6 +42,9 @@ final readonly class UpdateMedium implements Action, Scoped
         #[ListOf('string')]
         #[Description('All tags of the medium')]
         public ?array $tags = null,
+        #[Length(max: 300)]
+        #[Description('Photographer or image agency, shown with the image where the theme shows it; "" for none')]
+        public ?string $copyright = null,
     ) {}
 
     /**
@@ -56,6 +60,6 @@ final readonly class UpdateMedium implements Action, Scoped
 
     public function handle(MediaEditor $editor): MediumDetails
     {
-        return $editor->update('media.update', $this->id, $this->folderId, $this->focusX, $this->focusY, $this->texts, $this->tags);
+        return $editor->update('media.update', $this->id, $this->folderId, $this->focusX, $this->focusY, $this->texts, $this->tags, $this->copyright);
     }
 }

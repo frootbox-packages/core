@@ -24,5 +24,7 @@ final readonly class FieldUpdated
         public string $html,
         /** The entry in the action log, null inside another action */
         public ?int $entry,
+        /** @var array<string, string> The parts of the field as HTML, e.g. the caption of an image (decision 0203) */
+        public array $parts = [],
     ) {}
 }

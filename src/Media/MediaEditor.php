@@ -50,10 +50,11 @@ final readonly class MediaEditor
     /**
      * @param array<mixed> $texts
      * @param list<string> $tags
+     * @param string|null  $copyright Null takes the one from the file, if it has one (decision 0203)
      *
      * @throws InvalidInputException
      */
-    public function create(string $action, string $upload, ?string $folderId, array $texts, array $tags): MediumDetails
+    public function create(string $action, string $upload, ?string $folderId, array $texts, array $tags, ?string $copyright = null): MediumDetails
     {
         $path = $this->uploads->path($upload);
         $errors = null === $path ? ['/upload' => 'There is no upload with this token (any more). Upload the file first.'] : [];
@@ -77,6 +78,8 @@ final readonly class MediaEditor
         }
 
         $id = Ulid::generate();
+        // Read before the metadata go with preparing the original.
+        $copyright = self::cleanCopyright($copyright ?? Images::copyright($path));
         $facts = $this->prepare($path, $this->files->original($id), null, $this->uploads->name($upload));
 
         if ($facts instanceof Message) {
@@ -97,6 +100,7 @@ final readonly class MediaEditor
             'version' => 1,
             'public' => false,
             'hash' => $hash,
+            'copyright' => $copyright,
         ]);
 
         $this->saveTexts($id, $texts);
@@ -110,11 +114,12 @@ final readonly class MediaEditor
      * @param string|null       $folderId "" for the top, null to keep it
      * @param array<mixed>|null $texts    Languages given are replaced
      * @param list<string>|null $tags     Replace all tags
+     * @param string|null       $copyright Null to keep it (decision 0203)
      *
      * @throws InvalidInputException
      * @throws EntityNotFoundException
      */
-    public function update(string $action, string $id, ?string $folderId, ?float $focusX, ?float $focusY, ?array $texts, ?array $tags): MediumDetails
+    public function update(string $action, string $id, ?string $folderId, ?float $focusX, ?float $focusY, ?array $texts, ?array $tags, ?string $copyright = null): MediumDetails
     {
         $medium = $this->media->getById($id);
         $errors = null === $folderId || '' === $folderId ? [] : $this->checkFolder($folderId, '/folderId');
@@ -148,7 +153,7 @@ final readonly class MediaEditor
         $draft = $this->drafts->of($id);
 
         if ($medium->public || null !== $draft) {
-            $this->saveDraft($medium, $draft ?? $this->drafts->start($medium), $focus, null === $texts ? [] : $cleanTexts);
+            $this->saveDraft($medium, $draft ?? $this->drafts->start($medium), $focus, null === $texts ? [] : $cleanTexts, null === $copyright ? null : self::cleanCopyright($copyright));
 
             return $this->details($medium);
         }
@@ -161,6 +166,10 @@ final readonly class MediaEditor
 
         if (null !== $texts) {
             $this->saveTexts($id, $cleanTexts);
+        }
+
+        if (null !== $copyright && self::cleanCopyright($copyright) !== $medium->copyright) {
+            $medium = $this->media->update($id, ['copyright' => self::cleanCopyright($copyright)]);
         }
 
         return $this->details($medium);
@@ -376,7 +385,7 @@ final readonly class MediaEditor
                 $this->files->removePublic($id);
             }
 
-            $values = ['focusX' => $draft['focusX'], 'focusY' => $draft['focusY'], 'version' => $draft['version']];
+            $values = ['focusX' => $draft['focusX'], 'focusY' => $draft['focusY'], 'version' => $draft['version'], 'copyright' => $draft['copyright']];
 
             if (null !== $draft['file']) {
                 $this->files->release($medium->original());
@@ -597,6 +606,7 @@ final readonly class MediaEditor
                 $medium->isDocument() => Documents::format($medium->type),
                 default => '',
             },
+            $medium->copyright,
         );
     }
 
@@ -608,10 +618,14 @@ final readonly class MediaEditor
      * @param array{int, int}|null                               $focus
      * @param array<string, array{alt?: string, title?: string}> $texts
      */
-    private function saveDraft(Medium $medium, array $draft, ?array $focus, array $texts): void
+    private function saveDraft(Medium $medium, array $draft, ?array $focus, array $texts, ?string $copyright = null): void
     {
         if (null !== $focus) {
             [$draft['focusX'], $draft['focusY']] = $focus;
+        }
+
+        if (null !== $copyright) {
+            $draft['copyright'] = $copyright;
         }
 
         foreach ($texts as $language => $text) {
@@ -626,7 +640,7 @@ final readonly class MediaEditor
         $draft['version'] = $resized ? $medium->version + 1 : $medium->version;
         $published = $this->drafts->start($medium);
 
-        if (!$resized && self::sameTexts($draft['texts'], $published['texts'])) {
+        if (!$resized && $draft['copyright'] === $published['copyright'] && self::sameTexts($draft['texts'], $published['texts'])) {
             $this->store->discard(MediaDrafts::TYPE, $medium->id);
 
             return;
@@ -868,6 +882,14 @@ final readonly class MediaEditor
         }
 
         return [$clean, $errors];
+    }
+
+    /**
+     * The copyright as one line, at most 300 characters (decision 0203).
+     */
+    private static function cleanCopyright(string $copyright): string
+    {
+        return mb_substr(trim((string) preg_replace('/\s+/u', ' ', $copyright)), 0, 300);
     }
 
     /**

@@ -15,6 +15,7 @@ use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Component\FieldSummary;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Field\Parts;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Media\MediaEditor;
 use Frootbox\Core\Media\MediaReferences;
@@ -127,7 +128,8 @@ final readonly class SiteEditor
         $this->save($action, $theme, $languages, $own, '/value');
 
         $saved = self::at($this->site->merged($this->current($theme), $language), $keys);
-        $output = $this->types->get($field->type)->output($saved, $field);
+        $type = $this->types->get($field->type);
+        $output = $type->output($saved, $field);
 
         return new SiteFieldUpdated(
             $language,
@@ -135,6 +137,7 @@ final readonly class SiteEditor
             $saved,
             $output instanceof Markup ? (string) $output : (\is_string($output) ? Html::escape($output) : ''),
             null,
+            Parts::html($type, $saved, $field),
         );
     }
 

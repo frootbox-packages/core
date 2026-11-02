@@ -32,6 +32,7 @@ use Twig\TwigFunction;
  * Functions for block and layout templates:
  *
  *     {{ field('title') }}            the field, ready for output
+ *     {{ field('image', 'caption') }} one part of a field, e.g. caption or copyright of an image
  *     {{ heading('title') }}          the field as a heading at the level of its place
  *     {{ item.heading('question', 1) }} a heading one rank below the main one
  *     {{ value('button').url }}       the stored value
@@ -65,7 +66,7 @@ final class ViewExtension extends AbstractExtension
     public function getFunctions(): array
     {
         return [
-            new TwigFunction('field', fn(array $context, string $name): mixed => self::frame($context, 'field')->scope->field($name), ['needs_context' => true]),
+            new TwigFunction('field', fn(array $context, string $name, ?string $part = null): mixed => self::frame($context, 'field')->scope->field($name, $part), ['needs_context' => true]),
             new TwigFunction('heading', fn(array $context, string $name, int $rank = 0, array $attributes = []): Markup => self::frame($context, 'heading')->scope->heading($name, $rank, $attributes), ['needs_context' => true]),
             new TwigFunction('value', fn(array $context, string $name): mixed => self::frame($context, 'value')->scope->value($name), ['needs_context' => true]),
             new TwigFunction('area', fn(array $context, string $name): Markup => new Markup($this->renderer->area(self::frame($context, 'area'), $name), 'UTF-8'), ['needs_context' => true]),
@@ -77,7 +78,7 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('content_attributes', $this->contentAttributes(...)),
             new TwigFunction('alternates', $this->alternates(...)),
             new TwigFunction('navigation', $this->navigation(...)),
-            new TwigFunction('site_field', fn(string $name): mixed => $this->site()->field($name)),
+            new TwigFunction('site_field', fn(string $name, ?string $part = null): mixed => $this->site()->field($name, $part)),
             new TwigFunction('site_attributes', $this->siteAttributes(...)),
             new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
             new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),

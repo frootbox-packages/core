@@ -11,6 +11,7 @@ namespace Frootbox\Core\Media;
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\Description;
+use Frootbox\Core\Action\Schema\Length;
 use Frootbox\Core\Action\Schema\ListOf;
 use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
@@ -34,6 +35,9 @@ final readonly class CreateMedium implements Action, Scoped
         public array $texts = [],
         #[ListOf('string')]
         public array $tags = [],
+        #[Length(max: 300)]
+        #[Description('Photographer or image agency, e.g. "Anna Muster / Bildagentur"; left out, it comes from the IPTC or EXIF data of the file, if there')]
+        public ?string $copyright = null,
     ) {}
 
     /**
@@ -49,6 +53,6 @@ final readonly class CreateMedium implements Action, Scoped
 
     public function handle(MediaEditor $editor): MediumDetails
     {
-        return $editor->create('media.create', $this->upload, $this->folderId, $this->texts, $this->tags);
+        return $editor->create('media.create', $this->upload, $this->folderId, $this->texts, $this->tags, $this->copyright);
     }
 }

@@ -101,6 +101,57 @@ final class Images
     }
 
     /**
+     * The copyright a JPEG names in its metadata, "" without (decision
+     * 0203): IPTC Copyright Notice, else Credit and By-line, else EXIF
+     * Copyright, else Artist. Read before the metadata go.
+     */
+    public static function copyright(string $path): string
+    {
+        if ('image/jpeg' !== (string) new \finfo(\FILEINFO_MIME_TYPE)->file($path)) {
+            return '';
+        }
+
+        $info = [];
+        @getimagesize($path, $info);
+        $iptc = \is_array($info) && \is_string($info['APP13'] ?? null) ? @iptcparse($info['APP13']) : false;
+        $field = static fn(string $key): string => \is_array($iptc) && \is_array($iptc[$key] ?? null) ? self::line(implode(', ', array_filter($iptc[$key], \is_string(...)))) : '';
+
+        $notice = $field('2#116');
+
+        if ('' !== $notice) {
+            return $notice;
+        }
+
+        $credit = implode(' / ', array_filter([$field('2#080'), $field('2#110')], static fn(string $part): bool => '' !== $part));
+
+        if ('' !== $credit || !\function_exists('exif_read_data')) {
+            return $credit;
+        }
+
+        $exif = @exif_read_data($path, 'IFD0');
+
+        foreach (['Copyright', 'Artist'] as $key) {
+            $value = \is_array($exif) && \is_string($exif[$key] ?? null) ? self::line($exif[$key]) : '';
+
+            if ('' !== $value) {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Text from metadata as UTF-8 on one line; older files write Latin-1.
+     */
+    private static function line(string $text): string
+    {
+        $text = mb_check_encoding($text, 'UTF-8') ? $text : mb_convert_encoding($text, 'UTF-8', 'ISO-8859-1');
+
+        return trim((string) preg_replace('/[\s\x00]+/u', ' ', $text));
+    }
+
+    /**
      * Whether a file is of a type that can be uploaded.
      */
     public static function isImage(string $path): bool

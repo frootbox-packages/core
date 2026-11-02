@@ -10,7 +10,9 @@ namespace Frootbox\Core\View;
 
 use Frootbox\Core\Field\Blank;
 use Frootbox\Core\Field\Field;
+use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Field\HasParts;
 use Frootbox\Core\Field\OutputsHeadings;
 use Frootbox\Core\Heading\Headings;
 use Frootbox\RichText\Html;
@@ -50,14 +52,19 @@ final readonly class Scope
     }
 
     /**
-     * The field ready for output, e.g. {{ slide.field('title') }}.
+     * The field ready for output, e.g. {{ slide.field('title') }}, or one
+     * part of it, e.g. {{ field('image', 'caption') }} (decision 0203).
      */
-    public function field(string $name): mixed
+    public function field(string $name, ?string $part = null): mixed
     {
         $field = $this->definition($name);
         $type = $this->types->get($field->type);
         $value = $this->values[$name] ?? null;
-        $extra = [];
+        $extra = $type instanceof HasParts ? ['data-fb-parts' => implode(' ', $type->parts($field))] : [];
+
+        if (null !== $part) {
+            return $this->part($name, $field, $type, $value, $part, $extra);
+        }
 
         if ($type instanceof OutputsHeadings && null !== $this->headings) {
             $headings = $this->headings;
@@ -83,6 +90,35 @@ final readonly class Scope
             \is_string($output) || $output instanceof Markup => $this->markup->field($this->path . $name, $field, $output, $value, $extra),
             default => $output,
         };
+    }
+
+    /**
+     * One part of a field, marked like the field itself plus its name in
+     * the editing mode, so a click there opens the same editor.
+     *
+     * @param array<string, int|string> $extra
+     */
+    private function part(string $name, Field $field, FieldType $type, mixed $value, string $part, array $extra): Markup|string
+    {
+        if (!$type instanceof HasParts || !\in_array($part, $type->parts($field), true)) {
+            $parts = $type instanceof HasParts ? $type->parts($field) : [];
+
+            throw new ViewException(\sprintf(
+                'The field "%s" has no part "%s". Parts: %s.',
+                $name,
+                $part,
+                [] === $parts ? 'none' : implode(', ', $parts) . ('caption' !== $part || \in_array('caption', $parts, true) ? '' : ' (a caption needs "caption: true" in the field)'),
+            ));
+        }
+
+        $output = $type->part($value, $field, $part);
+
+        // For visitors an empty part leaves out its element (decision 0144); while editing it shows its place.
+        if (null === $this->markup || $this->markup->anchors) {
+            return self::isEmpty($output) ? EmptyElements::mark() : $output;
+        }
+
+        return $this->markup->field($this->path . $name, $field, $output, $value, [...$extra, 'data-fb-part' => $part]);
     }
 
     /**

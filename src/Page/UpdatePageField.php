@@ -20,6 +20,7 @@ use Frootbox\Core\Auth\Scoped;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Field\Parts;
 use Frootbox\Database\Ulid;
 use Frootbox\RichText\Html;
 use Twig\Markup;
@@ -77,7 +78,8 @@ final readonly class UpdatePageField implements Action, Scoped
         $translations[$this->language] = new TranslationData($translation->title, $translation->slug, $field->with($translation->content, $this->value));
         $details = $editor->saveDraft('page.update-field', $this->id, $current->with(translations: $translations));
         $saved = $field->value(($details->draft ?? $current)->translations[$this->language]->content ?? []);
-        $output = $types->get($field->field->type)->output($saved, $field->field);
+        $type = $types->get($field->field->type);
+        $output = $type->output($saved, $field->field);
 
         return new FieldUpdated(
             $this->id,
@@ -87,6 +89,7 @@ final readonly class UpdatePageField implements Action, Scoped
             $saved,
             $output instanceof Markup ? (string) $output : (\is_string($output) ? Html::escape($output) : ''),
             $journal->currentEntryId(),
+            Parts::html($type, $saved, $field->field),
         );
     }
 }

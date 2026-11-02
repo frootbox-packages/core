@@ -50,5 +50,6 @@ final readonly class MediumDetails
         public string $codec = '',
         public array $sources = [],
         public string $format = '',
+        public string $copyright = '',
     ) {}
 }
