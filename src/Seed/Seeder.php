@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Seed;
 
+use Doctrine\DBAL\Connection;
 use Frootbox\Core\Action\ActionException;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Normalizer;
@@ -36,6 +37,9 @@ use Symfony\Component\Yaml\Yaml;
  *     - upload: { file: media/roastery.jpg }
  *       as: roastery
  *     - media.create: { upload: '${roastery.token}' }
+ *
+ * All steps run in one transaction: if one fails, the database is as
+ * before, so the file can be fixed and run again (decision 0194).
  */
 final readonly class Seeder
 {
@@ -48,6 +52,7 @@ final readonly class Seeder
         private Runner $runner,
         private Extensions $extensions,
         private Uploads $uploads,
+        private Connection $connection,
     ) {}
 
     /**
@@ -112,6 +117,19 @@ final readonly class Seeder
      * @throws SeedException
      */
     public function run(array $steps, ?callable $progress = null): array
+    {
+        return $this->connection->transactional(fn(): array => $this->runSteps($steps, $progress));
+    }
+
+    /**
+     * @param list<array{string, array<string, mixed>, string|null}> $steps
+     * @param (callable(int, string): void)|null                     $progress
+     *
+     * @return array<string, mixed>
+     *
+     * @throws SeedException
+     */
+    private function runSteps(array $steps, ?callable $progress): array
     {
         $results = [];
 

@@ -13,6 +13,7 @@ use Frootbox\Core\Media\Media;
 use Frootbox\Core\Navigation\ShowNavigation;
 use Frootbox\Core\Page\Pages;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Seed\Seeder;
 use Frootbox\Core\Seed\SeedException;
 use Frootbox\Core\Tests\Support\FixtureSite;
@@ -67,6 +68,27 @@ final class SeederTest extends NotesTestCase
         self::assertNotNull($medium);
         self::assertSame(320, $medium->width);
         self::assertFileExists($folder . '/media/roastery.jpg', 'The seed keeps its file, the upload is a copy.');
+    }
+
+    public function testLeavesNothingBehindWhenAStepFails(): void
+    {
+        $file = $this->get(ProjectPaths::class)->var('seed.yaml');
+        file_put_contents($file, <<<'YAML'
+            - page.create: { layout: acme/base/Page, translations: { de: { title: Start } } }
+              as: start
+            - page.create: { layout: acme/base/Page, parentId: '${start.id}', translations: { de: { title: Über uns } } }
+            - page.show: { id: 01ARZ3NDEKTSV4RRFFQ69G5FAV }
+            YAML);
+        $seeder = $this->get(Seeder::class);
+
+        try {
+            $seeder->run($seeder->read($file));
+            self::fail('The third step should fail.');
+        } catch (SeedException $error) {
+            self::assertStringStartsWith('Step 3 (page.show) failed: ', $error->getMessage());
+        }
+
+        self::assertSame(0, $this->get(Revisions::class)->count(), 'The first steps are rolled back, a second run starts afresh (decision 0194).');
     }
 
     public function testStopsAtTheFirstProblem(): void

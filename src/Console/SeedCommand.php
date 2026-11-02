@@ -44,7 +44,7 @@ final class SeedCommand extends Command
             $steps = $this->seeder->read($this->seeder->file(\is_string($path) ? $path : '', (string) getcwd()));
             $this->seeder->run($steps, static fn(int $number, string $name) => $io->writeln(\sprintf('<comment>%3d</comment> %s', $number, $name), OutputInterface::VERBOSITY_VERBOSE));
         } catch (SeedException $error) {
-            $io->error($error->getMessage());
+            $io->error([$error->getMessage(), 'Nothing was saved: fix the file and run it again.']);
 
             return Command::FAILURE;
         }
