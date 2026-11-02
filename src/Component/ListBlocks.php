@@ -12,6 +12,7 @@ use Frootbox\Core\Action\AsQuery;
 use Frootbox\Core\Action\Query;
 use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
+use Frootbox\Core\I18n\Labels;
 
 /**
  * The blocks there are, for adding one to an area and for its settings
@@ -35,9 +36,9 @@ final readonly class ListBlocks implements Query, Scoped
     /**
      * @return list<BlockSummary>
      */
-    public function handle(Components $components): array
+    public function handle(Components $components, Labels $labels): array
     {
-        $blocks = array_map(BlockSummary::of(...), array_values($components->all(ComponentKind::Block)));
+        $blocks = array_map(static fn(Component $block): BlockSummary => BlockSummary::of($labels->component($block)), array_values($components->all(ComponentKind::Block)));
         usort($blocks, static fn(BlockSummary $a, BlockSummary $b): int => [$a->title, $a->name] <=> [$b->title, $b->name]);
 
         return $blocks;

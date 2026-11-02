@@ -66,7 +66,7 @@ final readonly class SiteEditor
             $values[$code] = $this->site->merged($stored, $code);
         }
 
-        return new SiteDetails($theme->name, null !== $draft, $published?->version, FieldSummary::all($this->site->fields()), $values, $this->protection->status());
+        return new SiteDetails($theme->name, null !== $draft, $published?->version, FieldSummary::all($this->site->translated()), $values, $this->protection->status());
     }
 
     /**

@@ -13,6 +13,7 @@ use Frootbox\Core\Component\DefinitionReader;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\I18n\Labels;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Revision\Revision;
@@ -51,7 +52,19 @@ final class SiteFields
         private readonly FieldTypes $types,
         private readonly EditMarkup $markup,
         private readonly Config $config,
+        private readonly Labels $labels,
     ) {}
+
+    /**
+     * The fields with their labels in the language of the backend
+     * (decision 0161).
+     *
+     * @return array<string, Field>
+     */
+    public function translated(): array
+    {
+        return $this->labels->fields($this->fields(), $this->themes->active()?->name);
+    }
 
     /**
      * The fields the themes describe, by name.
@@ -83,8 +96,11 @@ final class SiteFields
      */
     public function scope(string $language): Scope
     {
+        $marked = $this->editMode->markingSite() || $this->editMode->anchors();
+
         return new Scope(
-            $this->fields(),
+            // Labels for the editors in the language of the backend (decision 0161).
+            $marked ? $this->labels->fields($this->fields(), $this->themes->active()?->name) : $this->fields(),
             $this->values($language, $this->editMode->active()),
             $this->types,
             match (true) {

@@ -12,6 +12,7 @@ use Frootbox\Core\Action\AsQuery;
 use Frootbox\Core\Action\Query;
 use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
+use Frootbox\Core\I18n\Labels;
 
 /**
  * The layouts a page can have, for choosing one when creating a page.
@@ -34,9 +35,9 @@ final readonly class ListLayouts implements Query, Scoped
     /**
      * @return list<LayoutSummary>
      */
-    public function handle(Components $components): array
+    public function handle(Components $components, Labels $labels): array
     {
-        $layouts = array_map(LayoutSummary::of(...), array_values($components->all(ComponentKind::Layout)));
+        $layouts = array_map(static fn(Component $layout): LayoutSummary => LayoutSummary::of($labels->component($layout)), array_values($components->all(ComponentKind::Layout)));
         usort($layouts, static fn(LayoutSummary $a, LayoutSummary $b): int => [$a->title, $a->name] <=> [$b->title, $b->name]);
 
         return $layouts;

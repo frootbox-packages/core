@@ -16,6 +16,7 @@ use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Heading\Headings;
 use Frootbox\Core\Heading\Outline;
+use Frootbox\Core\I18n\Labels;
 use Frootbox\Core\Page\EditMode;
 use Frootbox\RichText\Html;
 use Psr\Container\ContainerInterface;
@@ -119,6 +120,8 @@ final readonly class ComponentRenderer
             $rendered = $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets, $frame->headings->inArea($level, $block->id));
             $rendered = null === $language ? $rendered : self::withLanguage($rendered, $language->code, $direction);
             $component = $marked ? $this->service(Components::class)->get(ComponentKind::Block, $block->name) : null;
+            // Labels for the editors in the language of the backend (decision 0161).
+            $component = null === $component ? null : $this->service(Labels::class)->component($component);
             $html .= null === $component ? $rendered : $this->markup->block($rendered, $block, $component, $name);
         }
 
@@ -149,6 +152,10 @@ final readonly class ComponentRenderer
         }
 
         $assets?->addComponent($component);
+
+        if ($this->editMode->marking() || $this->editMode->anchors()) {
+            $component = $this->service(Labels::class)->component($component);
+        }
 
         $markup = match (true) {
             $this->editMode->marking() => $this->markup,

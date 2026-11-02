@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Navigation;
 
+use Frootbox\Core\I18n\Labels;
 use Frootbox\Core\Revision\Revisions;
 
 /**
@@ -20,6 +21,7 @@ final readonly class NavigationReader
     public function __construct(
         private Navigations $navigations,
         private Revisions $revisions,
+        private Labels $labels,
     ) {}
 
     /**
@@ -63,7 +65,7 @@ final readonly class NavigationReader
             default => NavigationStatus::Changed,
         };
 
-        return new NavigationDetails($definition->name, $definition->title, $definition->depth, $status, $version, $draft, $published);
+        return new NavigationDetails($definition->name, $this->labels->text($definition->title), $definition->depth, $status, $version, $draft, $published);
     }
 
     /**

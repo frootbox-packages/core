@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Design;
 
 use Frootbox\Core\Action\InvalidInputException;
+use Frootbox\Core\I18n\Labels;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Revision\RevisionStatus;
 use Frootbox\Core\Revision\RevisionStore;
@@ -29,6 +30,7 @@ final readonly class DesignEditor
         private ThemeChain $themes,
         private Revisions $revisions,
         private RevisionStore $store,
+        private Labels $labels,
     ) {}
 
     public function details(): DesignDetails
@@ -66,12 +68,12 @@ final readonly class DesignEditor
             $tokens[] = new TokenDetails(
                 $name,
                 $definition->type->value,
-                $definition->label,
+                $this->labels->text($definition->label, $theme->name),
                 $current,
                 $definition->css($current, $fonts),
                 $value($name, $live),
                 $defaults[$name],
-                self::options($definition, $fonts),
+                $this->options($definition, $fonts, $theme->name),
                 $definition->min,
                 $definition->max,
                 $definition->step,
@@ -226,11 +228,11 @@ final readonly class DesignEditor
      *
      * @return list<array{value: string, label: string, css: string}>
      */
-    private static function options(TokenDefinition $definition, array $fonts): array
+    private function options(TokenDefinition $definition, array $fonts, string $package): array
     {
         return match ($definition->type) {
-            TokenType::Font => array_values(array_map(static fn($font): array => ['value' => $font->key, 'label' => $font->label, 'css' => $font->family], $fonts)),
-            TokenType::Choice => array_map(static fn(string $key, array $option): array => ['value' => $key, 'label' => $option['label'], 'css' => $option['value']], array_keys($definition->options), $definition->options),
+            TokenType::Font => array_values(array_map(fn($font): array => ['value' => $font->key, 'label' => $this->labels->text($font->label, $package), 'css' => $font->family], $fonts)),
+            TokenType::Choice => array_map(fn(string $key, array $option): array => ['value' => $key, 'label' => $this->labels->text($option['label'], $package), 'css' => $option['value']], array_keys($definition->options), $definition->options),
             default => [],
         };
     }
