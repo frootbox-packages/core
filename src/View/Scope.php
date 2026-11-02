@@ -156,6 +156,26 @@ final readonly class Scope
     }
 
     /**
+     * A heading from data instead of a field, e.g. the title of a news
+     * article in a list (decision 0219). The level comes from where it
+     * stands, as with heading(); empty text gives nothing.
+     *
+     * @param array<mixed> $attributes
+     */
+    public function headingText(string $text, int $rank = 0, array $attributes = []): Markup
+    {
+        $headings = $this->headings ?? throw new ViewException('heading_text() works only in blocks and layouts; write a fixed level here.');
+
+        if ('' === trim($text)) {
+            return EmptyElements::mark();
+        }
+
+        $tag = 'h' . $headings->take($rank, Html::escape($text), '');
+
+        return new Markup(Html::open($tag, self::attributes($attributes, 'heading_text()')) . Html::escape($text) . Html::close($tag), 'UTF-8');
+    }
+
+    /**
      * Whether none of the fields holds a value, e.g. a new list entry.
      */
     public function isBlank(): bool
