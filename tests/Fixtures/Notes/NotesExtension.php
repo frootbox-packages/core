@@ -15,7 +15,7 @@ final class NotesExtension implements Extension
 {
     public function register(Registry $registry): void
     {
-        foreach ([CreateNote::class, RenameNote::class, DeleteNote::class, CreateNotes::class, CreateNoteWithSql::class, MailNote::class, ShareNote::class, UnshareNote::class, FailingNote::class, Subscribe::class] as $action) {
+        foreach ([CreateNote::class, RenameNote::class, DeleteNote::class, CreateNotes::class, CreateNoteWithSql::class, MailNote::class, ShareNote::class, UnshareNote::class, FailingNote::class, Subscribe::class, QueueNote::class] as $action) {
             $registry->action($action);
         }
 

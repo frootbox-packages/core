@@ -63,6 +63,10 @@ final class SchemaFactory
             }
         }
 
+        if (null !== $title = $field->attribute(Title::class)) {
+            $schema['title'] = $title->text;
+        }
+
         if (null !== $description = $field->attribute(Description::class)) {
             $schema['description'] = $description->text;
         }

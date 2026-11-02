@@ -53,6 +53,17 @@ final class ConfigLoaderTest extends TestCase
         self::assertSame('from-file', $config->env('GREETING'));
     }
 
+    public function testReadsTheSettingsOfExtensions(): void
+    {
+        $this->project = TemporaryProject::create("app: {}\n", "SHOP_KEY=abc\n");
+        mkdir($this->project->root . '/config/extensions/acme', 0o777, true);
+        file_put_contents($this->project->root . '/config/extensions/acme/shop.yaml', "url: https://shop.example\napiKey: '%env(SHOP_KEY)%'\n");
+
+        $config = ConfigLoader::load(new ProjectPaths($this->project->root));
+
+        self::assertSame(['acme/shop' => ['url' => 'https://shop.example', 'apiKey' => 'abc']], $config->get('extensions'));
+    }
+
     public function testRejectsUnknownEnvironment(): void
     {
         $this->expectException(ConfigException::class);

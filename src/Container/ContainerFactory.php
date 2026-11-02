@@ -10,6 +10,7 @@ namespace Frootbox\Core\Container;
 
 use DI\Container;
 use DI\ContainerBuilder;
+use DI\Factory\RequestedEntry;
 use Doctrine\DBAL\Connection;
 use Doctrine\Migrations\DependencyFactory;
 use Frootbox\Core\Action\Catalog;
@@ -40,9 +41,12 @@ use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\Page\ThemeErrorPage;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Queue\JobClasses;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Schedule\ScheduledTypes;
 use Frootbox\Core\Search\SearchSources;
+use Frootbox\Core\Settings\Settings;
+use Frootbox\Core\Settings\SettingsClasses;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\SubpageSources;
 use Frootbox\Core\Url\TargetLink;
@@ -77,13 +81,20 @@ final class ContainerFactory
 {
     public static function create(Config $config, ProjectPaths $paths, Extensions $extensions = new Extensions(), ?Registry $registry = null): Container
     {
+        $registry ??= ExtensionLoader::boot($extensions);
         $builder = new ContainerBuilder();
         $builder->useAutowiring(true);
         $builder->useAttributes(false);
 
+        // Settings classes come filled from the store (decision 0221).
+        $settings = array_fill_keys(array_values($registry->settingsClasses()->all()), factory([self::class, 'createSettings']));
+
         if (!$config->environment->isDevelopment()) {
-            $builder->enableCompilation($paths->var('cache/container'));
+            // Another set of settings classes compiles another container.
+            $builder->enableCompilation($paths->var('cache/container'), 'CompiledContainer' . substr(md5(implode(',', array_keys($settings))), 0, 12));
         }
+
+        $builder->addDefinitions($settings);
 
         $builder->addDefinitions([
             ResponseFactoryInterface::class => get(Psr17Factory::class),
@@ -114,6 +125,8 @@ final class ContainerFactory
             SearchSources::class => factory([self::class, 'createSearchSources']),
             SubpageSources::class => factory([self::class, 'createSubpageSources']),
             ScheduledTypes::class => factory([self::class, 'createScheduledTypes']),
+            SettingsClasses::class => factory([self::class, 'createSettingsClasses']),
+            JobClasses::class => factory([self::class, 'createJobClasses']),
             ThemeChain::class => factory([self::class, 'createThemeChain']),
             Languages::class => factory([Languages::class, 'fromConfig']),
             Components::class => factory([ComponentsFactory::class, 'create']),
@@ -128,7 +141,7 @@ final class ContainerFactory
         $container->set(Environment::class, $config->environment);
         $container->set(ProjectPaths::class, $paths);
         $container->set(Extensions::class, $extensions);
-        $container->set(Registry::class, $registry ?? ExtensionLoader::boot($extensions));
+        $container->set(Registry::class, $registry);
         $container->set(ContainerInterface::class, $container);
         $container->set(InvokerInterface::class, $container);
 
@@ -194,6 +207,30 @@ final class ContainerFactory
     public static function createScheduledTypes(Registry $registry, ContainerInterface $container): ScheduledTypes
     {
         return new ScheduledTypes($registry->scheduledTypes(), $container);
+    }
+
+    /**
+     * A settings class of an extension with its values (decision 0221).
+     */
+    public static function createSettings(RequestedEntry $entry, Settings $settings): object
+    {
+        $class = $entry->getName();
+
+        if (!class_exists($class)) {
+            throw new \LogicException(\sprintf('The settings class %s does not exist.', $class));
+        }
+
+        return $settings->get($class);
+    }
+
+    public static function createSettingsClasses(Registry $registry): SettingsClasses
+    {
+        return $registry->settingsClasses();
+    }
+
+    public static function createJobClasses(Registry $registry): JobClasses
+    {
+        return $registry->jobClasses();
     }
 
     public static function createUndoChecks(Registry $registry, ContainerInterface $container): UndoChecks

@@ -19,6 +19,7 @@ use Frootbox\Core\Container\ContainerFactory;
 use Frootbox\Core\Error\ErrorMiddleware;
 use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Source\ComposerSource;
+use Frootbox\Core\Http\AfterResponse;
 use Frootbox\Core\Http\MiddlewareDispatcher;
 use Frootbox\Core\Http\ResponseEmitter;
 use Frootbox\Core\Install\InstallCommand;
@@ -140,6 +141,19 @@ final readonly class Application
         $request = new ServerRequestCreator($factory, $factory, $factory, $factory)->fromGlobals();
 
         new ResponseEmitter()->emit($this->handle($request));
+
+        // E.g. jobs of the queue without cron (decision 0221).
+        $after = $this->service(AfterResponse::class, AfterResponse::class);
+
+        if ($after->pending()) {
+            ignore_user_abort(true);
+
+            if (\function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
+
+            $after->run();
+        }
     }
 
     /**

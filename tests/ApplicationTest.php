@@ -146,7 +146,10 @@ final class ApplicationTest extends TestCase
         $this->application('prod');
 
         self::assertNotNull($this->project);
-        self::assertFileExists($this->project->root . '/var/cache/container/CompiledContainer.php');
+        // Named after the settings classes, so a new one compiles anew (decision 0221).
+        $files = glob($this->project->root . '/var/cache/container/CompiledContainer*.php');
+        self::assertIsArray($files);
+        self::assertCount(1, $files);
     }
 
     private function application(string $environment): Application

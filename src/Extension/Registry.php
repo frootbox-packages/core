@@ -26,10 +26,13 @@ use Frootbox\Core\Error\ErrorPage;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Queue\Job;
+use Frootbox\Core\Queue\JobClasses;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Schedule\ScheduledType;
 use Frootbox\Core\Search\SearchSource;
 use Frootbox\Core\Search\SearchSources;
+use Frootbox\Core\Settings\SettingsClasses;
 use Frootbox\Core\Url\SubpageSource;
 use Psr\Http\Server\RequestHandlerInterface;
 use Symfony\Component\Console\Command\Command;
@@ -99,6 +102,11 @@ final class Registry
     /** @var list<class-string<ScheduledType>> */
     private array $scheduled = [];
 
+    /** @var array<string, class-string> by package */
+    private array $settings = [];
+
+    private readonly JobClasses $jobs;
+
     /** The folder of the package that is registering, null for the core. */
     private ?string $path = null;
 
@@ -119,6 +127,7 @@ final class Registry
         $this->migrations = new MigrationSources();
         $this->catalog = new Catalog();
         $this->sensitive = new SensitiveColumns();
+        $this->jobs = new JobClasses();
     }
 
     /**
@@ -483,6 +492,40 @@ final class Registry
         }
     }
 
+    /**
+     * The settings of the package: a final readonly class with
+     * #[AsSettings] (decision 0221). It can be injected anywhere and has
+     * the values from the configuration, the backend or its defaults.
+     *
+     * @param class-string $class
+     */
+    public function settings(string $class): void
+    {
+        SettingsClasses::attribute($class);
+        $package = $this->package ?? 'frootbox/core';
+
+        if (isset($this->settings[$package]) && $this->settings[$package] !== $class) {
+            throw new DefinitionException(\sprintf('%s already has the settings %s, a package has one settings class.', $package, $this->settings[$package]));
+        }
+
+        if (false !== ($other = array_search($class, $this->settings, true)) && $other !== $package) {
+            throw new DefinitionException(\sprintf('The settings %s already belong to %s.', $class, $other));
+        }
+
+        $this->settings[$package] = $class;
+    }
+
+    /**
+     * A job for the queue (decision 0221). Its name comes from #[AsJob];
+     * an extension names it "<vendor>/<package>/…".
+     *
+     * @param class-string<Job> $class
+     */
+    public function job(string $class): void
+    {
+        $this->jobs->add($class, $this->package);
+    }
+
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -608,6 +651,16 @@ final class Registry
     public function scheduledTypes(): array
     {
         return $this->scheduled;
+    }
+
+    public function jobClasses(): JobClasses
+    {
+        return $this->jobs;
+    }
+
+    public function settingsClasses(): SettingsClasses
+    {
+        return new SettingsClasses($this->settings);
     }
 
     public function sensitiveColumns(): SensitiveColumns

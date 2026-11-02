@@ -46,6 +46,7 @@ use Frootbox\Core\Console\ExtensionsCommand;
 use Frootbox\Core\Console\MakeExtensionCommand;
 use Frootbox\Core\Console\MigrateCommand;
 use Frootbox\Core\Console\PruneActionLogCommand;
+use Frootbox\Core\Console\QueueRunCommand;
 use Frootbox\Core\Console\ScheduleRunCommand;
 use Frootbox\Core\Console\SeedCommand;
 use Frootbox\Core\Console\UserCreateCommand;
@@ -131,6 +132,10 @@ use Frootbox\Core\Preview\PreviewLinks;
 use Frootbox\Core\Preview\PrunePreviews;
 use Frootbox\Core\Preview\RevokePreview;
 use Frootbox\Core\Preview\UpdatePreview;
+use Frootbox\Core\Queue\DeleteJob;
+use Frootbox\Core\Queue\ListJobs;
+use Frootbox\Core\Queue\RetryJob;
+use Frootbox\Core\Queue\ShowQueueStatus;
 use Frootbox\Core\Search\Search;
 use Frootbox\Core\Search\SearchRebuildCommand;
 use Frootbox\Core\Search\Sources\HelpSource;
@@ -142,6 +147,11 @@ use Frootbox\Core\Search\Sources\RoleSource;
 use Frootbox\Core\Search\Sources\SiteSource;
 use Frootbox\Core\Search\Sources\UserSource;
 use Frootbox\Core\Search\UpdateSearchIndex;
+use Frootbox\Core\Settings\ListSettings;
+use Frootbox\Core\Settings\SetSecret;
+use Frootbox\Core\Settings\ShowSettings;
+use Frootbox\Core\Settings\StoredSettings;
+use Frootbox\Core\Settings\UpdateSettings;
 use Frootbox\Core\Site\DiscardSite;
 use Frootbox\Core\Site\EnterSite;
 use Frootbox\Core\Site\Protections;
@@ -205,6 +215,7 @@ final class CoreExtension implements Extension
         $registry->command(BlocksCheckCommand::class);
         $registry->command(CacheClearCommand::class);
         $registry->command(ScheduleRunCommand::class);
+        $registry->command(QueueRunCommand::class);
         $registry->command(SeedCommand::class);
         $registry->command(MediaPruneCommand::class);
         $registry->command(MediaUsagesCommand::class);
@@ -315,6 +326,17 @@ final class CoreExtension implements Extension
         $registry->get(Previews::ROUTE, PreviewHandler::class, 'previews');
         // Everything the theme brings, for agencies to approve (decision 0205).
         $registry->get(DesignPage::ROUTE, DesignPage::class, 'design');
+
+        // Settings of extensions and the queue (decision 0221).
+        $registry->action(UpdateSettings::class);
+        $registry->action(SetSecret::class);
+        $registry->query(ListSettings::class);
+        $registry->query(ShowSettings::class);
+        $registry->sensitive(StoredSettings::TABLE, 'secret');
+        $registry->query(ListJobs::class);
+        $registry->query(ShowQueueStatus::class);
+        $registry->action(RetryJob::class);
+        $registry->action(DeleteJob::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListLanguages::class);

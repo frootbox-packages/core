@@ -30,7 +30,14 @@ final class ConfigLoader
         $environment = Environment::tryFrom($env['APP_ENV'] ?? Environment::Production->value)
             ?? throw new ConfigException('APP_ENV must be "dev" or "prod".');
 
-        $values = self::resolvePlaceholders(self::readYaml($paths->config('app.yaml')), $env);
+        $values = self::readYaml($paths->config('app.yaml'));
+        $extensions = self::readExtensions($paths);
+
+        if ([] !== $extensions) {
+            $values['extensions'] = [...(\is_array($values['extensions'] ?? null) ? $values['extensions'] : []), ...$extensions];
+        }
+
+        $values = self::resolvePlaceholders($values, $env);
 
         return new Config($environment, $values, $env);
     }
@@ -61,6 +68,25 @@ final class ConfigLoader
         }
 
         return $variables;
+    }
+
+    /**
+     * The settings of extensions in config/extensions/<vendor>/<package>.yaml
+     * (decisions 0093, 0221), by package.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function readExtensions(ProjectPaths $paths): array
+    {
+        $extensions = [];
+
+        $files = glob($paths->config('extensions/*/*.yaml'));
+
+        foreach (false === $files ? [] : $files as $file) {
+            $extensions[basename(\dirname($file)) . '/' . basename($file, '.yaml')] = self::readYaml($file);
+        }
+
+        return $extensions;
     }
 
     /**

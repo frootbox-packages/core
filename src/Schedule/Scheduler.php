@@ -13,6 +13,7 @@ use Doctrine\DBAL\Exception\TableNotFoundException;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Runner;
+use Frootbox\Core\Http\AfterResponse;
 use Frootbox\Core\Page\PageReader;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\SchedulePage;
@@ -20,6 +21,7 @@ use Frootbox\Core\Page\UnpublishPage;
 use Frootbox\Core\Preview\PreviewLinks;
 use Frootbox\Core\Preview\PrunePreviews;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Queue\Worker;
 use Frootbox\Core\Revision\Revisions;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -34,6 +36,9 @@ final readonly class Scheduler
     /** Seconds between two checks from page requests. */
     public const int INTERVAL = 60;
 
+    /** Seconds for jobs after a page request when cron is missing (decision 0221). */
+    public const int REQUEST_BUDGET = 5;
+
     public function __construct(
         private Revisions $revisions,
         private PageReader $pages,
@@ -42,6 +47,9 @@ final readonly class Scheduler
         private LoggerInterface $logger,
         private PreviewLinks $previews,
         private ScheduledTypes $types,
+        private Worker $worker,
+        private CronStatus $cron,
+        private AfterResponse $afterResponse,
     ) {}
 
     /**
@@ -109,7 +117,9 @@ final readonly class Scheduler
 
     /**
      * Runs what is due if the last check from a request was more than a
-     * minute ago. Errors are logged and never stop the request.
+     * minute ago. Errors are logged and never stop the request. Without
+     * cron it also runs jobs of the queue for a few seconds, after the
+     * response was sent.
      */
     public function runIfDue(): void
     {
@@ -136,6 +146,16 @@ final readonly class Scheduler
             // Not migrated yet: nothing can be due.
         } catch (Throwable $error) {
             $this->logger->error('Scheduled publishing failed.', ['exception' => $error]);
+        }
+
+        if (!$this->cron->ranWithin(2 * self::INTERVAL)) {
+            $this->afterResponse->add(function (): void {
+                try {
+                    $this->worker->run(self::REQUEST_BUDGET);
+                } catch (TableNotFoundException) {
+                    // Not migrated yet.
+                }
+            });
         }
     }
 
