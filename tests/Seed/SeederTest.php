@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Tests\Seed;
 
 use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Media\Media;
 use Frootbox\Core\Navigation\ShowNavigation;
 use Frootbox\Core\Page\Pages;
 use Frootbox\Core\ProjectPaths;
@@ -43,6 +44,31 @@ final class SeederTest extends NotesTestCase
         self::assertSame('Mehr über Über uns', $items[0]['label'] ?? null);
     }
 
+    public function testUploadsFilesForTheMedia(): void
+    {
+        $folder = $this->get(ProjectPaths::class)->var('seed');
+        @mkdir($folder . '/media', 0o775, true);
+        $image = imagecreatetruecolor(320, 200);
+        imagefilledrectangle($image, 0, 0, 160, 200, (int) imagecolorallocate($image, 200, 120, 40));
+        imagejpeg($image, $folder . '/media/roastery.jpg', 90);
+        file_put_contents($folder . '/seed.yaml', <<<'YAML'
+            - upload: { file: media/roastery.jpg }
+              as: roastery
+            - media.create: { upload: '${roastery.token}', texts: { de: { alt: Die Rösterei } } }
+              as: medium
+            YAML);
+
+        $seeder = $this->get(Seeder::class);
+        $results = $seeder->run($seeder->read($folder . '/seed.yaml'));
+
+        self::assertIsArray($results['medium']);
+        self::assertIsString($results['medium']['id']);
+        $medium = $this->get(Media::class)->fetchById($results['medium']['id']);
+        self::assertNotNull($medium);
+        self::assertSame(320, $medium->width);
+        self::assertFileExists($folder . '/media/roastery.jpg', 'The seed keeps its file, the upload is a copy.');
+    }
+
     public function testStopsAtTheFirstProblem(): void
     {
         $cases = [
@@ -57,6 +83,8 @@ final class SeederTest extends NotesTestCase
             "- page.gone: {}\n" => 'Step 1 (page.gone) failed: ',
             "- page.show: { id: 01ARZ3NDEKTSV4RRFFQ69G5FAV }\n" => 'Step 1 (page.show) failed: ',
             "- [\n" => 'Malformed',
+            "- upload: { file: gone.jpg }\n" => 'Step 1: There is no file',
+            "- upload: { file: a.jpg, name: b }\n" => 'Step 1: "upload" takes only "file"',
         ];
         $seeder = $this->get(Seeder::class);
         $file = $this->get(ProjectPaths::class)->var('seed.yaml');

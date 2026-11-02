@@ -13,6 +13,7 @@ use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Normalizer;
 use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Media\Uploads;
 use Frootbox\Database\EntityNotFoundException;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
@@ -27,14 +28,26 @@ use Symfony\Component\Yaml\Yaml;
  *
  * "${name.path}" puts in a value from an earlier result: alone in a string
  * it keeps its type, inside a text it becomes text.
+ *
+ * The step "upload" keeps a file like POST /api/v1/uploads and gives its
+ * token, e.g. for media.create; the path is relative to the seed file or
+ * "vendor/package:path":
+ *
+ *     - upload: { file: media/roastery.jpg }
+ *       as: roastery
+ *     - media.create: { upload: '${roastery.token}' }
  */
 final readonly class Seeder
 {
+    /** The step that keeps a file and gives its token. */
+    public const string UPLOAD = 'upload';
+
     private const string NAME = '[A-Za-z0-9_-]+';
 
     public function __construct(
         private Runner $runner,
         private Extensions $extensions,
+        private Uploads $uploads,
     ) {}
 
     /**
@@ -76,7 +89,13 @@ final readonly class Seeder
         $steps = [];
 
         foreach ($data as $index => $step) {
-            $steps[] = self::step($step, $index + 1);
+            $step = self::step($step, $index + 1);
+
+            if (self::UPLOAD === $step[0]) {
+                $step[1] = ['file' => $this->upload($step[1], \dirname($file), $index + 1)];
+            }
+
+            $steps[] = $step;
         }
 
         return $steps;
@@ -110,7 +129,7 @@ final readonly class Seeder
                     $map[$key] = self::fill($value, $results, $number);
                 }
 
-                $result = Normalizer::normalize($this->runner->call($name, $map));
+                $result = self::UPLOAD === $name ? $this->store($map) : Normalizer::normalize($this->runner->call($name, $map));
             } catch (InvalidInputException $error) {
                 throw new SeedException(\sprintf(
                     "Step %d (%s) has invalid input:\n%s",
@@ -128,6 +147,46 @@ final readonly class Seeder
         }
 
         return $results;
+    }
+
+    /**
+     * Keeps the file of an upload step, a copy, and gives its token.
+     *
+     * @param array<string, mixed> $input
+     *
+     * @return array{token: string}
+     */
+    private function store(array $input): array
+    {
+        $file = $input['file'] ?? null;
+
+        if (!\is_string($file)) {
+            throw new SeedException('An upload needs a file.');
+        }
+
+        return ['token' => $this->uploads->store($file, basename($file), move: false)];
+    }
+
+    /**
+     * The file of an upload step.
+     *
+     * @param array<string, mixed> $input
+     *
+     * @throws SeedException
+     */
+    private function upload(array $input, string $directory, int $number): string
+    {
+        $file = $input['file'] ?? null;
+
+        if (!\is_string($file) || '' === $file || 1 !== \count($input)) {
+            throw new SeedException(\sprintf('Step %d: "upload" takes only "file", e.g. "upload: { file: media/roastery.jpg }".', $number));
+        }
+
+        try {
+            return $this->file($file, $directory);
+        } catch (SeedException $error) {
+            throw new SeedException(\sprintf('Step %d: %s', $number, $error->getMessage()), previous: $error);
+        }
     }
 
     /**
