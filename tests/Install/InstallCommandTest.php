@@ -12,6 +12,7 @@ use Frootbox\Core\Account\SignIn;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Application;
+use Frootbox\Core\Frootbox;
 use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Install\Installer;
 use Frootbox\Core\ProjectPaths;
@@ -182,6 +183,14 @@ final class InstallCommandTest extends TestCase
         self::assertSame(20, \strlen(Installer::generatePassword()));
         self::assertNotSame(Installer::generatePassword(), Installer::generatePassword());
         self::assertSame([], new Installer(new ProjectPaths($this->project->root))->problems(Installer::DEFAULT_DATABASE_URL, writesDotenv: true));
+    }
+
+    public function testRejectsOldSqliteAndSqliteWithoutJson(): void
+    {
+        self::assertNull(Installer::sqliteProblem('3.47.0', json: true));
+        self::assertNull(Installer::sqliteProblem(Frootbox::MINIMUM_SQLITE_VERSION, json: true));
+        self::assertStringContainsString('SQLite 3.34.0 or newer', (string) Installer::sqliteProblem('3.31.1', json: true));
+        self::assertStringContainsString('no JSON functions', (string) Installer::sqliteProblem('3.40.1', json: false));
     }
 
     /**

@@ -8,17 +8,22 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Tests\Database;
 
+use Doctrine\DBAL\Exception\LockWaitTimeoutException;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Database\ConnectionFactory;
+use Frootbox\Core\Database\SqliteSettings;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Tests\Support\TemporaryProject;
+use PDO;
+use Pdo\Sqlite;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(ConnectionFactory::class)]
+#[CoversClass(SqliteSettings::class)]
 #[UsesClass(Config::class)]
 #[UsesClass(ProjectPaths::class)]
 final class ConnectionFactoryTest extends TestCase
@@ -39,6 +44,44 @@ final class ConnectionFactoryTest extends TestCase
 
         $connection->executeQuery('SELECT 1');
         self::assertFileExists($this->paths()->storage('database.sqlite'));
+    }
+
+    public function testPreparesSqliteForSeveralVisitorsAtOnce(): void
+    {
+        $connection = ConnectionFactory::create($this->config('pdo-sqlite:///storage/database.sqlite'), $this->paths());
+
+        self::assertSame('wal', $connection->fetchOne('PRAGMA journal_mode'));
+        self::assertSame(1, $connection->fetchOne('PRAGMA synchronous'));
+        self::assertSame(SqliteSettings::BUSY_TIMEOUT_MS, $connection->fetchOne('PRAGMA busy_timeout'));
+
+        $pdo = $connection->getNativeConnection();
+        self::assertInstanceOf(PDO::class, $pdo);
+        self::assertSame(Sqlite::TRANSACTION_MODE_IMMEDIATE, $pdo->getAttribute(Sqlite::ATTR_TRANSACTION_MODE));
+    }
+
+    public function testSecondWriterWaitsInsteadOfFailing(): void
+    {
+        $first = ConnectionFactory::create($this->config('pdo-sqlite:///storage/database.sqlite'), $this->paths());
+        $second = ConnectionFactory::create($this->config('pdo-sqlite:///storage/database.sqlite'), $this->paths());
+        $first->executeStatement('CREATE TABLE notes (id INTEGER)');
+
+        // The second reads, then wants to write, while the first holds the
+        // write lock. Deferred, it would fail at once; immediate, it waits.
+        $first->beginTransaction();
+        $first->executeStatement('INSERT INTO notes VALUES (1)');
+        $second->executeStatement('PRAGMA busy_timeout = 50');
+
+        try {
+            $second->beginTransaction();
+            self::fail('The second transaction should wait for the lock.');
+        } catch (LockWaitTimeoutException) {
+        }
+
+        $first->commit();
+        $second->beginTransaction();
+        self::assertSame(1, $second->fetchOne('SELECT COUNT(*) FROM notes'));
+        $second->executeStatement('INSERT INTO notes VALUES (2)');
+        $second->commit();
     }
 
     public function testKeepsAbsoluteSqlitePath(): void

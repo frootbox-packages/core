@@ -25,7 +25,8 @@ use Frootbox\Core\ProjectPaths;
  *   pdo-mysql://user:secret@localhost:3306/frootbox
  *
  * The connection opens lazily on the first query. With a Journal, the
- * WriteGuard watches for writes that bypass the repositories.
+ * WriteGuard watches for writes that bypass the repositories. SQLite gets
+ * the settings for a live website (SqliteSettings).
  */
 final class ConnectionFactory
 {
@@ -38,16 +39,24 @@ final class ConnectionFactory
         }
 
         $params = new DsnParser()->parse($url);
+        $sqlite = \in_array($params['driver'] ?? null, ['pdo_sqlite', 'sqlite3'], true);
 
-        if (isset($params['path']) && \in_array($params['driver'] ?? null, ['pdo_sqlite', 'sqlite3'], true) && !str_starts_with($params['path'], '/')) {
+        if ($sqlite && isset($params['path']) && !str_starts_with($params['path'], '/')) {
             $params['path'] = $paths->root . '/' . $params['path'];
         }
 
-        $configuration = new Configuration();
+        $middlewares = [];
 
         if (null !== $journal) {
-            $configuration->setMiddlewares([new WriteGuard($journal)]);
+            $middlewares[] = new WriteGuard($journal);
         }
+
+        if ($sqlite) {
+            $middlewares[] = new SqliteSettings();
+        }
+
+        $configuration = new Configuration();
+        $configuration->setMiddlewares($middlewares);
 
         return DriverManager::getConnection($params, $configuration);
     }

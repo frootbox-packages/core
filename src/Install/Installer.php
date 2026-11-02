@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Install;
 
+use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Database\ConnectionFactory;
@@ -79,7 +81,8 @@ final readonly class Installer
     }
 
     /**
-     * Connects once, so a wrong URL is noticed before anything is written.
+     * Connects once, so a wrong URL or a too old SQLite is noticed before
+     * anything is written.
      *
      * @return string|null The error, or null if the connection works
      */
@@ -88,9 +91,39 @@ final readonly class Installer
         try {
             $connection = ConnectionFactory::create(new Config(Environment::Production, ['database' => ['url' => $databaseUrl]]), $this->paths);
             $connection->executeQuery('SELECT 1');
+            $problem = null;
+
+            if ($connection->getDatabasePlatform() instanceof SQLitePlatform) {
+                $version = $connection->fetchOne('SELECT sqlite_version()');
+
+                try {
+                    $json = 1 === $connection->fetchOne("SELECT json_valid('{}')");
+                } catch (DbalException) {
+                    $json = false;
+                }
+
+                $problem = self::sqliteProblem(\is_string($version) ? $version : '0', $json);
+            }
+
             $connection->close();
         } catch (Throwable $error) {
             return $error->getMessage();
+        }
+
+        return $problem;
+    }
+
+    /**
+     * What is wrong with the SQLite library of PHP, null if nothing.
+     */
+    public static function sqliteProblem(string $version, bool $json): ?string
+    {
+        if (version_compare($version, Frootbox::MINIMUM_SQLITE_VERSION, '<')) {
+            return \sprintf('Frootbox needs SQLite %s or newer, PHP uses SQLite %s. Ask your host for a newer one or use MySQL/MariaDB.', Frootbox::MINIMUM_SQLITE_VERSION, $version);
+        }
+
+        if (!$json) {
+            return 'The SQLite library of PHP has no JSON functions. Ask your host for a build with JSON or use MySQL/MariaDB.';
         }
 
         return null;
