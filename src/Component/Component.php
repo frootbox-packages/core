@@ -53,6 +53,17 @@ final readonly class Component
         public ?string $controllerFile = null,
     ) {}
 
+    /**
+     * The same component with other variants, e.g. with the choices of
+     * their options filled in.
+     *
+     * @param array<string, Variant> $variants
+     */
+    public function withVariants(array $variants): self
+    {
+        return new self($this->kind, $this->name, $this->path, $this->title, $this->description, $this->fields, $this->areas, $variants, $this->assets, $this->widget, $this->group, $this->keywords, $this->previews, $this->tailored, $this->examples, $this->query, $this->controller, $this->controllerFile);
+    }
+
     public function package(): string
     {
         return ComponentName::package($this->name);

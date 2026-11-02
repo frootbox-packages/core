@@ -57,6 +57,7 @@ final readonly class DefinitionReader
         'description' => ['type' => 'string'],
         'default' => ['type' => ['string', 'number', 'boolean']],
         'choices' => self::ANY_MAP,
+        'source' => ['type' => 'string', 'pattern' => '^(?:[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*/)?[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$'],
         'min' => ['type' => 'number'],
         'max' => ['type' => 'number'],
     ];
@@ -171,8 +172,15 @@ final readonly class DefinitionReader
 
             $type = self::string($definition['type']) ?? 'text';
             $choices = $definition['choices'] ?? [];
+            $source = self::string($definition['source'] ?? null);
 
-            if ('choice' === $type && (!\is_array($choices) || [] === $choices || !array_all($choices, static fn(mixed $label): bool => \is_string($label)))) {
+            if (null !== $source && 'choice' !== $type) {
+                $errors->add($where, $path . '.source', 'is only for options of type choice');
+
+                continue;
+            }
+
+            if ('choice' === $type && null === $source && (!\is_array($choices) || [] === $choices || !array_all($choices, static fn(mixed $label): bool => \is_string($label)))) {
                 $errors->add($where, $path . '.choices', 'must list the values with their labels, e.g. { 400: Standard, 550: High }');
 
                 continue;
@@ -187,6 +195,7 @@ final readonly class DefinitionReader
                 'choice' === $type ? self::labels($choices) : [],
                 self::number($definition['min'] ?? null),
                 self::number($definition['max'] ?? null),
+                $source,
             );
 
             if (!$option->accepts($option->default)) {

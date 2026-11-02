@@ -21,6 +21,7 @@ final class NotesExtension implements Extension
 
         $registry->query(ListNotes::class);
         $registry->query(WriteInQuery::class);
+        $registry->query(NoteChoices::class);
         $registry->scope('note', NoteScopes::class);
         $registry->migrations('Frootbox\Core\Tests\Fixtures\Notes\Migrations', __DIR__ . '/Migrations');
     }

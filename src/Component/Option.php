@@ -17,6 +17,10 @@ namespace Frootbox\Core\Component;
  *         type: choice
  *         choices: { 400: Standard, 550: High }
  *         default: 400
+ *
+ * A choice can come from a query of an extension instead, e.g. the forms
+ * (decision 0222): source: frootbox/forms/form.choices. The query returns
+ * a list of {value, label}; the value is kept as text.
  */
 final readonly class Option
 {
@@ -34,7 +38,19 @@ final readonly class Option
         public array $choices = [],
         public int|float|null $min = null,
         public int|float|null $max = null,
+        /** The query with the choices, e.g. "frootbox/forms/form.choices" */
+        public ?string $source = null,
     ) {}
+
+    /**
+     * The same option with other choices, e.g. from its source.
+     *
+     * @param array<int|string, string> $choices
+     */
+    public function withChoices(array $choices): self
+    {
+        return new self($this->name, $this->type, $this->label, $this->default, $this->description, $choices, $this->min, $this->max, $this->source);
+    }
 
     /**
      * The value if it fits, otherwise the default.
@@ -47,7 +63,9 @@ final readonly class Option
     public function accepts(mixed $value): bool
     {
         return match ($this->type) {
-            'choice' => (\is_string($value) || \is_int($value)) && \array_key_exists($value, $this->choices),
+            'choice' => null !== $this->source
+                ? \is_string($value) && \strlen($value) <= 100
+                : (\is_string($value) || \is_int($value)) && \array_key_exists($value, $this->choices),
             'boolean' => \is_bool($value),
             'number' => (\is_int($value) || \is_float($value)) && (null === $this->min || $value >= $this->min) && (null === $this->max || $value <= $this->max),
             default => \is_string($value),
@@ -62,7 +80,7 @@ final readonly class Option
     public function valueSchema(): array
     {
         return match ($this->type) {
-            'choice' => ['enum' => array_keys($this->choices)],
+            'choice' => null !== $this->source ? ['type' => 'string', 'maxLength' => 100] : ['enum' => array_keys($this->choices)],
             'boolean' => ['type' => 'boolean'],
             'number' => ['type' => 'number', ...(null === $this->min ? [] : ['minimum' => $this->min]), ...(null === $this->max ? [] : ['maximum' => $this->max])],
             default => ['type' => 'string', 'maxLength' => 500],
@@ -74,7 +92,7 @@ final readonly class Option
      */
     private function normalize(string|int|float|bool $value): string|int|float|bool
     {
-        if ('choice' !== $this->type) {
+        if ('choice' !== $this->type || null !== $this->source) {
             return $value;
         }
 

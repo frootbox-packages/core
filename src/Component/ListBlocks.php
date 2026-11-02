@@ -36,9 +36,9 @@ final readonly class ListBlocks implements Query, Scoped
     /**
      * @return list<BlockSummary>
      */
-    public function handle(Components $components, Labels $labels): array
+    public function handle(Components $components, Labels $labels, OptionChoices $choices): array
     {
-        $blocks = array_map(static fn(Component $block): BlockSummary => BlockSummary::of($labels->component($block), offered: $components->offers(ComponentKind::Block, $block->name)), array_values($components->all(ComponentKind::Block)));
+        $blocks = array_map(static fn(Component $block): BlockSummary => BlockSummary::of($choices->fill($labels->component($block)), offered: $components->offers(ComponentKind::Block, $block->name)), array_values($components->all(ComponentKind::Block)));
         usort($blocks, static fn(BlockSummary $a, BlockSummary $b): int => [$a->title, $a->name] <=> [$b->title, $b->name]);
 
         return $blocks;

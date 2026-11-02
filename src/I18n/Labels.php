@@ -115,6 +115,7 @@ final class Labels
             array_map(fn(string $label): string => $this->text($label, $package), $option->choices),
             $option->min,
             $option->max,
+            $option->source,
         ), $variant->options);
 
         return new Variant($variant->name, $this->text($variant->title, $package), $this->text($variant->description, $package), $options, $variant->template, $variant->from);
