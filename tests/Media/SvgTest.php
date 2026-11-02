@@ -158,6 +158,6 @@ final class SvgTest extends TestCase
     {
         $inline = Svg::inline('<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" role="img" aria-label="x"><path d="M0 0"/></svg>', 'p');
 
-        self::assertSame('<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" data-fb-svg="p"><path d="M0 0"/></svg>', $inline);
+        self::assertSame('<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"><path d="M0 0"/></svg>', $inline);
     }
 }

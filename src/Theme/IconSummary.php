@@ -20,5 +20,7 @@ final readonly class IconSummary
         public string $label,
         /** The markup the page gets */
         public string $svg,
+        /** The set it belongs to, e.g. "theme" */
+        public string $set,
     ) {}
 }

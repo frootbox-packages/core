@@ -10,21 +10,22 @@ namespace Frootbox\Core\Field\Types;
 
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
-use Frootbox\Core\Field\FieldType;
+use Frootbox\Core\Field\ReferencesMedia;
 use Frootbox\Core\Theme\Icons;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Twig\Markup;
 
 /**
- * A symbol of the theme by its name, e.g. "truck" (decision 0179). The
- * theme brings the symbols as SVG files in icons/.
+ * A symbol by its name (decisions 0179, 0182): one of the theme like
+ * "truck", one of an extension like "acme/fontawesome/solid/truck" or
+ * an SVG graphic of the media library like "media:01J…".
  *
  * {{ field('icon') }} gives the SVG inline, hidden from screen readers.
- * A name the theme no longer has gives nothing.
+ * A symbol that is gone gives nothing.
  */
-#[AsFieldType('icon', 'A symbol of the theme, e.g. a truck for delivery')]
-final readonly class IconType implements FieldType
+#[AsFieldType('icon', 'A symbol, e.g. a truck for delivery')]
+final readonly class IconType implements ReferencesMedia
 {
     /**
      * @param ContainerInterface $container The symbols are loaded on first use
@@ -38,14 +39,22 @@ final readonly class IconType implements FieldType
 
     public function valueSchema(Field $field): array
     {
-        return ['type' => 'string', 'maxLength' => 64, 'pattern' => Icons::PATTERN];
+        return ['type' => 'string', 'maxLength' => 200, 'pattern' => Icons::PATTERN];
     }
 
     public function validate(mixed $value, Field $field): array
     {
-        return \is_string($value) && !$this->icons()->has($value)
-            ? ['' => \sprintf('names no symbol of the theme. Known are: %s.', implode(', ', $this->icons()->names()))]
+        // A graphic deleted later must not keep the page from being saved.
+        return \is_string($value) && null === Icons::mediumId($value) && !$this->icons()->has($value)
+            ? ['' => 'names no symbol that is installed. icon.list tells the available ones.']
             : [];
+    }
+
+    public function media(mixed $value, Field $field): array
+    {
+        $id = \is_string($value) ? Icons::mediumId($value) : null;
+
+        return null === $id ? [] : [$id];
     }
 
     public function output(mixed $value, Field $field): Markup|string

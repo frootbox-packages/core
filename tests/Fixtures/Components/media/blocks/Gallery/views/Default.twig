@@ -5,10 +5,11 @@ fields:
   hero: { type: image, eager: true, optional: true }
   clip: { type: video, optional: true }
   download: { type: file, optional: true }
+  symbol: { type: icon, optional: true }
   pictures:
     type: list
     optional: true
     fields:
       picture: { type: image }
 #}
-<div class="gallery">{{ field('cover') }}{{ field('hero') }}{{ field('clip') }}{{ field('download') }}{% for entry in field('pictures') %}{{ entry.field('picture') }}{% endfor %}</div>
+<div class="gallery">{{ field('cover') }}{{ field('hero') }}{{ field('clip') }}{{ field('download') }}{{ field('symbol') }}{% for entry in field('pictures') %}{{ entry.field('picture') }}{% endfor %}</div>

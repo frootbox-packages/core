@@ -1,0 +1,1 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><style>.flame{fill:orange}</style><defs><clipPath id="body"><rect width="24" height="24"/></clipPath></defs><path class="flame" clip-path="url(#body)" d="M12 2l4 10H8z"/><script>alert(1)</script></svg>

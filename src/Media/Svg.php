@@ -224,7 +224,10 @@ final class Svg
             }
         }
 
-        $root->setAttribute('data-fb-svg', $prefix);
+        // Only rules of its own need the graphic to be told apart.
+        if ([] !== $styles) {
+            $root->setAttribute('data-fb-svg', $prefix);
+        }
 
         foreach ($styles as $style) {
             $css = self::scope(self::renameCss($style->textContent, $ids, $classes, $prefix), '[data-fb-svg="' . $prefix . '"]');

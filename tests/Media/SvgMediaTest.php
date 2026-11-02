@@ -86,6 +86,15 @@ final class SvgMediaTest extends NotesTestCase
         self::assertStringNotContainsString('srcset', $html);
     }
 
+    public function testShowsAnSvgAsASymbolInTheColorOfTheText(): void
+    {
+        $logo = $this->upload('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5"/></svg>', 'punkt.svg');
+        $html = $this->publishWith(['symbol' => 'media:' . $logo->id]);
+
+        self::assertStringContainsString('<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>', $html);
+        self::assertTrue($this->get(Media::class)->getById($logo->id)->public, 'Published with the page that shows it.');
+    }
+
     public function testDeliversAnSvgThatCannotRun(): void
     {
         $logo = $this->upload(self::LOGO, 'logo.svg');
