@@ -38,6 +38,12 @@ final readonly class CommentThread
         public ?int $viewport,
         /** The element of the design page, e.g. "tokens", instead of a page (decision 0210) */
         public ?string $design,
+        /** The landmark of the page, e.g. "banner#1", where nothing else is marked (decision 0211) */
+        public ?string $landmark,
+        /** Where in the place, in thousandths of its width from the start edge, null for its corner (decision 0211) */
+        public ?int $pointX,
+        /** In thousandths of its height from the top */
+        public ?int $pointY,
         public CommentEntry $comment,
         public array $replies,
         public ?DateTimeImmutable $resolvedAt,

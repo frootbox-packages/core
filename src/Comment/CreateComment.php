@@ -18,11 +18,12 @@ use Frootbox\Database\Ulid;
 
 /**
  * Opens a thread on a page, a block or a field, also for guests with a
- * preview link (decision 0156).
+ * preview link (decision 0156), or on a landmark and at a point of the
+ * place (decision 0211).
  *
  * @implements Action<CommentThread>
  */
-#[AsAction('comment.create', 'Comments on a page, a block or a field, or on an element of the design page, and opens a thread; guests with a preview link give their name', preview: true)]
+#[AsAction('comment.create', 'Comments on a page, a block, a field or a landmark such as the footer, or on an element of the design page, optionally at a point of it, and opens a thread; guests with a preview link give their name', preview: true)]
 final readonly class CreateComment implements Action
 {
     public function __construct(
@@ -58,7 +59,18 @@ final readonly class CreateComment implements Action
         #[Description('The element of the design page /_design instead of a page, e.g. "tokens", "frootbox/theme-base/Hero/Split/1" or "page" for all of it')]
         #[Pattern(self::DESIGN)]
         public ?string $design = null,
+        #[Description('The landmark of the page where no block or field is, e.g. "banner#1", "navigation#2:Footer" or "contentinfo#1"')]
+        #[Pattern(self::LANDMARK)]
+        public ?string $landmark = null,
+        #[Description('Where in the place, in thousandths of its width from its start edge in the direction of reading')]
+        #[Range(min: 0, max: 1000)]
+        public ?int $pointX = null,
+        #[Description('Where in the place, in thousandths of its height from the top')]
+        #[Range(min: 0, max: 1000)]
+        public ?int $pointY = null,
     ) {}
+
+    public const string LANDMARK = '^(banner|contentinfo|navigation|complementary|main)#[1-9][0-9]{0,2}(:.{1,200})?$';
 
     public const string DESIGN = '^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+){0,7}$';
 
@@ -77,6 +89,9 @@ final readonly class CreateComment implements Action
             'excerpt' => $this->excerpt,
             'viewport' => $this->viewport,
             'design' => $this->design,
+            'landmark' => $this->landmark,
+            'pointX' => $this->pointX,
+            'pointY' => $this->pointY,
         ], $this->body, $this->authorName);
     }
 }

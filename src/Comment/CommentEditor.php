@@ -49,8 +49,10 @@ final readonly class CommentEditor
 
     /**
      * On a page, or with $design on an element of the design page (decision 0210).
+     * A landmark stands in for the place where nothing else is marked, and
+     * a point says where in the place (decision 0211).
      *
-     * @param array{language?: ?string, path?: ?string, blockId?: ?string, field?: ?string, site?: bool, excerpt?: ?string, viewport?: ?int, design?: ?string} $place
+     * @param array{language?: ?string, path?: ?string, blockId?: ?string, field?: ?string, site?: bool, excerpt?: ?string, viewport?: ?int, design?: ?string, landmark?: ?string, pointX?: ?int, pointY?: ?int} $place
      *
      * @throws InvalidInputException
      * @throws TooManyAttemptsException
@@ -58,10 +60,17 @@ final readonly class CommentEditor
     public function create(string $action, ?string $pageId, array $place, string $body, ?string $authorName): CommentThread
     {
         $design = $place['design'] ?? null;
+        $landmark = $place['landmark'] ?? null;
+        [$x, $y] = [$place['pointX'] ?? null, $place['pointY'] ?? null];
         $errors = match (true) {
             null === $pageId && null === $design => ['/pageId' => new Message('needs a page or an element of the design page.')],
             null !== $pageId && null !== $design => ['/design' => new Message('is only for comments without a page.')],
             null !== $pageId && null === $this->pages->draft($pageId) && null === $this->pages->published($pageId) => ['/pageId' => new Message('is not a page.')],
+            default => [],
+        };
+        $errors += match (true) {
+            null !== $landmark && (null !== ($place['blockId'] ?? null) || null !== ($place['field'] ?? null) || (null !== $design && Comments::WHOLE_DESIGN_PAGE !== $design)) => ['/landmark' => new Message('is only for places without a block, a field or an element of the design page.')],
+            (null === $x) !== (null === $y) => [null === $x ? '/pointX' : '/pointY' => new Message('goes only together with pointX and pointY.')],
             default => [],
         };
         $author = $this->author($action, $body, $authorName, $errors);
@@ -78,6 +87,9 @@ final readonly class CommentEditor
             'excerpt' => null === $excerpt ? null : mb_substr($excerpt, 0, self::MAX_EXCERPT),
             'viewport' => $place['viewport'] ?? null,
             'design' => $design,
+            'landmark' => $landmark,
+            'point_x' => $x,
+            'point_y' => $y,
             'status' => CommentStatus::Open,
         ]);
 
@@ -300,6 +312,9 @@ final readonly class CommentEditor
             $thread->excerpt,
             $thread->viewport,
             $thread->design,
+            $thread->landmark,
+            $thread->pointX,
+            $thread->pointY,
             self::entry($thread),
             array_map(self::entry(...), $replies),
             $thread->resolvedAt,

@@ -18,6 +18,9 @@ final class Comments extends Repository
 {
     public const string TABLE = 'comments';
 
+    /** The key of a comment on all of the design page (decision 0210). */
+    public const string WHOLE_DESIGN_PAGE = 'page';
+
     /**
      * The first comments of the threads, newest first.
      *

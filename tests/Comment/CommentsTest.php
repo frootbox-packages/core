@@ -120,6 +120,34 @@ final class CommentsTest extends NotesTestCase
         }
     }
 
+    public function testAGuestCommentsAtAPointAndOnALandmark(): void
+    {
+        // Decision 0211: a point in a block, and the footer where no block is.
+        $point = $this->runner()->run(new CreateComment('Der Button ist zu klein.', $this->page, 'Frau Müller', 'b1', excerpt: 'Zum Shop', pointX: 875, pointY: 120), $this->customer);
+        $footer = $this->runner()->run(new CreateComment('Fehlt hier die Adresse?', $this->page, 'Frau Müller', landmark: 'navigation#2:Fußnavigation', pointX: 0, pointY: 1000), $this->customer);
+        $design = $this->runner()->run(new CreateComment('Logo größer', authorName: 'Agentur', design: 'page', landmark: 'banner#1'), $this->customer);
+
+        self::assertSame([875, 120, null], [$point->pointX, $point->pointY, $point->landmark]);
+        self::assertSame(['navigation#2:Fußnavigation', 0, 1000, null], [$footer->landmark, $footer->pointX, $footer->pointY, $footer->blockId]);
+        self::assertSame('banner#1', $design->landmark);
+
+        $wrong = [
+            '/landmark' => new CreateComment('Beides', $this->page, 'Frau Müller', 'b1', landmark: 'banner#1'),
+            '/landmark ' => new CreateComment('Am Element', authorName: 'Agentur', design: 'tokens', landmark: 'banner#1'),
+            '/pointY' => new CreateComment('Halb', $this->page, 'Frau Müller', pointX: 10),
+            '/pointX' => new CreateComment('Zu weit', $this->page, 'Frau Müller', pointX: 1001, pointY: 10),
+        ];
+
+        foreach ($wrong as $pointer => $action) {
+            try {
+                $this->runner()->run($action, $this->customer);
+                self::fail('Accepted: ' . $pointer);
+            } catch (InvalidInputException $error) {
+                self::assertArrayHasKey(trim($pointer), $error->errors);
+            }
+        }
+    }
+
     public function testAGuestSeesOnlyTheThreadsOfTheirLink(): void
     {
         $mine = $this->comment('Text zu lang', $this->customer);
