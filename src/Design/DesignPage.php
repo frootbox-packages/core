@@ -36,6 +36,7 @@ use Frootbox\Core\View\Delivery;
 use Frootbox\Core\View\Document;
 use Frootbox\Core\View\FileLoader;
 use Frootbox\Core\View\Head;
+use Frootbox\Core\View\JumpMarks;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -112,6 +113,7 @@ final readonly class DesignPage implements RequestHandlerInterface
         private ExampleContent $examples,
         private EditMode $editMode,
         private Delivery $delivery,
+        private JumpMarks $jumpMarks,
         private Document $document,
         private Twig $twig,
         private Gate $gate,
@@ -144,6 +146,13 @@ final readonly class DesignPage implements RequestHandlerInterface
         $title = $t('Design');
 
         $html = $this->renderer->layout(Instance::fromArray(['layout' => $layout->name, 'fields' => $this->layoutFields($layout, $title, $t('Everything this website is made of, in the draft.'))], ComponentKind::Layout), $assets, $title);
+        // Each example renders alone; a jump bar among them leads to the
+        // sections of this page instead (decision 0213).
+        $this->jumpMarks->standIn(array_map(
+            static fn(string $id, string $label): array => ['id' => 'fb-design-' . $id, 'label' => $label],
+            ['tokens', 'elements', 'richtext', 'blocks'],
+            [$t('Tokens'), $t('Basic elements'), $t('Rich text'), $t('Blocks')],
+        ));
         $body = $this->twig->render(self::TEMPLATE, [
             't' => $t,
             'tokens' => $this->tokenGroups($t),
@@ -152,6 +161,7 @@ final readonly class DesignPage implements RequestHandlerInterface
             'parts' => $this->parts($language),
             'groups' => $this->blocks($assets, $language, $t, $view['frames']),
         ]);
+        $this->jumpMarks->standIn([]);
         $html = self::intoMain($html, $body);
 
         $head = new Head($language->code, $title . ' – ' . $this->config->string('app.name', 'Frootbox'), direction: $view['direction'] ?? $language->direction->value);

@@ -56,4 +56,20 @@ final class JumpMarksTest extends TestCase
         self::assertSame([['id' => 'team', 'label' => 'Team']], $marks->all());
         self::assertNull($marks->id($first));
     }
+
+    public function testStandInMarksFillInForABlockAlone(): void
+    {
+        // Decision 0213: blocks of the design page render one by one.
+        $marks = new JumpMarks();
+        $marks->standIn([['id' => 'fb-design-tokens', 'label' => 'Tokens']]);
+        $marks->collect(Instance::fromArray(['block' => 'acme/site/JumpBar']));
+        self::assertSame([['id' => 'fb-design-tokens', 'label' => 'Tokens']], $marks->all());
+
+        $marks->collect(Instance::fromArray(['block' => 'acme/site/Section', 'options' => ['jumpMark' => 'Team']]));
+        self::assertSame([['id' => 'team', 'label' => 'Team']], $marks->all(), 'Marks of its own come first.');
+
+        $marks->standIn([]);
+        $marks->collect(Instance::fromArray(['block' => 'acme/site/JumpBar']));
+        self::assertSame([], $marks->all());
+    }
 }

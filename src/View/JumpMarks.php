@@ -32,6 +32,9 @@ final class JumpMarks
     /** @var WeakMap<Instance, string> */
     private WeakMap $ids;
 
+    /** @var list<array{id: string, label: string}> */
+    private array $standIn = [];
+
     public function __construct()
     {
         $this->ids = new WeakMap();
@@ -58,11 +61,26 @@ final class JumpMarks
     }
 
     /**
+     * The marks of the page, or those standing in for it when a block
+     * has none around it.
+     *
      * @return list<array{id: string, label: string}>
      */
     public function all(): array
     {
-        return $this->marks;
+        return [] === $this->marks ? $this->standIn : $this->marks;
+    }
+
+    /**
+     * Marks for blocks that render one by one, outside of a page: the
+     * design page gives its own sections, so its jump bar has places to
+     * go to (decision 0213). An empty list ends it.
+     *
+     * @param list<array{id: string, label: string}> $marks
+     */
+    public function standIn(array $marks): void
+    {
+        $this->standIn = $marks;
     }
 
     /**
