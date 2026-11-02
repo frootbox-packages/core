@@ -41,6 +41,7 @@ final readonly class Scheduler
         private ProjectPaths $paths,
         private LoggerInterface $logger,
         private PreviewLinks $previews,
+        private ScheduledTypes $types,
     ) {}
 
     /**
@@ -62,9 +63,34 @@ final readonly class Scheduler
             }
         }
 
-        foreach ($due['publish'] + $due['unpublish'] as $type => $ids) {
-            if (PageReader::TYPE !== $type) {
-                $failed[] = \sprintf('%s: no schedule for this type yet (%s)', $type, implode(', ', $ids));
+        // Objects of plugins with their own actions (decision 0219).
+        foreach (['publish' => $due['publish'], 'unpublish' => $due['unpublish']] as $what => $types) {
+            foreach ($types as $type => $ids) {
+                if (PageReader::TYPE === $type || [] === $ids) {
+                    continue;
+                }
+
+                $scheduled = $this->types->get($type);
+
+                if (null === $scheduled) {
+                    $failed[] = \sprintf('%s: no schedule for this type (%s)', $type, implode(', ', $ids));
+
+                    continue;
+                }
+
+                foreach ('publish' === $what ? [$ids] : array_map(static fn(string $id): array => [$id], $ids) as $batch) {
+                    try {
+                        $this->runner->run('publish' === $what ? $scheduled->publish($batch) : $scheduled->unpublish($batch[0]), Context::system());
+
+                        if ('publish' === $what) {
+                            array_push($published['done'], ...$batch);
+                        } else {
+                            array_push($unpublished, ...$batch);
+                        }
+                    } catch (Throwable $error) {
+                        $failed[] = \sprintf('%s %s: %s', $type, implode(', ', $batch), $error->getMessage());
+                    }
+                }
             }
         }
 

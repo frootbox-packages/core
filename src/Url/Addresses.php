@@ -34,6 +34,15 @@ final class Addresses extends Repository
     }
 
     /**
+     * The address of an object of a plugin below its base page (decision
+     * 0219), the current one or the latest earlier one.
+     */
+    public function below(string $language, string $basePageId, string $path, bool $current = true): ?Address
+    {
+        return $this->fetchOne(['where' => ['language' => $language, 'basePageId' => $basePageId, 'path' => $path, 'current' => $current], 'order' => 'id desc']);
+    }
+
+    /**
      * The current addresses of a target by language.
      *
      * @return array<string, Address>

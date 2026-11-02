@@ -16,5 +16,12 @@ use Frootbox\Core\Extension\Registry;
  */
 final class PluginExtension implements Extension
 {
-    public function register(Registry $registry): void {}
+    public function register(Registry $registry): void
+    {
+        $registry->action(SaveItem::class);
+        $registry->action(PublishItems::class);
+        $registry->action(UnpublishItem::class);
+        $registry->subpages(ItemPages::class);
+        $registry->scheduled(ItemSchedule::class);
+    }
 }

@@ -13,13 +13,15 @@ use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\PageResolver;
+use Frootbox\Core\Page\ResolvedPage;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
 
 /**
  * Finds what a request path leads to (decision 0105), in this order:
- * the current address of a page, a manual redirect, an earlier address
- * (301 to the current one, 410 if the target is gone), nothing.
+ * the current address of a page, an object of a plugin below a page
+ * (decision 0219), a manual redirect, an earlier address (301 to the
+ * current one, 410 if the target is gone), nothing.
  *
  * The language comes from the domain and the prefix. "/" without a
  * language for it goes to the best language for Accept-Language (302).
@@ -34,6 +36,7 @@ final readonly class UrlResolver
         private AddressSync $sync,
         private Runner $runner,
         private Urls $urls,
+        private SubpageSources $subpages,
     ) {}
 
     public function resolve(ServerRequestInterface $request): Resolution
@@ -64,6 +67,12 @@ final readonly class UrlResolver
             if (null !== $page) {
                 return Resolution::page($page);
             }
+
+            $subpage = $this->subpage($match[0], $match[1]);
+
+            if (null !== $subpage) {
+                return Resolution::page($subpage);
+            }
         } elseif ('/' === $path) {
             $language = $this->languages->preferred($host, $request->getHeaderLine('Accept-Language'));
 
@@ -80,15 +89,100 @@ final readonly class UrlResolver
             return Resolution::notFound();
         }
 
-        $earlier = $this->addresses->earlier($match[0]->code, trim($match[1], '/'));
+        $earlier = $this->addresses->earlier($match[0]->code, trim($match[1], '/')) ?? $this->earlierSubpage($match[0], $match[1]);
 
         if (null === $earlier) {
             return Resolution::notFound();
         }
 
+        if (null !== $earlier->basePageId) {
+            $path = $this->subpagePath(Target::parse($earlier->target), $match[0]->code);
+
+            return null === $path ? Resolution::gone() : Resolution::redirect($this->link($match[0], $path, $host) . self::query($uri));
+        }
+
         $current = $this->addresses->of(Target::parse($earlier->target))[$match[0]->code] ?? null;
 
         return null === $current ? Resolution::gone() : Resolution::redirect($this->link($match[0], $current->path, $host) . self::query($uri));
+    }
+
+    /**
+     * An object of a plugin below the deepest page of the path (decision
+     * 0219), e.g. "news/neue-sorten" below "news".
+     */
+    private function subpage(Language $language, string $path): ?ResolvedPage
+    {
+        foreach ($this->below($language, $path) as [$page, $rest]) {
+            $address = $this->addresses->below($language->code, $page->id, $rest);
+            $target = null === $address ? null : Target::tryParse($address->target);
+            $title = null === $target ? null : $this->subpages->get($target->type)?->title($target->id, $page->contentLanguage);
+
+            return null === $target || null === $title ? null : $page->withSubpage(new Subpage($target, $rest, $title));
+        }
+
+        return null;
+    }
+
+    /**
+     * An earlier address of an object of a plugin: its path changed, or
+     * its base page moved, e.g. "news/neue-sorten" after "news" became
+     * "aktuelles".
+     */
+    private function earlierSubpage(Language $language, string $path): ?Address
+    {
+        foreach ($this->below($language, $path) as [$page, $rest]) {
+            $address = $this->addresses->below($language->code, $page->id, $rest, current: false);
+
+            if (null !== $address) {
+                return $address;
+            }
+        }
+
+        $parts = explode('/', trim($path, '/'));
+
+        for ($i = \count($parts) - 1; $i >= 1; --$i) {
+            $old = $this->addresses->earlier($language->code, implode('/', \array_slice($parts, 0, $i)));
+            $target = null === $old ? null : Target::tryParse($old->target);
+
+            if (null !== $target && $target->isPage()) {
+                $rest = implode('/', \array_slice($parts, $i));
+
+                return $this->addresses->below($language->code, $target->id, $rest) ?? $this->addresses->below($language->code, $target->id, $rest, current: false);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The deepest page in front of the path with the rest of it.
+     *
+     * @return iterable<array{ResolvedPage, string}>
+     */
+    private function below(Language $language, string $path): iterable
+    {
+        $parts = explode('/', trim($path, '/'));
+
+        for ($i = \count($parts) - 1; $i >= 0; --$i) {
+            $page = $this->pages->resolve($language, implode('/', \array_slice($parts, 0, $i)));
+
+            if (null !== $page) {
+                yield [$page, implode('/', \array_slice($parts, $i))];
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * The current path of an object of a plugin, base page and rest.
+     */
+    private function subpagePath(Target $target, string $language): ?string
+    {
+        $address = $this->addresses->of($target)[$language] ?? null;
+        $base = null === $address || null === $address->basePageId ? null : $this->addresses->of(Target::page($address->basePageId))[$language] ?? null;
+
+        return null === $address || null === $base ? null : ltrim($base->path . '/' . $address->path, '/');
     }
 
     private function manual(Redirect $redirect, ?Language $language, UriInterface $uri): Resolution

@@ -232,6 +232,7 @@ final readonly class ComponentRenderer
             $delivery->contentLanguage()->code,
             $delivery->target(),
             $delivery->query($component->query),
+            $delivery->subpage(),
         ));
     }
 

@@ -10,6 +10,7 @@ namespace Frootbox\Core\View;
 
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Url\Subpage;
 use Frootbox\Core\Url\Target;
 
 /**
@@ -30,6 +31,8 @@ final class Delivery
 
     private ?Target $target = null;
 
+    private ?Subpage $subpage = null;
+
     /** @var array<string, string> */
     private array $query = [];
 
@@ -38,11 +41,20 @@ final class Delivery
 
     public function __construct(private readonly Languages $languages) {}
 
-    public function set(Language $language, ?Language $content = null, ?Target $target = null): void
+    public function set(Language $language, ?Language $content = null, ?Target $target = null, ?Subpage $subpage = null): void
     {
         $this->language = $language;
         $this->content = $content ?? $language;
         $this->target = $target;
+        $this->subpage = $subpage;
+    }
+
+    /**
+     * The object of a plugin shown on the page as its base page (decision 0219).
+     */
+    public function subpage(): ?Subpage
+    {
+        return $this->subpage;
     }
 
     /**

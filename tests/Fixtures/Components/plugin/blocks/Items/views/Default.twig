@@ -1,0 +1,5 @@
+{# frootbox
+title: Items
+description: Lists the items, or shows the one at its address.
+#}
+{% if subpage %}<article class="item">{{ heading_text(subpage.title) }}</article>{% else %}<ul class="items"></ul>{% endif %}

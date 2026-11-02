@@ -226,20 +226,23 @@ final readonly class PageHandler implements RequestHandlerInterface
     {
         $languages = $this->service(Languages::class);
         $urls = $this->service(Urls::class);
-        $this->service(Delivery::class)->set($languages->get($page->language), $languages->get($page->contentLanguage), $page->target());
+        $this->service(Delivery::class)->set($languages->get($page->language), $languages->get($page->contentLanguage), $page->target(), $page->subpage);
         $this->service(Delivery::class)->setQuery($request->getQueryParams());
 
         $assets = new AssetList();
         $layout = Instance::fromArray(['layout' => $page->data->layout, 'variant' => $page->data->variant, ...$page->translation->content], ComponentKind::Layout);
-        $body = $this->service(ComponentRenderer::class)->layout($layout, $assets, $page->translation->title);
+        // An object of a plugin has its own title and addresses (decision 0219).
+        $shown = $page->subpage->target ?? $page->target();
+        $title = $page->subpage->title ?? $page->translation->title;
+        $body = $this->service(ComponentRenderer::class)->layout($layout, $assets, $title);
 
         $site = $this->config->string('app.name', 'Frootbox');
         $base = $this->service(SiteUrl::class)->base($request);
         $head = new Head(
             $page->language,
-            $page->isStart() ? $site : $page->translation->title . ' – ' . $site,
+            $page->isStart() && null === $page->subpage ? $site : $title . ' – ' . $site,
             // A fallback points search engines to the original.
-            $urls->absolute($page->target(), $page->isFallback() ? $page->contentLanguage : $page->language, $base),
+            $urls->absolute($shown, $page->isFallback() ? $page->contentLanguage : $page->language, $base),
             $languages->get($page->language)->direction->value,
         );
 
@@ -247,11 +250,11 @@ final readonly class PageHandler implements RequestHandlerInterface
             $head->add('<meta name="robots" content="noindex">');
         }
 
-        $addresses = $urls->addresses($page->target());
+        $addresses = $urls->addresses($shown);
 
         foreach ($languages->codes() as $code) {
             if (isset($addresses[$code]) && !$addresses[$code]->fallback) {
-                $url = $urls->absolute($page->target(), $code, $base);
+                $url = $urls->absolute($shown, $code, $base);
 
                 if (null !== $url) {
                     $head->alternate($code, $url);

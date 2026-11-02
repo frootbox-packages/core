@@ -41,8 +41,10 @@ use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\Page\ThemeErrorPage;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Core\Schedule\ScheduledTypes;
 use Frootbox\Core\Search\SearchSources;
 use Frootbox\Core\Theme\ThemeChain;
+use Frootbox\Core\Url\SubpageSources;
 use Frootbox\Core\Url\TargetLink;
 use Frootbox\Core\User\StoredUserLanguages;
 use Frootbox\Core\View\TwigFactory;
@@ -110,6 +112,8 @@ final class ContainerFactory
             ErrorPages::class => factory([self::class, 'createErrorPages']),
             ScopeResolvers::class => factory([self::class, 'createScopeResolvers']),
             SearchSources::class => factory([self::class, 'createSearchSources']),
+            SubpageSources::class => factory([self::class, 'createSubpageSources']),
+            ScheduledTypes::class => factory([self::class, 'createScheduledTypes']),
             ThemeChain::class => factory([self::class, 'createThemeChain']),
             Languages::class => factory([Languages::class, 'fromConfig']),
             Components::class => factory([ComponentsFactory::class, 'create']),
@@ -180,6 +184,16 @@ final class ContainerFactory
     public static function createSearchSources(Registry $registry, ContainerInterface $container): SearchSources
     {
         return new SearchSources($registry->searchSources(), $container);
+    }
+
+    public static function createSubpageSources(Registry $registry, ContainerInterface $container): SubpageSources
+    {
+        return new SubpageSources($registry->subpageSources(), $container);
+    }
+
+    public static function createScheduledTypes(Registry $registry, ContainerInterface $container): ScheduledTypes
+    {
+        return new ScheduledTypes($registry->scheduledTypes(), $container);
     }
 
     public static function createUndoChecks(Registry $registry, ContainerInterface $container): UndoChecks

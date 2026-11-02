@@ -13,7 +13,8 @@ use Frootbox\Core\Language\Languages;
 use Frootbox\Core\ProjectPaths;
 
 /**
- * Keeps the table urls in line with the published pages (decision 0105).
+ * Keeps the table urls in line with the published pages and the objects
+ * of plugins below their base pages (decisions 0105, 0219).
  * Runs inside page.publish, page.delete and system.sync-urls, so every
  * change is recorded and can be undone.
  *
@@ -27,6 +28,8 @@ final readonly class AddressSync
         private PagePaths $paths,
         private Languages $languages,
         private ProjectPaths $project,
+        private SubpageSources $subpages,
+        private BasePages $bases,
     ) {}
 
     /**
@@ -64,17 +67,38 @@ final readonly class AddressSync
         $wanted = [];
 
         foreach ($this->paths->all() as $path) {
-            $wanted[(string) Target::page($path->pageId) . '|' . $path->language] = $path;
+            $wanted[(string) Target::page($path->pageId) . '|' . $path->language . '|'] = ['target' => (string) Target::page($path->pageId), 'language' => $path->language, 'basePageId' => null, 'path' => $path->path, 'fallback' => $path->isFallback()];
+        }
+
+        // Objects of plugins below their base page (decision 0219).
+        foreach ($this->subpages->all() as $type => $source) {
+            $bases = $this->bases->of($source->blocks());
+
+            if ([] === $bases) {
+                continue;
+            }
+
+            foreach ($source->paths() as $id => $paths) {
+                foreach ($paths as $language => $path) {
+                    $base = $bases[$language] ?? null;
+                    $path = trim($path, '/');
+
+                    if (null !== $base && '' !== $path) {
+                        $target = $type . ':' . $id;
+                        $wanted[$target . '|' . $language . '|' . $base] = ['target' => $target, 'language' => $language, 'basePageId' => $base, 'path' => $path, 'fallback' => false];
+                    }
+                }
+            }
         }
 
         $current = [];
         $earlier = [];
 
-        foreach ($this->addresses->fetch(['where' => ['basePageId' => null], 'order' => 'id']) as $address) {
+        foreach ($this->addresses->fetch(['order' => 'id']) as $address) {
             if ($address->current) {
-                $current[$address->target . '|' . $address->language] = $address;
+                $current[$address->target . '|' . $address->language . '|' . $address->basePageId] = $address;
             } else {
-                $earlier[$address->language . '|' . $address->path][] = $address;
+                $earlier[$address->language . '|' . $address->basePageId . '|' . $address->path][] = $address;
             }
         }
 
@@ -84,9 +108,9 @@ final readonly class AddressSync
         foreach ($current as $key => $address) {
             $path = $wanted[$key] ?? null;
 
-            if (null !== $path && $path->path === $address->path) {
-                if ($path->isFallback() !== $address->fallback) {
-                    $changes[] = fn() => $this->addresses->update($address->id, ['fallback' => $path->isFallback()]);
+            if (null !== $path && $path['path'] === $address->path) {
+                if ($path['fallback'] !== $address->fallback) {
+                    $changes[] = fn() => $this->addresses->update($address->id, ['fallback' => $path['fallback']]);
                 }
 
                 unset($wanted[$key]);
@@ -95,26 +119,25 @@ final readonly class AddressSync
             }
 
             $changes[] = fn() => $this->addresses->update($address->id, ['current' => false]);
-            $earlier[$address->language . '|' . $address->path][] = $address;
+            $earlier[$address->language . '|' . $address->basePageId . '|' . $address->path][] = $address;
         }
 
         foreach ($wanted as $path) {
-            $target = (string) Target::page($path->pageId);
+            $place = $path['language'] . '|' . $path['basePageId'] . '|' . $path['path'];
             $reused = null;
 
-            foreach ($earlier[$path->language . '|' . $path->path] ?? [] as $old) {
-                if (null === $reused && $old->target === $target) {
+            foreach ($earlier[$place] ?? [] as $old) {
+                if (null === $reused && $old->target === $path['target']) {
                     $reused = $old;
                 } else {
                     $changes[] = fn() => $this->addresses->delete($old->id);
                 }
             }
 
-            unset($earlier[$path->language . '|' . $path->path]);
-
+            unset($earlier[$place]);
             $changes[] = null === $reused
-                ? fn() => $this->addresses->insert(['target' => $target, 'language' => $path->language, 'basePageId' => null, 'path' => $path->path, 'current' => true, 'fallback' => $path->isFallback()])
-                : fn() => $this->addresses->update($reused->id, ['current' => true, 'fallback' => $path->isFallback()]);
+                ? fn() => $this->addresses->insert([...$path, 'current' => true])
+                : fn() => $this->addresses->update($reused->id, ['current' => true, 'fallback' => $path['fallback']]);
         }
 
         return $changes;

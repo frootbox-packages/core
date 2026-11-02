@@ -27,8 +27,10 @@ use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Core\Schedule\ScheduledType;
 use Frootbox\Core\Search\SearchSource;
 use Frootbox\Core\Search\SearchSources;
+use Frootbox\Core\Url\SubpageSource;
 use Psr\Http\Server\RequestHandlerInterface;
 use Symfony\Component\Console\Command\Command;
 
@@ -42,6 +44,8 @@ use Symfony\Component\Console\Command\Command;
  *     $registry->query(ListNews::class);
  *     $registry->fieldType(PriceType::class);
  *     $registry->undoCheck(OrderNumbersCheck::class);
+ *     $registry->subpages(ArticlePages::class);
+ *     $registry->scheduled(ArticleSchedule::class);
  *     $registry->errorPage(ShopErrorPage::class);
  *     $registry->mount('backend.path', '/cms')->get('/login', LoginHandler::class, 'backend.login');
  *     $registry->import('lit', 'assets/build/lit.js');
@@ -88,6 +92,12 @@ final class Registry
 
     /** @var list<class-string<SearchSource>> */
     private array $searchSources = [];
+
+    /** @var list<class-string<SubpageSource>> */
+    private array $subpages = [];
+
+    /** @var list<class-string<ScheduledType>> */
+    private array $scheduled = [];
 
     /** The folder of the package that is registering, null for the core. */
     private ?string $path = null;
@@ -439,6 +449,40 @@ final class Registry
         $this->searchSources[] = $class;
     }
 
+    /**
+     * Objects of a plugin with addresses below a page, e.g. news
+     * articles (decision 0219).
+     *
+     * @param class-string<SubpageSource> $class
+     */
+    public function subpages(string $class): void
+    {
+        if (!is_subclass_of($class, SubpageSource::class)) {
+            throw new DefinitionException(\sprintf('%s must implement %s.', $class, SubpageSource::class));
+        }
+
+        if (!\in_array($class, $this->subpages, true)) {
+            $this->subpages[] = $class;
+        }
+    }
+
+    /**
+     * How the scheduler publishes objects of a plugin at their time
+     * (decision 0219).
+     *
+     * @param class-string<ScheduledType> $class
+     */
+    public function scheduled(string $class): void
+    {
+        if (!is_subclass_of($class, ScheduledType::class)) {
+            throw new DefinitionException(\sprintf('%s must implement %s.', $class, ScheduledType::class));
+        }
+
+        if (!\in_array($class, $this->scheduled, true)) {
+            $this->scheduled[] = $class;
+        }
+    }
+
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -548,6 +592,22 @@ final class Registry
     public function searchSources(): array
     {
         return $this->searchSources;
+    }
+
+    /**
+     * @return list<class-string<SubpageSource>>
+     */
+    public function subpageSources(): array
+    {
+        return $this->subpages;
+    }
+
+    /**
+     * @return list<class-string<ScheduledType>>
+     */
+    public function scheduledTypes(): array
+    {
+        return $this->scheduled;
     }
 
     public function sensitiveColumns(): SensitiveColumns

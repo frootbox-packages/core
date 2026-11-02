@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Component;
 
+use Frootbox\Core\Url\Subpage;
 use Frootbox\Core\Url\Target;
 
 /**
@@ -29,6 +30,8 @@ final readonly class BlockContext
         /** What is delivered: the page, null e.g. on the design page */
         public ?Target $target = null,
         public array $query = [],
+        /** The object of a plugin shown on the page, e.g. a news article (decision 0219) */
+        public ?Subpage $subpage = null,
     ) {}
 
     /**

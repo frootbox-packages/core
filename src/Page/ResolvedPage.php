@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Page;
 
+use Frootbox\Core\Url\Subpage;
 use Frootbox\Core\Url\Target;
 
 /**
@@ -29,7 +30,14 @@ final readonly class ResolvedPage
         public TranslationData $translation,
         public string $path,
         public string $contentLanguage,
+        /** An object of a plugin shown on this page as its base page (decision 0219) */
+        public ?Subpage $subpage = null,
     ) {}
+
+    public function withSubpage(Subpage $subpage): self
+    {
+        return new self($this->id, $this->data, $this->language, $this->translation, $this->path, $this->contentLanguage, $subpage);
+    }
 
     public function isStart(): bool
     {
