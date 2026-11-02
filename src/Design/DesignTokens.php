@@ -14,6 +14,7 @@ use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Revision\Revision;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Theme\ThemeChain;
+use Frootbox\Core\Theme\TokenType;
 
 /**
  * The values editors chose for the tokens of the active theme (decision
@@ -45,6 +46,36 @@ final readonly class DesignTokens
         }
 
         return $this->themes->css($this->overrides($this->editMode->active()), $this->scripts());
+    }
+
+    /**
+     * The keys of the fonts the font tokens use on this page, with the
+     * values editors chose (decision 0165).
+     *
+     * @return list<string>
+     */
+    public function usedFonts(): array
+    {
+        $database = $this->config->get('database.url');
+        $overrides = \is_string($database) && '' !== $database ? $this->overrides($this->editMode->active()) : [];
+        $tokens = $this->themes->tokens();
+        $fonts = $this->themes->fonts();
+        $used = [];
+
+        foreach ($this->themes->definitions() as $name => $definition) {
+            if (TokenType::Font !== $definition->type) {
+                continue;
+            }
+
+            $override = $overrides[$name] ?? null;
+            $value = null !== $override && null === $definition->problem($override, $fonts) ? $override : $tokens[$name] ?? '';
+
+            if (isset($fonts[$value])) {
+                $used[] = $value;
+            }
+        }
+
+        return array_values(array_unique($used));
     }
 
     /**

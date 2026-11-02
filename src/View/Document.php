@@ -12,6 +12,7 @@ use Frootbox\Core\Asset\AssetList;
 use Frootbox\Core\Asset\AssetTags;
 use Frootbox\Core\Asset\PublicAssets;
 use Frootbox\Core\Design\DesignTokens;
+use Frootbox\Core\Design\WebFonts;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\Target;
@@ -32,6 +33,7 @@ final readonly class Document
         private EventDispatcherInterface $events,
         private Languages $languages,
         private DesignTokens $design,
+        private WebFonts $fonts,
     ) {}
 
     public function render(Head $head, string $body, AssetList $assets, ServerRequestInterface $request, ?Target $target = null): string
@@ -60,7 +62,14 @@ final readonly class Document
             $lines[] = \sprintf('<link rel="alternate" hreflang="x-default" href="%s">', Html::escape($this->defaultAlternate($alternates)));
         }
 
+        // Fonts first, so the browser starts loading them early (decision 0165).
+        $lines = [...$lines, ...$this->fonts->preloads()];
         $lines[] = '<style>' . $assets->layerOrder() . '</style>';
+        $faces = $this->fonts->css();
+
+        if ('' !== $faces) {
+            $lines[] = '<style>' . $faces . '</style>';
+        }
 
         foreach ($assets->inlineStyles() as $css) {
             $lines[] = '<style>' . $css . '</style>';

@@ -22,6 +22,12 @@ use Frootbox\Core\Language\Script;
  *         radius: 4px
  *       fonts:
  *         lora: { label: Lora, family: '"Lora", serif' }
+ *         noto-sans:
+ *           label: Noto Sans
+ *           family: '"Noto Sans", sans-serif'
+ *           files:
+ *             - { file: assets/fonts/noto-sans-latin.woff2, weight: 100 900, range: latin, preload: true }
+ *           fallback: { local: Arial, size-adjust: 105.37%, ascent: 101.45%, descent: 27.81% }
  *       scripts:
  *         arab:
  *           font: { body: '"Noto Naskh Arabic", Tahoma, sans-serif' }
@@ -50,6 +56,8 @@ use Frootbox\Core\Language\Script;
 final readonly class Theme
 {
     private const array KEYS = ['parent', 'tokens', 'fonts', 'scripts', 'fields', 'navigations', 'blocks', 'layouts'];
+
+    private const array FONT = ['label', 'family', 'files', 'fallback'];
 
     private const array DESCRIPTION = ['value', 'type', 'label', 'contrast', 'min', 'max', 'step', 'unit', 'options'];
 
@@ -132,7 +140,7 @@ final readonly class Theme
         $definitions = [];
         $flat = self::flatten($tokens, '', $where, $definitions);
 
-        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where), $fields, self::scripts($package->theme['scripts'] ?? [], $where), Offer::from($package->theme['blocks'] ?? null, 'blocks', $where), Offer::from($package->theme['layouts'] ?? null, 'layouts', $where));
+        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where, $package->path), $fields, self::scripts($package->theme['scripts'] ?? [], $where), Offer::from($package->theme['blocks'] ?? null, 'blocks', $where), Offer::from($package->theme['layouts'] ?? null, 'layouts', $where));
     }
 
     /**
@@ -167,7 +175,7 @@ final readonly class Theme
     /**
      * @return array<string, Font>
      */
-    private static function fonts(mixed $fonts, string $where): array
+    private static function fonts(mixed $fonts, string $where, string $root): array
     {
         if (!\is_array($fonts)) {
             throw new ThemeException(\sprintf('%s: "fonts" must list the fonts by key, e.g. "lora: { label: Lora, family: \'"Lora", serif\' }".', $where));
@@ -184,10 +192,134 @@ final readonly class Theme
                 throw new ThemeException(\sprintf('%s: the font "%s" needs a lower case key, a "label" and a "family" without ; { } < > or a backslash.', $where, $key));
             }
 
-            $list[$key] = new Font($key, $label, trim($family));
+            $unknown = array_diff(array_map(strval(...), array_keys($font)), self::FONT);
+
+            if ([] !== $unknown) {
+                throw new ThemeException(\sprintf('%s: the font "%s" contains unknown keys: %s. Allowed are %s.', $where, $key, implode(', ', $unknown), implode(', ', self::FONT)));
+            }
+
+            $family = trim($family);
+            $files = self::fontFiles($font['files'] ?? [], $where . ': the font "' . $key . '"', $root);
+            $fallback = self::fallback($font['fallback'] ?? null, $where . ': the font "' . $key . '"');
+            $face = '';
+            $rest = '';
+
+            if ([] !== $files) {
+                // The first name in the family is the one the files give, e.g. "Noto Sans".
+                $face = 1 === preg_match('/^([^,]+)(?:,|$)/', $family, $match) ? trim($match[1], " \"'") : '';
+                $rest = trim(substr($family, \strlen($match[0] ?? '')));
+
+                if (1 !== preg_match('/^[A-Za-z0-9][A-Za-z0-9 -]*$/', $face)) {
+                    throw new ThemeException(\sprintf('%s: the font "%s" with files needs its name first in "family", e.g. \'"Noto Sans", sans-serif\'.', $where, $key));
+                }
+            } elseif (null !== $fallback) {
+                throw new ThemeException(\sprintf('%s: the font "%s" has a "fallback" but no "files" to fall back from.', $where, $key));
+            }
+
+            $font = new Font($key, $label, $family, $face, $files, $fallback);
+
+            if (null !== $fallback) {
+                // The adjusted fallback right after the font, before the others.
+                $font = new Font($key, $label, \sprintf('"%s", "%s"%s', $face, $font->fallbackFace(), '' === $rest ? '' : ', ' . $rest), $face, $files, $fallback);
+            }
+
+            $list[$key] = $font;
         }
 
         return $list;
+    }
+
+    /**
+     * @return list<FontFile>
+     */
+    private static function fontFiles(mixed $files, string $where, string $root): array
+    {
+        if (!\is_array($files) || !array_is_list($files)) {
+            throw new ThemeException(\sprintf('%s: "files" must be a list, e.g. "- { file: assets/fonts/lora.woff2, weight: 400 700, range: latin }".', $where));
+        }
+
+        $list = [];
+
+        foreach ($files as $index => $file) {
+            $at = \sprintf('%s, file %d', $where, $index + 1);
+            $path = \is_array($file) ? ($file['file'] ?? null) : null;
+
+            if (!\is_array($file) || !\is_string($path) || 1 !== preg_match('#^assets/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.(?:woff2|woff|ttf|otf)$#', $path) || str_contains($path, '..')) {
+                throw new ThemeException(\sprintf('%s: "file" must be a .woff2, .woff, .ttf or .otf below assets/, e.g. assets/fonts/lora.woff2.', $at));
+            }
+
+            if (!is_file($root . '/' . $path)) {
+                throw new ThemeException(\sprintf('%s: %s does not exist.', $at, $path));
+            }
+
+            $unknown = array_diff(array_map(strval(...), array_keys($file)), ['file', 'weight', 'style', 'range', 'preload']);
+            $weight = $file['weight'] ?? '400';
+            $weight = \is_int($weight) ? (string) $weight : $weight;
+            $style = $file['style'] ?? 'normal';
+            $range = $file['range'] ?? null;
+            $resolved = \is_string($range) ? UnicodeRange::of($range) : null;
+            $preload = $file['preload'] ?? false;
+
+            if ([] !== $unknown) {
+                throw new ThemeException(\sprintf('%s contains unknown keys: %s. Allowed are file, weight, style, range, preload.', $at, implode(', ', $unknown)));
+            }
+
+            if (!\is_string($weight) || 1 !== preg_match('/^\d{1,4}(?: \d{1,4})?$/', $weight)) {
+                throw new ThemeException(\sprintf('%s: "weight" must be a weight such as 400 or a range such as "100 900".', $at));
+            }
+
+            if (!\in_array($style, ['normal', 'italic'], true) || !\is_bool($preload)) {
+                throw new ThemeException(\sprintf('%s: "style" is normal or italic, "preload" true or false.', $at));
+            }
+
+            if (null !== $range && null === $resolved) {
+                throw new ThemeException(\sprintf('%s: "range" must be one of %s or a unicode-range such as "U+0000-00FF".', $at, implode(', ', array_keys(UnicodeRange::NAMED))));
+            }
+
+            $list[] = new FontFile($root . '/' . $path, $weight, $style, $resolved, $preload);
+        }
+
+        return $list;
+    }
+
+    private static function fallback(mixed $fallback, string $where): ?FontFallback
+    {
+        if (null === $fallback) {
+            return null;
+        }
+
+        $keys = ['local', 'size-adjust', 'ascent', 'descent', 'line-gap'];
+        $local = \is_array($fallback) ? ($fallback['local'] ?? null) : null;
+        $local = \is_string($local) ? [$local] : $local;
+        $example = 'e.g. "{ local: Arial, size-adjust: 105%, ascent: 101%, descent: 28% }"';
+
+        if (!\is_array($fallback) || [] !== array_diff(array_map(strval(...), array_keys($fallback)), $keys) || !\is_array($local) || [] === $local || !array_is_list($local)) {
+            throw new ThemeException(\sprintf('%s: "fallback" takes %s with at least "local", %s.', $where, implode(', ', $keys), $example));
+        }
+
+        $names = [];
+
+        foreach ($local as $name) {
+            if (!\is_string($name) || 1 !== preg_match('/^[A-Za-z0-9][A-Za-z0-9 -]*$/', $name)) {
+                throw new ThemeException(\sprintf('%s: "fallback.local" names fonts on the device, %s.', $where, $example));
+            }
+
+            $names[] = $name;
+        }
+
+        $percent = [];
+
+        foreach (['size-adjust', 'ascent', 'descent', 'line-gap'] as $key) {
+            $value = $fallback[$key] ?? null;
+
+            if (null !== $value && (!\is_string($value) || 1 !== preg_match('/^\d{1,3}(?:\.\d+)?%$/', $value))) {
+                throw new ThemeException(\sprintf('%s: "fallback.%s" must be a percentage such as "105.37%%".', $where, $key));
+            }
+
+            $percent[$key] = $value;
+        }
+
+        return new FontFallback($names, $percent['size-adjust'], $percent['ascent'], $percent['descent'], $percent['line-gap']);
     }
 
     /**

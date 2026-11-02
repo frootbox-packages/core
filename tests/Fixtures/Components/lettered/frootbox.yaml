@@ -1,0 +1,15 @@
+title: Lettered theme
+# Ships a font as files (decision 0165).
+theme:
+  parent: acme/base
+  fonts:
+    test-sans:
+      label: Test Sans
+      family: '"Test Sans", system-ui, sans-serif'
+      files:
+        - { file: assets/fonts/test-sans-latin.woff2, weight: 100 900, range: latin, preload: true }
+        - { file: assets/fonts/test-sans-arabic.woff2, weight: 400, style: italic, range: 'U+0600-06FF' }
+      fallback: { local: [Arial, Helvetica], size-adjust: 105.37%, ascent: 101.45%, descent: 27.81% }
+  tokens:
+    font:
+      heading: test-sans

@@ -10,16 +10,31 @@ namespace Frootbox\Core\Theme;
 
 /**
  * A font editors can choose for a font token (decision 0127): the system
- * fonts of the core or one a theme lists under "fonts" and ships itself
- * with @font-face in its styles.
+ * fonts of the core or one a theme lists under "fonts". With files the
+ * core writes its @font-face and preloads what the page uses (decision
+ * 0165); without, the theme ships them itself.
  */
 final readonly class Font
 {
+    /**
+     * @param list<FontFile> $files
+     */
     public function __construct(
         public string $key,
         public string $label,
+        /** The CSS font-family, with the fallback after the font */
         public string $family,
+        /** The name in @font-face, e.g. "Noto Sans" */
+        public string $face = '',
+        public array $files = [],
+        public ?FontFallback $fallback = null,
     ) {}
+
+    /** The name of the adjusted fallback in @font-face. */
+    public function fallbackFace(): string
+    {
+        return $this->face . ' Fallback';
+    }
 
     /**
      * Fonts every device has, no files to load.
