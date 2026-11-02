@@ -57,6 +57,7 @@ use Frootbox\Core\Design\RestoreDesign;
 use Frootbox\Core\Design\ShowDesign;
 use Frootbox\Core\Design\UpdateDesign;
 use Frootbox\Core\Field\Types\HeadlineType;
+use Frootbox\Core\Field\Types\IconType;
 use Frootbox\Core\Field\Types\ImageType;
 use Frootbox\Core\Field\Types\LinkType;
 use Frootbox\Core\Field\Types\ListType;
@@ -135,6 +136,7 @@ use Frootbox\Core\Site\ShowSite;
 use Frootbox\Core\Site\UnprotectSite;
 use Frootbox\Core\Site\UpdateSite;
 use Frootbox\Core\Site\UpdateSiteField;
+use Frootbox\Core\Theme\ListIcons;
 use Frootbox\Core\Url\ClearNotFound;
 use Frootbox\Core\Url\CreateRedirect;
 use Frootbox\Core\Url\DeleteRedirect;
@@ -191,7 +193,7 @@ final class CoreExtension implements Extension
         $registry->command(MediaPruneCommand::class);
         $registry->command(MediaUsagesCommand::class);
 
-        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class] as $fieldType) {
+        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class] as $fieldType) {
             $registry->fieldType($fieldType);
         }
 
@@ -214,7 +216,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([ShowPageTree::class, ShowPage::class, ShowOutline::class, ListPageVersions::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class, ListBlockGroups::class] as $query) {
+        foreach ([ShowPageTree::class, ShowPage::class, ShowOutline::class, ListPageVersions::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class, ListBlockGroups::class, ListIcons::class] as $query) {
             $registry->query($query);
         }
 
