@@ -13,6 +13,7 @@ use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\HasParts;
 use Frootbox\Core\Field\ReferencesMedia;
 use Frootbox\Core\Field\Sample;
+use Frootbox\Core\Field\Searchable;
 use Frootbox\Core\Media\Media;
 use Frootbox\Core\Media\MediaDrafts;
 use Frootbox\Core\Media\MediaUrls;
@@ -42,7 +43,7 @@ use Twig\Markup;
  * 'caption') }} the caption, which the setting "caption: true" offers.
  */
 #[AsFieldType('image', 'An image from the media library')]
-final readonly class ImageType implements ReferencesMedia, HasParts
+final readonly class ImageType implements ReferencesMedia, HasParts, Searchable
 {
     public const string CAPTION = 'caption';
 
@@ -320,5 +321,13 @@ final readonly class ImageType implements ReferencesMedia, HasParts
         $service = $this->container->get($class);
 
         return $service instanceof $class ? $service : throw new LogicException(\sprintf('%s is not available.', $class));
+    }
+
+    /** The own description and caption; those of the library come with the media. */
+    public function searchText(mixed $value, Field $field): string
+    {
+        $texts = \is_array($value) ? [$value['alt'] ?? null, $value[self::CAPTION] ?? null] : [];
+
+        return implode("\n", array_filter($texts, static fn(mixed $text): bool => \is_string($text) && '' !== trim($text)));
     }
 }

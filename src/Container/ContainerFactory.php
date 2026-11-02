@@ -41,6 +41,7 @@ use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\Page\ThemeErrorPage;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Core\Search\SearchSources;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\TargetLink;
 use Frootbox\Core\User\StoredUserLanguages;
@@ -108,6 +109,7 @@ final class ContainerFactory
             UndoChecks::class => factory([self::class, 'createUndoChecks']),
             ErrorPages::class => factory([self::class, 'createErrorPages']),
             ScopeResolvers::class => factory([self::class, 'createScopeResolvers']),
+            SearchSources::class => factory([self::class, 'createSearchSources']),
             ThemeChain::class => factory([self::class, 'createThemeChain']),
             Languages::class => factory([Languages::class, 'fromConfig']),
             Components::class => factory([ComponentsFactory::class, 'create']),
@@ -173,6 +175,11 @@ final class ContainerFactory
     public static function createScopeResolvers(Registry $registry, ContainerInterface $container): ScopeResolvers
     {
         return new ScopeResolvers($registry->scopeResolvers(), $container);
+    }
+
+    public static function createSearchSources(Registry $registry, ContainerInterface $container): SearchSources
+    {
+        return new SearchSources($registry->searchSources(), $container);
     }
 
     public static function createUndoChecks(Registry $registry, ContainerInterface $container): UndoChecks

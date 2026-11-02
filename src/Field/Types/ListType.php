@@ -13,6 +13,7 @@ use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Field\HasSubfields;
 use Frootbox\Core\Field\ReferencesMedia;
+use Frootbox\Core\Field\Searchable;
 use Frootbox\Core\View\ListValue;
 use Frootbox\Core\View\Scope;
 
@@ -27,7 +28,7 @@ use Frootbox\Core\View\Scope;
  *         title: { type: headline }
  */
 #[AsFieldType('list', 'Repeated entries with their own fields')]
-final readonly class ListType implements HasSubfields, ReferencesMedia
+final readonly class ListType implements HasSubfields, ReferencesMedia, Searchable
 {
     public function __construct(private FieldTypes $types) {}
 
@@ -87,5 +88,16 @@ final readonly class ListType implements HasSubfields, ReferencesMedia
         }
 
         return new ListValue($entries);
+    }
+
+    public function searchText(mixed $value, Field $field): string
+    {
+        $texts = [];
+
+        foreach (\is_array($value) ? $value : [] as $entry) {
+            $texts[] = \is_array($entry) ? $this->types->text($field->fields, $entry) : '';
+        }
+
+        return implode("\n", array_filter($texts, static fn(string $text): bool => '' !== $text));
     }
 }

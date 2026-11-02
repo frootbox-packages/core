@@ -10,7 +10,7 @@ namespace Frootbox\Core\Field\Types;
 
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
-use Frootbox\Core\Field\FieldType;
+use Frootbox\Core\Field\Searchable;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
 use Frootbox\RichText\Attribute;
@@ -33,7 +33,7 @@ use Twig\Markup;
  * url(value('button')) and value('button').text.
  */
 #[AsFieldType('link', 'A link to a page or a URL, with text')]
-final readonly class LinkType implements FieldType
+final readonly class LinkType implements Searchable
 {
     /**
      * @param ContainerInterface $container The URLs are loaded on first output
@@ -113,5 +113,10 @@ final readonly class LinkType implements FieldType
         $urls = $this->container->get(Urls::class);
 
         return $urls instanceof Urls ? $urls : throw new LogicException('The URLs are not available.');
+    }
+
+    public function searchText(mixed $value, Field $field): string
+    {
+        return \is_array($value) && \is_string($value['text'] ?? null) ? $value['text'] : '';
     }
 }

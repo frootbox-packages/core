@@ -10,14 +10,14 @@ namespace Frootbox\Core\Field\Types;
 
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
-use Frootbox\Core\Field\FieldType;
+use Frootbox\Core\Field\Searchable;
 
 /**
  * A single line of text for a heading. The template sets the tag:
  * <h2>{{ field('title') }}</h2>.
  */
 #[AsFieldType('headline', 'A single line for a heading')]
-final readonly class HeadlineType implements FieldType
+final readonly class HeadlineType implements Searchable
 {
     public const int MAX_LENGTH = 200;
 
@@ -37,6 +37,11 @@ final readonly class HeadlineType implements FieldType
     }
 
     public function output(mixed $value, Field $field): string
+    {
+        return \is_string($value) ? $value : '';
+    }
+
+    public function searchText(mixed $value, Field $field): string
     {
         return \is_string($value) ? $value : '';
     }

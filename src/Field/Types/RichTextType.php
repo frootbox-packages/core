@@ -11,8 +11,8 @@ namespace Frootbox\Core\Field\Types;
 use Closure;
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
-use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\OutputsHeadings;
+use Frootbox\Core\Field\Searchable;
 use Frootbox\RichText\Nodes\Heading;
 use Frootbox\RichText\RichText;
 use Twig\Markup;
@@ -26,7 +26,7 @@ use Twig\Markup;
  * "headings" limits the ranks, 0 allows none.
  */
 #[AsFieldType('richtext', 'Formatted text with paragraphs, lists and links')]
-final readonly class RichTextType implements FieldType, OutputsHeadings
+final readonly class RichTextType implements OutputsHeadings, Searchable
 {
     public const int RANKS = 3;
 
@@ -82,5 +82,10 @@ final readonly class RichTextType implements FieldType, OutputsHeadings
                 2 => [1, 2],
                 default => [1, 2, 3],
             }, $level));
+    }
+
+    public function searchText(mixed $value, Field $field): string
+    {
+        return null === $value ? '' : $this->richText->toText($value);
     }
 }

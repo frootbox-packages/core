@@ -27,6 +27,8 @@ use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Core\Search\SearchSource;
+use Frootbox\Core\Search\SearchSources;
 use Psr\Http\Server\RequestHandlerInterface;
 use Symfony\Component\Console\Command\Command;
 
@@ -83,6 +85,9 @@ final class Registry
 
     /** @var list<class-string<ErrorPage>> */
     private array $errorPages = [];
+
+    /** @var list<class-string<SearchSource>> */
+    private array $searchSources = [];
 
     /** The folder of the package that is registering, null for the core. */
     private ?string $path = null;
@@ -402,6 +407,38 @@ final class Registry
         $this->scopes[$kind] = $class;
     }
 
+    /**
+     * A source of the global search (decision 0214). Its name comes from
+     * #[AsSearchSource]; an extension names it "<vendor>/<package>/…",
+     * e.g. "acme/news/article".
+     *
+     * @param class-string<SearchSource> $class
+     */
+    public function searchSource(string $class): void
+    {
+        if (!is_subclass_of($class, SearchSource::class)) {
+            throw new DefinitionException(\sprintf('%s must implement %s.', $class, SearchSource::class));
+        }
+
+        $name = SearchSources::nameOf($class);
+        $slash = strrpos($name, '/');
+        $package = false === $slash ? null : substr($name, 0, $slash);
+
+        if ($package !== $this->package) {
+            throw new DefinitionException(null === $this->package
+                ? \sprintf('The core search source %s must not have a package in its name "%s".', $class, $name)
+                : \sprintf('The search source %s of %s must be named "%s/%s".', $class, $this->package, $this->package, false === $slash ? $name : substr($name, $slash + 1)));
+        }
+
+        foreach ($this->searchSources as $known) {
+            if (SearchSources::nameOf($known) === $name) {
+                throw new DefinitionException(\sprintf('The search source "%s" is registered twice: %s and %s.', $name, $known, $class));
+            }
+        }
+
+        $this->searchSources[] = $class;
+    }
+
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -503,6 +540,14 @@ final class Registry
     public function scopeResolvers(): array
     {
         return $this->scopes;
+    }
+
+    /**
+     * @return list<class-string<SearchSource>>
+     */
+    public function searchSources(): array
+    {
+        return $this->searchSources;
     }
 
     public function sensitiveColumns(): SensitiveColumns

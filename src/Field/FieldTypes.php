@@ -200,4 +200,26 @@ final class FieldTypes
 
         return $ids;
     }
+
+    /**
+     * The text of an object with these fields to find it by, e.g. in the
+     * global search (decision 0214), lines apart.
+     *
+     * @param array<string, Field> $fields
+     * @param array<mixed>         $values
+     */
+    public function text(array $fields, array $values): string
+    {
+        $texts = [];
+
+        foreach ($fields as $name => $field) {
+            $type = $this->has($field->type) ? $this->get($field->type) : null;
+
+            if ($type instanceof Searchable && null !== ($values[$name] ?? null)) {
+                $texts[] = trim($type->searchText($values[$name], $field));
+            }
+        }
+
+        return implode("\n", array_filter($texts, static fn(string $text): bool => '' !== $text));
+    }
 }

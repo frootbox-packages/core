@@ -29,6 +29,7 @@ use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Tests\Fixtures\Notes\Notes;
 use Frootbox\Core\Tests\Fixtures\Notes\NotesExtension;
+use Frootbox\Core\Tests\Fixtures\Notes\NoteSource;
 use Frootbox\Core\Tests\Fixtures\Notes\Outbox;
 use Frootbox\Core\Tests\Fixtures\Shop\ListOrders;
 use PHPUnit\Framework\TestCase;
@@ -39,7 +40,7 @@ use PHPUnit\Framework\TestCase;
  */
 abstract class NotesTestCase extends TestCase
 {
-    private const array TABLES = ['comments', 'preview_links', 'site_protection', 'media_usages', 'media_sources', 'media', 'media_texts', 'media_tags', 'media_folders', 'notes', 'sign_in_failures', 'navigations', 'urls', 'redirects', 'not_found', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
+    private const array TABLES = ['search_index', 'comments', 'preview_links', 'site_protection', 'media_usages', 'media_sources', 'media', 'media_texts', 'media_tags', 'media_folders', 'notes', 'sign_in_failures', 'navigations', 'urls', 'redirects', 'not_found', Revisions::TABLE, PageTranslations::TABLE, Pages::TABLE, 'access_tokens', 'role_assignments', 'roles', 'users', ActionLog::CHANGES, ActionLog::ENTRIES, MigrationsFactory::TABLE];
 
     /** APP_SECRET of the tests, e.g. for signed media addresses. */
     protected const string SECRET = 'test-secret-0123456789abcdef';
@@ -55,6 +56,7 @@ abstract class NotesTestCase extends TestCase
         $registry = ExtensionLoader::boot($extensions);
         new NotesExtension()->register($registry);
         $registry->forPackage('acme/shop', static fn() => $registry->query(ListOrders::class));
+        $registry->forPackage('acme/notes', static fn() => $registry->searchSource(NoteSource::class));
 
         $config = new Config($this->environment(), ['database' => ['url' => TestDatabase::url()], ...$this->config()], ['APP_SECRET' => self::SECRET, ...$this->env()]);
         $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), $extensions, $registry);

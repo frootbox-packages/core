@@ -41,6 +41,30 @@ final readonly class ScopeResolvers
             && $this->resolver($target->kind)->covers($scope->id, $target->id, $target->strict);
     }
 
+    /**
+     * Of these targets of one kind, those within the scopes; one call to
+     * the resolver if it lists them at once (ListsWithin).
+     *
+     * @param list<string> $scopes  Ids of the scopes of the kind
+     * @param list<string> $targets
+     *
+     * @return list<string>
+     */
+    public function filter(string $kind, array $scopes, array $targets): array
+    {
+        if ([] === $scopes || !$this->has($kind)) {
+            return [];
+        }
+
+        $resolver = $this->resolver($kind);
+
+        if ($resolver instanceof ListsWithin) {
+            return array_values(array_intersect($targets, $resolver->within($scopes)));
+        }
+
+        return array_values(array_filter($targets, static fn(string $target): bool => array_any($scopes, static fn(string $scope): bool => $resolver->covers($scope, $target, false))));
+    }
+
     public function exists(Scope $scope): bool
     {
         return $this->has($scope->kind) && $this->resolver($scope->kind)->exists($scope->id);

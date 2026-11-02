@@ -12,6 +12,7 @@ use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\ReferencesMedia;
 use Frootbox\Core\Field\Sample;
+use Frootbox\Core\Field\Searchable;
 use Frootbox\Core\Media\Documents;
 use Frootbox\Core\Media\Media;
 use Frootbox\Core\Media\MediaDrafts;
@@ -36,7 +37,7 @@ use Twig\Markup;
  * its file name. For own markup use value('file').
  */
 #[AsFieldType('file', 'A document from the media library to download')]
-final readonly class FileType implements ReferencesMedia
+final readonly class FileType implements ReferencesMedia, Searchable
 {
     /**
      * @param ContainerInterface $container The media are loaded on first output
@@ -144,5 +145,10 @@ final readonly class FileType implements ReferencesMedia
         $service = $this->container->get($class);
 
         return $service instanceof $class ? $service : throw new LogicException(\sprintf('%s is not available.', $class));
+    }
+
+    public function searchText(mixed $value, Field $field): string
+    {
+        return \is_array($value) && \is_string($value['text'] ?? null) ? $value['text'] : '';
     }
 }

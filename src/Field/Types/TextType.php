@@ -10,7 +10,7 @@ namespace Frootbox\Core\Field\Types;
 
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
-use Frootbox\Core\Field\FieldType;
+use Frootbox\Core\Field\Searchable;
 use Frootbox\RichText\Html;
 use Twig\Markup;
 
@@ -20,7 +20,7 @@ use Twig\Markup;
  * one and reads it back doubled.
  */
 #[AsFieldType('text', 'Plain text without formatting')]
-final readonly class TextType implements FieldType
+final readonly class TextType implements Searchable
 {
     public function settings(): array
     {
@@ -54,5 +54,10 @@ final readonly class TextType implements FieldType
         }
 
         return new Markup(str_replace(["\r\n", "\r", "\n"], '<br>', Html::escape($value)), 'UTF-8');
+    }
+
+    public function searchText(mixed $value, Field $field): string
+    {
+        return \is_string($value) ? $value : '';
     }
 }

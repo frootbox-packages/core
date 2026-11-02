@@ -129,6 +129,16 @@ use Frootbox\Core\Preview\PreviewLinks;
 use Frootbox\Core\Preview\PrunePreviews;
 use Frootbox\Core\Preview\RevokePreview;
 use Frootbox\Core\Preview\UpdatePreview;
+use Frootbox\Core\Search\Search;
+use Frootbox\Core\Search\SearchRebuildCommand;
+use Frootbox\Core\Search\Sources\MediumSource;
+use Frootbox\Core\Search\Sources\NavigationSource;
+use Frootbox\Core\Search\Sources\PageSource;
+use Frootbox\Core\Search\Sources\RedirectSource;
+use Frootbox\Core\Search\Sources\RoleSource;
+use Frootbox\Core\Search\Sources\SiteSource;
+use Frootbox\Core\Search\Sources\UserSource;
+use Frootbox\Core\Search\UpdateSearchIndex;
 use Frootbox\Core\Site\DiscardSite;
 use Frootbox\Core\Site\EnterSite;
 use Frootbox\Core\Site\Protections;
@@ -242,6 +252,15 @@ final class CoreExtension implements Extension
         $registry->undoCheck(NavigationUndoCheck::class);
 
         $registry->listen(ActionExecuted::class, ClearPageCache::class);
+
+        // The global search of the CMS (decision 0214).
+        $registry->query(Search::class);
+        $registry->listen(ActionExecuted::class, UpdateSearchIndex::class);
+        $registry->command(SearchRebuildCommand::class);
+
+        foreach ([PageSource::class, MediumSource::class, NavigationSource::class, SiteSource::class, UserSource::class, RoleSource::class, RedirectSource::class] as $source) {
+            $registry->searchSource($source);
+        }
 
         foreach ([CreateMedium::class, UpdateMedium::class, ReplaceMedium::class, AddMediaSource::class, DeleteMediaSource::class, DeleteMedium::class, PublishMedia::class, DiscardMedium::class, CreateMediaFolder::class, UpdateMediaFolder::class, DeleteMediaFolder::class, RebuildMediaUsages::class] as $action) {
             $registry->action($action);

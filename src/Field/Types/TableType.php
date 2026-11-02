@@ -10,7 +10,7 @@ namespace Frootbox\Core\Field\Types;
 
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
-use Frootbox\Core\Field\FieldType;
+use Frootbox\Core\Field\Searchable;
 use Frootbox\RichText\Html;
 use Frootbox\RichText\Marks\TagMark;
 use Frootbox\RichText\Nodes\Line;
@@ -35,7 +35,7 @@ use Twig\Markup;
  * it into an element that scrolls sideways when it is too wide.
  */
 #[AsFieldType('table', 'A table with rows and columns, e.g. opening hours or prices')]
-final readonly class TableType implements FieldType
+final readonly class TableType implements Searchable
 {
     public const int MAX_COLUMNS = 20;
 
@@ -185,5 +185,20 @@ final readonly class TableType implements FieldType
     private static function document(array $cell): array
     {
         return ['type' => 'doc', 'content' => [['type' => Line::NAME, 'content' => $cell]]];
+    }
+
+    public function searchText(mixed $value, Field $field): string
+    {
+        $lines = [];
+
+        foreach (self::rows($value) as $cells) {
+            $lines[] = implode(' ', array_map(fn(mixed $cell): string => match (true) {
+                \is_string($cell) => $cell,
+                \is_array($cell) => $this->cells->toText(self::document($cell)),
+                default => '',
+            }, $cells));
+        }
+
+        return trim(implode("\n", $lines));
     }
 }

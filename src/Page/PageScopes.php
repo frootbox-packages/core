@@ -8,14 +8,14 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Page;
 
-use Frootbox\Core\Auth\ScopeResolver;
+use Frootbox\Core\Auth\ListsWithin;
 
 /**
  * Branches of the page tree as scopes (decision 0118): a role given for
  * "page:<id>" applies to that page and everything below, in the tree
  * with drafts.
  */
-final readonly class PageScopes implements ScopeResolver
+final readonly class PageScopes implements ListsWithin
 {
     public function __construct(private PageReader $reader) {}
 
@@ -28,6 +28,20 @@ final readonly class PageScopes implements ScopeResolver
         }
 
         return \in_array($scope, $trail, true);
+    }
+
+    public function within(array $scopes): array
+    {
+        $nodes = $this->reader->nodes();
+        $within = [];
+
+        foreach (array_keys($nodes) as $id) {
+            if ([] !== array_intersect($scopes, self::trail($nodes, $id))) {
+                $within[] = $id;
+            }
+        }
+
+        return $within;
     }
 
     public function exists(string $id): bool
