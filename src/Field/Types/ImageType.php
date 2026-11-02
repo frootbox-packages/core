@@ -12,6 +12,7 @@ use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\HasParts;
 use Frootbox\Core\Field\ReferencesMedia;
+use Frootbox\Core\Field\Sample;
 use Frootbox\Core\Media\Media;
 use Frootbox\Core\Media\MediaDrafts;
 use Frootbox\Core\Media\MediaUrls;
@@ -121,6 +122,12 @@ final readonly class ImageType implements ReferencesMedia, HasParts
 
     public function output(mixed $value, Field $field): Markup|string
     {
+        $sample = Sample::of($value);
+
+        if (null !== $sample && \is_array($value)) {
+            return $this->sample($value, $field, $sample);
+        }
+
         $id = $this->media($value, $field)[0] ?? null;
         $medium = null === $id ? null : $this->service(Media::class)->fetchById($id);
 
@@ -168,6 +175,47 @@ final readonly class ImageType implements ReferencesMedia, HasParts
         ]);
 
         return new Markup(Html::element('picture', $sources . $img), 'UTF-8');
+    }
+
+    /**
+     * A file of the theme in an example (decision 0206): one size, cut
+     * with CSS where the field asks for a ratio.
+     *
+     * @param array<mixed> $value
+     */
+    private function sample(array $value, Field $field, Sample $sample): Markup
+    {
+        $ratio = self::settingRatio($field);
+        $eager = true === $field->setting('eager');
+        $width = $sample->width > 0 ? $sample->width : null;
+        $height = null === $width ? null : (null === $ratio ? $sample->height : max(1, (int) round($width / $ratio)));
+
+        return new Markup(Html::open('img', [
+            'src' => $sample->url,
+            'width' => $width,
+            'height' => $height,
+            'alt' => \is_string($value['alt'] ?? null) ? trim($value['alt']) : '',
+            'loading' => $eager ? 'eager' : 'lazy',
+            'fetchpriority' => $eager ? 'high' : null,
+            'decoding' => 'async',
+            'style' => null === $ratio ? null : \sprintf('aspect-ratio: %s; object-fit: cover', round($ratio, 4)),
+        ]), 'UTF-8');
+    }
+
+    /**
+     * The ratio the field asks for, null without one.
+     */
+    private static function settingRatio(Field $field): ?float
+    {
+        $setting = $field->setting('ratio');
+
+        if (!\is_string($setting) || 1 !== preg_match('/' . self::RATIO_PATTERN . '/', $setting)) {
+            return null;
+        }
+
+        [$width, $height] = array_map(intval(...), explode(':', $setting));
+
+        return max(0.25, $width / $height);
     }
 
     /**

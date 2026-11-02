@@ -20,10 +20,10 @@ use Frootbox\Core\Field\HasSubfields;
 final readonly class DefinitionReader
 {
     /** Keys of block.yaml and layout.yaml. */
-    public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas', 'example'];
+    public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas', 'examples'];
 
     /** Keys of the header of views/Default.twig when there is no block.yaml. */
-    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'example'];
+    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'examples'];
 
     /** Keys of the header of any other view, including views that override. */
     public const array VARIANT_KEYS = ['title', 'description', 'options'];
@@ -42,12 +42,12 @@ final readonly class DefinitionReader
         'options' => self::ANY_MAP,
         'fields' => self::ANY_MAP,
         'areas' => self::ANY_MAP,
-        // Content for the design page, in the form of a block on a page (decision 0205).
-        'example' => ['type' => ['object', 'array']],
+        // Content for the design page, each like a block on a page (decisions 0205, 0206).
+        'examples' => ['type' => 'array'],
     ];
 
-    /** Keys of an example (decision 0205). */
-    private const array EXAMPLE = ['fields', 'areas', 'options'];
+    /** Keys of an example (decision 0206). */
+    private const array EXAMPLE = ['variant', 'fields', 'areas', 'options'];
 
     private const array OPTION = [
         'type' => ['enum' => Option::TYPES],
@@ -100,48 +100,56 @@ final readonly class DefinitionReader
             true === ($raw['widget'] ?? false),
             self::string($raw['group'] ?? null),
             \is_array($raw['keywords'] ?? null) ? array_values(array_filter($raw['keywords'], \is_string(...))) : [],
-            $this->example($raw['example'] ?? null, $where, $errors),
+            $this->examples($raw['examples'] ?? null, $where, $errors),
         );
     }
 
     /**
-     * The example of a block for the design page: fields, areas and
-     * options as on a page (decision 0205). Checked against the schema by
-     * blocks:check, here only its shape.
+     * The examples of a block for the design page: fields, areas and
+     * options as on a page, for one variant or all (decisions 0205,
+     * 0206). Here only their shape; the ComponentLoader checks the names.
      *
-     * @return array<string, mixed>
+     * @return list<array<string, mixed>>
      */
-    private function example(mixed $raw, string $where, DefinitionErrors $errors): array
+    private function examples(mixed $raw, string $where, DefinitionErrors $errors): array
     {
         if (null === $raw) {
             return [];
         }
 
-        if (!\is_array($raw) || (array_is_list($raw) && [] !== $raw)) {
-            $errors->add($where, 'example', 'must be a map with fields, areas or options');
+        if (!\is_array($raw) || !array_is_list($raw)) {
+            $errors->add($where, 'examples', 'must be a list, each with fields, areas, options or a variant');
 
             return [];
         }
 
-        $example = [];
+        $examples = [];
 
-        foreach ($raw as $key => $value) {
-            if (!\in_array($key, self::EXAMPLE, true)) {
-                $errors->add($where, 'example.' . $key, 'unknown key. Allowed: ' . implode(', ', self::EXAMPLE));
+        foreach ($raw as $index => $entry) {
+            $path = 'examples.' . $index;
 
-                continue;
-            }
-
-            if (!\is_array($value) || (array_is_list($value) && [] !== $value)) {
-                $errors->add($where, 'example.' . $key, 'must be a map by name');
+            if (!\is_array($entry) || (array_is_list($entry) && [] !== $entry)) {
+                $errors->add($where, $path, 'must be a map with fields, areas, options or a variant');
 
                 continue;
             }
 
-            $example[$key] = $value;
+            $example = [];
+
+            foreach ($entry as $key => $value) {
+                if (!\in_array($key, self::EXAMPLE, true)) {
+                    $errors->add($where, $path . '.' . $key, 'unknown key. Allowed: ' . implode(', ', self::EXAMPLE));
+                } elseif ('variant' === $key ? !\is_string($value) : !\is_array($value) || (array_is_list($value) && [] !== $value)) {
+                    $errors->add($where, $path . '.' . $key, 'variant' === $key ? 'must be the name of a variant' : 'must be a map by name');
+                } else {
+                    $example[$key] = $value;
+                }
+            }
+
+            $examples[] = $example;
         }
 
-        return $example;
+        return $examples;
     }
 
     /**

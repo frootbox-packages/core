@@ -178,7 +178,7 @@ final readonly class ComponentLoader
         $widget = $schema->widget ?? false;
         $group = $schema->group ?? null;
         $keywords = $schema->keywords ?? [];
-        $example = $schema->example ?? [];
+        $examples = $schema->examples ?? [];
 
         // Default first, then the others by name.
         uksort($templates, static fn(string $a, string $b): int => [Variant::DEFAULT !== $a, $a] <=> [Variant::DEFAULT !== $b, $b]);
@@ -200,7 +200,7 @@ final readonly class ComponentLoader
             if (!$holdsSchema && !$hasSchemaFile && Variant::DEFAULT === $variant) {
                 // An overriding Default view: the schema still comes from the original.
                 $original = $this->reader->read($this->header($views[Variant::DEFAULT], $where . '/views/Default.twig', $errors) ?? [], DefinitionReader::FULL_KEYS, true, $package->name, $where . '/views/Default.twig', $errors);
-                [$title, $description, $fields, $areas, $widget, $group, $keywords, $example] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget, $original->group, $original->keywords, $original->example];
+                [$title, $description, $fields, $areas, $widget, $group, $keywords, $examples] = [$original->title ?? $name, $original->description ?? '', $original->fields, $original->areas, $original->widget, $original->group, $original->keywords, $original->examples];
             }
 
             $definition = $this->reader->read(
@@ -213,7 +213,7 @@ final readonly class ComponentLoader
             );
 
             if ($holdsSchema) {
-                [$title, $description, $fields, $areas, $widget, $group, $keywords, $example] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget, $definition->group, $definition->keywords, $definition->example];
+                [$title, $description, $fields, $areas, $widget, $group, $keywords, $examples] = [$definition->title ?? $name, $definition->description ?? '', $definition->fields, $definition->areas, $definition->widget, $definition->group, $definition->keywords, $definition->examples];
             }
 
             $variants[$variant] = new Variant(
@@ -231,7 +231,49 @@ final readonly class ComponentLoader
             $widget = false;
         }
 
-        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides), $this->tailored($package->name, $overrides), $example);
+        self::checkExamples($examples, $variants, $fields, $areas, $where, $errors);
+
+        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides), $this->tailored($package->name, $overrides), $examples);
+    }
+
+    /**
+     * The names in the examples must be those of the block (decision 0206):
+     * a variant it has, options of that variant or of any without one,
+     * its fields and areas.
+     *
+     * @param list<array<string, mixed>> $examples
+     * @param array<string, Variant>     $variants
+     * @param array<string, mixed>       $fields
+     * @param array<string, mixed>       $areas
+     */
+    private static function checkExamples(array $examples, array $variants, array $fields, array $areas, string $where, DefinitionErrors $errors): void
+    {
+        foreach ($examples as $index => $example) {
+            $path = 'examples.' . $index;
+            $variant = $example['variant'] ?? null;
+
+            if (\is_string($variant) && !isset($variants[$variant])) {
+                $errors->add($where, $path . '.variant', \sprintf('"%s" is no variant. Variants: %s', $variant, implode(', ', array_keys($variants))));
+
+                continue;
+            }
+
+            $options = [];
+
+            foreach (\is_string($variant) ? [$variants[$variant]] : $variants as $one) {
+                $options = [...$options, ...$one->options];
+            }
+
+            foreach (['options' => $options, 'fields' => $fields, 'areas' => $areas] as $key => $known) {
+                $given = $example[$key] ?? [];
+
+                foreach (\is_array($given) ? array_keys($given) : [] as $name) {
+                    if (!isset($known[$name])) {
+                        $errors->add($where, $path . '.' . $key . '.' . $name, 'unknown. Known: ' . ([] === $known ? 'none' : implode(', ', array_keys($known))));
+                    }
+                }
+            }
+        }
     }
 
     /**

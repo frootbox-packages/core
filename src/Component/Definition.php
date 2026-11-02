@@ -32,7 +32,7 @@ final readonly class Definition
         public ?string $group = null,
         /** @var list<string> Further words for the search */
         public array $keywords = [],
-        /** @var array<string, mixed> Content for the design page (decision 0205) */
-        public array $example = [],
+        /** @var list<array<string, mixed>> Content for the design page (decisions 0205, 0206) */
+        public array $examples = [],
     ) {}
 }

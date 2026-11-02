@@ -16,9 +16,11 @@ use Frootbox\Core\Component\ComponentLoader;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\DefinitionReader;
 use Frootbox\Core\Design\DesignPage;
+use Frootbox\Core\Design\ExampleContent;
 use Frootbox\Core\Design\RichTextSample;
 use Frootbox\Core\Extension\ExtensionPackage;
 use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Field\Sample;
 use Frootbox\Core\Http\Exception\HttpException;
 use Frootbox\Core\Preview\PreviewAccess;
 use Frootbox\Core\Tests\Support\NotesTestCase;
@@ -35,6 +37,8 @@ use Psr\Http\Message\ResponseInterface;
 #[CoversClass(RichTextSample::class)]
 #[CoversClass(DefinitionReader::class)]
 #[CoversClass(ComponentLoader::class)]
+#[CoversClass(ExampleContent::class)]
+#[CoversClass(Sample::class)]
 final class DesignPageTest extends NotesTestCase
 {
     private TemporaryProject $packages;
@@ -64,10 +68,22 @@ final class DesignPageTest extends NotesTestCase
         self::assertStringContainsString('<section class="hero"><h4>Fresh coffee</h4></section>', $html, 'The example in each variant, its headings below the group.');
         self::assertStringContainsString('<p class="fb-design-caption">Headers · Hero · Split</p>', $html);
         self::assertStringContainsString('<section class="hero hero--split"><h4>Fresh coffee</h4></section>', $html);
+        self::assertSame(1, substr_count($html, 'Roasted next door'), 'An example for one variant shows only there.');
+        self::assertStringContainsString('<p class="fb-design-caption">Headers · Hero · Split · Image: At the end</p>', $html, 'The caption names the options it sets.');
+        self::assertMatchesRegularExpression('#<img src="/assets/acme/look/assets/examples/beans\.png" width="1" height="1" alt="Beans"[^>]*>#', $html, 'A file of the child stands in for a medium.');
         self::assertMatchesRegularExpression('/Without an example yet:<\/p>\s*<ul class="fb-design-missing">\s*<li>Note<\/li>/', $html);
         self::assertStringNotContainsString('Secret', $html, 'Blocks the theme hides are not there.');
         self::assertStringContainsString('This block cannot be shown:', $html, 'A broken example does not hide the rest.');
         self::assertLessThan(strpos($html, '</main>'), strpos($html, 'Fresh coffee'), 'The content stands in <main>.');
+    }
+
+    public function testTranslatesTheExamplesThroughTheThemes(): void
+    {
+        $html = (string) $this->request('/_design?language=de')->getBody();
+
+        self::assertStringContainsString('<h4>Frischer Kaffee</h4>', $html);
+        self::assertStringContainsString('alt="Bohnen"', $html);
+        self::assertStringContainsString('<h4>Roasted next door</h4>', $html, 'Without a translation it stays as written.');
     }
 
     public function testDoesNotExistForGuests(): void
@@ -88,15 +104,19 @@ final class DesignPageTest extends NotesTestCase
         self::assertSame(200, $this->get(DesignPage::class)->handle($request)->getStatusCode());
     }
 
-    public function testChecksTheShapeOfAnExample(): void
+    public function testChecksTheExamples(): void
     {
-        file_put_contents($this->packages->root . '/kit/blocks/Note/views/Default.twig', "{# frootbox\ntitle: Note\nexample: { text: Hi }\n#}<p>Note</p>");
+        file_put_contents($this->packages->root . '/kit/blocks/Note/views/Default.twig', "{# frootbox\ntitle: Note\nexamples:\n  - { text: Hi }\n  - { variant: Wide }\n  - { fields: { nope: x }, options: { size: l } }\n#}<p>Note</p>");
 
         try {
             $this->get(Components::class);
-            self::fail('A wrong example is an error of the block.');
+            self::fail('Wrong examples are errors of the block.');
         } catch (ComponentException $exception) {
-            self::assertStringContainsString('example.text: unknown key. Allowed: fields, areas, options', $exception->getMessage());
+            $message = $exception->getMessage();
+            self::assertStringContainsString('examples.0.text: unknown key. Allowed: variant, fields, areas, options', $message);
+            self::assertStringContainsString('examples.1.variant: "Wide" is no variant. Variants: Default', $message);
+            self::assertStringContainsString('examples.2.fields.nope: unknown. Known: none', $message);
+            self::assertStringContainsString('examples.2.options.size: unknown. Known: none', $message);
         }
     }
 
@@ -108,11 +128,13 @@ final class DesignPageTest extends NotesTestCase
         $files = [
             $kit . '/frootbox.yaml' => "title: Kit\ntheme:\n  tokens:\n    color:\n      primary: '#c00'\n",
             $kit . '/layouts/Page/views/Default.twig' => "{# frootbox\ntitle: Page\nfields:\n  title: { type: headline }\nareas:\n  main: {}\n#}<header>Head</header><main>{{ heading('title', 0) }}{{ area('main') }}</main>",
-            $kit . '/blocks/Hero/views/Default.twig' => "{# frootbox\ntitle: Hero\ngroup: header\nfields:\n  title: { type: headline }\nexample:\n  fields: { title: 'Fresh coffee' }\n#}<section class=\"hero\">{{ heading('title', 0) }}</section>",
-            $kit . '/blocks/Hero/views/Split.twig' => "{# frootbox\ntitle: Split\n#}<section class=\"hero hero--split\">{{ heading('title', 0) }}</section>",
+            $kit . '/translations/de.yaml' => "Fresh coffee: Frischer Kaffee\nBeans: Bohnen\n",
+            $kit . '/blocks/Hero/views/Default.twig' => "{# frootbox\ntitle: Hero\ngroup: header\nfields:\n  title: { type: headline }\n  image: { type: image, optional: true }\nexamples:\n  - fields: { title: 'Fresh coffee' }\n  - variant: Split\n    options: { side: end }\n    fields: { title: 'Roasted next door', image: { sample: examples/beans.png, alt: Beans } }\n#}<section class=\"hero\">{{ heading('title', 0) }}</section>",
+            $kit . '/blocks/Hero/views/Split.twig' => "{# frootbox\ntitle: Split\noptions:\n  side: { type: choice, label: Image, choices: { start: At the start, end: At the end }, default: start }\n#}<section class=\"hero hero--split\">{{ heading('title', 0) }}{{ field('image') }}</section>",
+            $look . '/assets/examples/beans.png' => (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', true),
             $kit . '/blocks/Note/views/Default.twig' => "{# frootbox\ntitle: Note\ngroup: text\n#}<p>Note</p>",
-            $kit . '/blocks/Secret/views/Default.twig' => "{# frootbox\ntitle: Secret\nexample: { fields: {} }\n#}<p>Secret</p>",
-            $kit . '/blocks/Broken/views/Default.twig' => "{# frootbox\ntitle: Broken\nexample: { fields: {} }\n#}{{ area('nowhere') }}",
+            $kit . '/blocks/Secret/views/Default.twig' => "{# frootbox\ntitle: Secret\nexamples: [{}]\n#}<p>Secret</p>",
+            $kit . '/blocks/Broken/views/Default.twig' => "{# frootbox\ntitle: Broken\nexamples: [{}]\n#}{{ area('nowhere') }}",
             $look . '/frootbox.yaml' => "title: Look\ntheme:\n  parent: acme/kit\n  blocks:\n    hide: [acme/kit/Secret]\n",
         ];
 
@@ -132,7 +154,7 @@ final class DesignPageTest extends NotesTestCase
 
     protected function config(): array
     {
-        return ['theme' => 'acme/look'];
+        return ['theme' => 'acme/look', 'languages' => ['en' => ['title' => 'English'], 'de' => ['title' => 'Deutsch']]];
     }
 
     private function request(string $path): ResponseInterface

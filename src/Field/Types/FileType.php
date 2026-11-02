@@ -11,6 +11,7 @@ namespace Frootbox\Core\Field\Types;
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\ReferencesMedia;
+use Frootbox\Core\Field\Sample;
 use Frootbox\Core\Media\Documents;
 use Frootbox\Core\Media\Media;
 use Frootbox\Core\Media\MediaDrafts;
@@ -73,6 +74,21 @@ final readonly class FileType implements ReferencesMedia
 
     public function output(mixed $value, Field $field): Markup|string
     {
+        $sample = Sample::of($value);
+
+        if (null !== $sample && \is_array($value)) {
+            // A file of the theme in an example (decision 0206).
+            $text = \is_string($value['text'] ?? null) && '' !== trim($value['text']) ? trim($value['text']) : pathinfo($sample->name, \PATHINFO_FILENAME);
+            $facts = Documents::format($sample->type) . ', ' . self::size($sample->size, $this->service(Delivery::class)->contentLanguage()->code);
+
+            return new Markup(
+                Html::open('a', ['href' => $sample->url, 'type' => $sample->type])
+                    . htmlspecialchars($text, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8')
+                    . ' <small>' . htmlspecialchars($facts, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8') . '</small></a>',
+                'UTF-8',
+            );
+        }
+
         $medium = \is_array($value) && \is_string($value['media'] ?? null) ? $this->medium($value['media']) : null;
 
         if (null === $medium || !$medium->isDocument()) {

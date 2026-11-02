@@ -11,6 +11,7 @@ namespace Frootbox\Core\Field\Types;
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\ReferencesMedia;
+use Frootbox\Core\Field\Sample;
 use Frootbox\Core\Media\Media;
 use Frootbox\Core\Media\MediaDrafts;
 use Frootbox\Core\Media\MediaSources;
@@ -80,6 +81,23 @@ final readonly class VideoType implements ReferencesMedia
 
     public function output(mixed $value, Field $field): Markup|string
     {
+        $sample = Sample::of($value);
+
+        if (null !== $sample && \is_array($value)) {
+            // A file of the theme in an example (decision 0206).
+            $label = \is_string($value['alt'] ?? null) ? trim($value['alt']) : '';
+
+            return new Markup(Html::open('video', [
+                'controls' => true,
+                'playsinline' => true,
+                'preload' => null === $sample->poster ? 'metadata' : 'none',
+                'width' => $sample->width > 0 ? $sample->width : null,
+                'height' => $sample->height > 0 ? $sample->height : null,
+                'poster' => $sample->poster,
+                'aria-label' => '' === $label ? null : $label,
+            ]) . Html::open('source', ['src' => $sample->url, 'type' => $sample->type]) . '</video>', 'UTF-8');
+        }
+
         $video = \is_array($value) && \is_string($value['media'] ?? null) ? $this->medium($value['media']) : null;
 
         if (null === $video || !$video->isVideo()) {

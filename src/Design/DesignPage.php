@@ -17,6 +17,7 @@ use Frootbox\Core\Component\Component;
 use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\Instance;
+use Frootbox\Core\Component\Variant;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
@@ -97,6 +98,7 @@ final readonly class DesignPage implements RequestHandlerInterface
         private Languages $languages,
         private Translator $translator,
         private Labels $labels,
+        private ExampleContent $examples,
         private EditMode $editMode,
         private Delivery $delivery,
         private Document $document,
@@ -134,7 +136,7 @@ final readonly class DesignPage implements RequestHandlerInterface
             't' => $t,
             'tokens' => $this->tokenGroups($t),
             'richText' => $this->types->get('richtext')->output(RichTextSample::DOCUMENT, new Field('sample', 'richtext', 'Text')),
-            'groups' => $this->blocks($assets, $t),
+            'groups' => $this->blocks($assets, $language, $t),
         ]);
         $html = self::intoMain($html, $body);
 
@@ -238,7 +240,7 @@ final readonly class DesignPage implements RequestHandlerInterface
      *
      * @return list<array{title: string, blocks: list<array{caption: string, html: Markup}>, missing: list<string>}>
      */
-    private function blocks(AssetList $assets, \Closure $t): array
+    private function blocks(AssetList $assets, Language $language, \Closure $t): array
     {
         $blocks = array_filter(
             $this->components->all(ComponentKind::Block),
@@ -261,17 +263,24 @@ final readonly class DesignPage implements RequestHandlerInterface
             foreach ($members as $block) {
                 $labelled = $this->labels->component($block);
 
-                if ([] === $block->example) {
+                if ([] === $block->examples) {
                     $missing[] = $labelled->title;
 
                     continue;
                 }
 
                 foreach ($labelled->variants as $variant) {
-                    $shown[] = [
-                        'caption' => implode(' · ', array_unique([$groupTitle, $labelled->title, $variant->title])),
-                        'html' => new Markup($this->render($block, $variant->name, $assets, $t), 'UTF-8'),
-                    ];
+                    foreach ($block->examples as $example) {
+                        if (isset($example['variant']) && $example['variant'] !== $variant->name) {
+                            continue;
+                        }
+
+                        $options = \is_array($example['options'] ?? null) ? $example['options'] : [];
+                        $shown[] = [
+                            'caption' => implode(' · ', array_unique([$groupTitle, $labelled->title, $variant->title, ...self::chosen($variant, $options)])),
+                            'html' => new Markup($this->render($block, $variant->name, $example, $language, $assets, $t), 'UTF-8'),
+                        ];
+                    }
                 }
             }
 
@@ -284,10 +293,44 @@ final readonly class DesignPage implements RequestHandlerInterface
     /**
      * @param \Closure(string): string $t
      */
-    private function render(Component $block, string $variant, AssetList $assets, \Closure $t): string
+    /**
+     * The options an example sets, by their labels, e.g. "Size: Large".
+     *
+     * @param array<mixed> $options
+     *
+     * @return list<string>
+     */
+    private static function chosen(Variant $variant, array $options): array
+    {
+        $chosen = [];
+
+        foreach ($options as $name => $value) {
+            $option = $variant->options[$name] ?? null;
+
+            if (null === $option) {
+                continue;
+            }
+
+            $text = match (true) {
+                \is_bool($value) => $value ? '✓' : '–',
+                (\is_string($value) || \is_int($value)) && isset($option->choices[$value]) => $option->choices[$value],
+                \is_scalar($value) => (string) $value,
+                default => '',
+            };
+            $chosen[] = $option->label . ': ' . $text;
+        }
+
+        return $chosen;
+    }
+
+    /**
+     * @param array<string, mixed>     $example
+     * @param \Closure(string): string $t
+     */
+    private function render(Component $block, string $variant, array $example, Language $language, AssetList $assets, \Closure $t): string
     {
         try {
-            $instance = Instance::fromArray(['block' => $block->name, 'variant' => $variant, ...$block->example]);
+            $instance = Instance::fromArray($this->examples->block($block, $variant, $example, $language->code));
 
             return $this->renderer->block($instance, $assets, new Headings(new Outline(), self::BLOCK_LEVEL, floor: self::BLOCK_LEVEL));
         } catch (Throwable $exception) {
