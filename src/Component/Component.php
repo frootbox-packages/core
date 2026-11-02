@@ -40,6 +40,8 @@ final readonly class Component
         public ?string $group = null,
         public array $keywords = [],
         public array $previews = [],
+        /** Made or adapted by a theme of this website, not by the root theme (decision 0202) */
+        public bool $tailored = false,
     ) {}
 
     public function package(): string

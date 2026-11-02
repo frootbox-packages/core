@@ -36,6 +36,8 @@ final readonly class BlockSummary
         public ?string $preview = null,
         /** False if the themes hide it: it stays on pages, but cannot be added (decision 0162) */
         public bool $offered = true,
+        /** Made or adapted by a theme of this website; the picker groups it under "For this website" (decision 0202) */
+        public bool $tailored = false,
     ) {}
 
     public static function of(Component $block, Previews $previews = new Previews(), bool $offered = true): self
@@ -52,6 +54,7 @@ final readonly class BlockSummary
             $block->keywords,
             $previews->url($block),
             $offered,
+            $block->tailored,
         );
     }
 }

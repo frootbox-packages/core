@@ -230,7 +230,27 @@ final readonly class ComponentLoader
             $widget = false;
         }
 
-        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides));
+        return new Component($kind, $fullName, $path, $title, $description, $fields, $areas, $variants, $this->assets($path, $overrides), $widget, $group, $keywords, $this->previews($path, $overrides), $this->tailored($package->name, $overrides));
+    }
+
+    /**
+     * Made or adapted for this website: it comes from a theme of the chain
+     * that has a parent, or such a theme overrides its files. The root
+     * theme is a start for many websites and does not count (decision 0202).
+     *
+     * @param list<array{string, string}> $overrides
+     */
+    private function tailored(string $package, array $overrides): bool
+    {
+        $children = [];
+
+        foreach ($this->themes->themes as $theme) {
+            if (null !== $theme->parent) {
+                $children[] = $theme->name;
+            }
+        }
+
+        return \in_array($package, $children, true) || [] !== array_intersect(array_column($overrides, 0), $children);
     }
 
     /**

@@ -40,6 +40,7 @@ final class OfferTest extends NotesTestCase
 
         self::assertTrue($this->block($blocks, 'acme/base/Badge')->offered);
         self::assertTrue($this->block($blocks, 'acme/base/Columns')->offered);
+        self::assertSame([], array_keys(array_filter($blocks, static fn(BlockSummary $block): bool => $block->tailored)), 'The child makes no blocks and overrides none (decision 0202).');
         self::assertFalse($this->block($blocks, 'acme/base/Teaser')->offered, 'Not in "only" of the parent.');
         self::assertFalse($this->block($blocks, 'acme/news/List')->offered, 'Hidden although of a module.');
         self::assertFalse($this->layout($layouts, 'acme/base/Page')->offered);

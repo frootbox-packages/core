@@ -10,6 +10,7 @@ namespace Frootbox\Core\Tests\Component;
 
 use DI\Container;
 use Frootbox\Core\Component\Area;
+use Frootbox\Core\Component\BlockSummary;
 use Frootbox\Core\Component\Component;
 use Frootbox\Core\Component\ComponentException;
 use Frootbox\Core\Component\ComponentKind;
@@ -114,6 +115,15 @@ final class ComponentLoaderTest extends TestCase
 
         $list = $this->block($this->components(), 'acme/news/List');
         self::assertSame(['Default' => 'acme/news', 'Compact' => 'acme/site'], array_map(static fn(Variant $variant): string => $variant->from, $list->variants));
+    }
+
+    public function testMarksBlocksMadeOrAdaptedByTheChildTheme(): void
+    {
+        $tailored = array_keys(array_filter($this->components()->blocks, static fn(Component $block): bool => $block->tailored));
+
+        self::assertSame(['acme/base/Teaser', 'acme/site/Hero', 'acme/news/List'], $tailored, 'Own blocks and overrides of the child count, the root theme does not.');
+        self::assertSame([], array_keys(array_filter($this->components('acme/base')->blocks, static fn(Component $block): bool => $block->tailored)));
+        self::assertTrue(BlockSummary::of($this->block($this->components(), 'acme/site/Hero'))->tailored, 'block.list passes it on.');
     }
 
     public function testReadsSharedSchemasAndAreas(): void

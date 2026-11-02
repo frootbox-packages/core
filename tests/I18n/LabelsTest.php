@@ -68,6 +68,7 @@ final class LabelsTest extends TestCase
                 ['main' => new Area('main', 'Main')],
                 ['Default' => new Variant('Default', 'Wide', '', ['width' => new Option('width', 'choice', 'Width', 'wide', choices: ['wide' => 'Wide', 'narrow' => 'Narrow'])], '/tmp/Default.twig', 'acme/website')],
                 keywords: ['Short'],
+                tailored: true,
             ));
         } finally {
             $project->remove();
@@ -78,6 +79,7 @@ final class LabelsTest extends TestCase
         self::assertSame(['Einträge', 'Überschrift'], [$component->fields['items']->label, $component->fields['items']->fields['text']->label]);
         self::assertSame('Inhalt', $component->areas['main']->label);
         self::assertSame('Breit', $component->variants['Default']->title);
+        self::assertTrue($component->tailored, 'The translation keeps the mark of the website.');
         self::assertSame('Breite', $component->variants['Default']->options['width']->label);
         self::assertSame(['wide' => 'Breit', 'narrow' => 'Schmal'], $component->variants['Default']->options['width']->choices);
         self::assertSame(['Kurz'], $component->keywords);
