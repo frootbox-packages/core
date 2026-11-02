@@ -106,6 +106,23 @@ final class PreviewLinksTest extends NotesTestCase
         }
     }
 
+    public function testLeadsAnAgencyToTheDesignPage(): void
+    {
+        // Decision 0210: the link opens /_design and shows the whole draft as any other.
+        $link = $this->runner()->run(new CreatePreview('Agentur', design: true), $this->editor);
+
+        self::assertTrue($link->design);
+        self::assertMatchesRegularExpression('~^/_design\?fb-preview=[A-Za-z0-9_-]{43}$~', (string) $link->path);
+        self::assertTrue($this->runner()->ask(new ListPreviews(), $this->editor)[0]->design);
+
+        try {
+            $this->runner()->run(new CreatePreview(pageId: $this->start, design: true), $this->editor);
+            self::fail('A link to a page and the design page was accepted.');
+        } catch (InvalidInputException $error) {
+            self::assertArrayHasKey('/design', $error->errors);
+        }
+    }
+
     public function testShowsTheDraftToTheCustomerOnly(): void
     {
         $news = $this->createPage($this->start, 'Neuigkeiten', 'Bald online');

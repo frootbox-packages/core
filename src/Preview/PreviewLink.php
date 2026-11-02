@@ -23,6 +23,8 @@ final readonly class PreviewLink extends Entity
         public string $token,
         public ?string $note,
         public ?string $pageId,
+        /** Opens the design page /_design instead of a page (decision 0210) */
+        public bool $design,
         public ?int $createdBy,
         public DateTimeImmutable $expiresAt,
         public ?DateTimeImmutable $revokedAt,

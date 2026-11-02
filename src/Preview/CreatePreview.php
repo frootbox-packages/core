@@ -31,10 +31,12 @@ final readonly class CreatePreview implements Action
         #[Description('The page the link opens; left out for the start page')]
         #[Pattern(Ulid::PATTERN)]
         public ?string $pageId = null,
+        #[Description('Whether the link opens the design page /_design with every element of the website, e.g. for an agency; then without pageId')]
+        public bool $design = false,
     ) {}
 
     public function handle(PreviewEditor $editor): PreviewSummary
     {
-        return $editor->create('preview.create', $this->note, $this->expiresAt, $this->pageId);
+        return $editor->create('preview.create', $this->note, $this->expiresAt, $this->pageId, $this->design);
     }
 }

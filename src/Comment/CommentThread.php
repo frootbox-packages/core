@@ -36,6 +36,8 @@ final readonly class CommentThread
         public ?string $excerpt,
         /** The width of the window in pixels */
         public ?int $viewport,
+        /** The element of the design page, e.g. "tokens", instead of a page (decision 0210) */
+        public ?string $design,
         public CommentEntry $comment,
         public array $replies,
         public ?DateTimeImmutable $resolvedAt,

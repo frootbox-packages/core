@@ -22,16 +22,16 @@ use Frootbox\Database\Ulid;
  *
  * @implements Action<CommentThread>
  */
-#[AsAction('comment.create', 'Comments on a page, a block or a field and opens a thread; guests with a preview link give their name', preview: true)]
+#[AsAction('comment.create', 'Comments on a page, a block or a field, or on an element of the design page, and opens a thread; guests with a preview link give their name', preview: true)]
 final readonly class CreateComment implements Action
 {
     public function __construct(
-        #[Description('The page the comment is about')]
-        #[Pattern(Ulid::PATTERN)]
-        public string $pageId,
         #[Description('The text, plain text without markup')]
         #[Length(min: 1, max: CommentEditor::MAX_BODY)]
         public string $body,
+        #[Description('The page the comment is about; left out for the design page')]
+        #[Pattern(Ulid::PATTERN)]
+        public ?string $pageId = null,
         #[Description('The name of a guest with a preview link; users write under their own name')]
         #[Length(min: 1, max: CommentEditor::MAX_NAME)]
         public ?string $authorName = null,
@@ -55,7 +55,12 @@ final readonly class CreateComment implements Action
         #[Description('The width of the window in pixels')]
         #[Range(min: 0, max: 100000)]
         public ?int $viewport = null,
+        #[Description('The element of the design page /_design instead of a page, e.g. "tokens", "frootbox/theme-base/Hero/Split/1" or "page" for all of it')]
+        #[Pattern(self::DESIGN)]
+        public ?string $design = null,
     ) {}
+
+    public const string DESIGN = '^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+){0,7}$';
 
     public const string BLOCK = '^[0-9A-Za-z_-]{1,64}$';
 
@@ -71,6 +76,7 @@ final readonly class CreateComment implements Action
             'site' => $this->site,
             'excerpt' => $this->excerpt,
             'viewport' => $this->viewport,
+            'design' => $this->design,
         ], $this->body, $this->authorName);
     }
 }

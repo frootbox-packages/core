@@ -295,15 +295,17 @@ final readonly class DesignPage implements RequestHandlerInterface
                 }
 
                 foreach ($block->variants as $variant) {
-                    foreach ($block->examples as $example) {
+                    foreach ($block->examples as $index => $example) {
                         if (isset($example['variant']) && $example['variant'] !== $variant->name) {
                             continue;
                         }
 
                         $options = \is_array($example['options'] ?? null) ? $example['options'] : [];
+                        $caption = implode(' · ', array_unique([$groupTitle, $title, $label($variant->title), ...self::chosen($variant, $options, $label)]));
+                        $html = $this->render($block, $variant->name, $example, $language, $assets, $t, $frames);
                         $shown[] = [
-                            'caption' => implode(' · ', array_unique([$groupTitle, $title, $label($variant->title), ...self::chosen($variant, $options, $label)])),
-                            'html' => new Markup($this->render($block, $variant->name, $example, $language, $assets, $t, $frames), 'UTF-8'),
+                            'caption' => $caption,
+                            'html' => new Markup(self::mark($html, $block->name . '/' . $variant->name . '/' . $index, $caption), 'UTF-8'),
                         ];
                     }
                 }
@@ -313,6 +315,17 @@ final readonly class DesignPage implements RequestHandlerInterface
         }
 
         return $groups;
+    }
+
+    /**
+     * Marks the outer element of an example as a place for comments
+     * (decision 0210), without an element of its own around it.
+     */
+    private static function mark(string $html, string $key, string $title): string
+    {
+        $attributes = \sprintf(' data-fb-design="%s" data-fb-title="%s"', htmlspecialchars($key), htmlspecialchars($title));
+
+        return (string) preg_replace('/^(\s*(?:<!--.*?-->\s*)*<[a-zA-Z][a-zA-Z0-9-]*)(?=[\s>\/])/s', '$1' . $attributes, $html, 1);
     }
 
     /**
@@ -502,7 +515,7 @@ final readonly class DesignPage implements RequestHandlerInterface
     /**
      * Own parts of the themes, the child replaces a file of its parent.
      *
-     * @return list<array{title: string, template: string}>
+     * @return list<array{name: string, title: string, template: string}>
      */
     private function parts(Language $language): array
     {
@@ -519,7 +532,7 @@ final readonly class DesignPage implements RequestHandlerInterface
         ksort($names, \SORT_STRING);
 
         return array_map(
-            fn(string $name): array => ['title' => $this->translator->in($language->code, $name, $this->themeNames()), 'template' => FileLoader::NAMESPACE . self::PARTS . '/' . $name . '.twig'],
+            fn(string $name): array => ['name' => $name, 'title' => $this->translator->in($language->code, $name, $this->themeNames()), 'template' => FileLoader::NAMESPACE . self::PARTS . '/' . $name . '.twig'],
             array_map(strval(...), array_keys($names)),
         );
     }

@@ -48,14 +48,22 @@ final readonly class CommentEditor
     ) {}
 
     /**
-     * @param array{language?: ?string, path?: ?string, blockId?: ?string, field?: ?string, site?: bool, excerpt?: ?string, viewport?: ?int} $place
+     * On a page, or with $design on an element of the design page (decision 0210).
+     *
+     * @param array{language?: ?string, path?: ?string, blockId?: ?string, field?: ?string, site?: bool, excerpt?: ?string, viewport?: ?int, design?: ?string} $place
      *
      * @throws InvalidInputException
      * @throws TooManyAttemptsException
      */
-    public function create(string $action, string $pageId, array $place, string $body, ?string $authorName): CommentThread
+    public function create(string $action, ?string $pageId, array $place, string $body, ?string $authorName): CommentThread
     {
-        $errors = null === $this->pages->draft($pageId) && null === $this->pages->published($pageId) ? ['/pageId' => new Message('is not a page.')] : [];
+        $design = $place['design'] ?? null;
+        $errors = match (true) {
+            null === $pageId && null === $design => ['/pageId' => new Message('needs a page or an element of the design page.')],
+            null !== $pageId && null !== $design => ['/design' => new Message('is only for comments without a page.')],
+            null !== $pageId && null === $this->pages->draft($pageId) && null === $this->pages->published($pageId) => ['/pageId' => new Message('is not a page.')],
+            default => [],
+        };
         $author = $this->author($action, $body, $authorName, $errors);
         $excerpt = self::line($place['excerpt'] ?? null);
 
@@ -69,6 +77,7 @@ final readonly class CommentEditor
             'site' => $place['site'] ?? false,
             'excerpt' => null === $excerpt ? null : mb_substr($excerpt, 0, self::MAX_EXCERPT),
             'viewport' => $place['viewport'] ?? null,
+            'design' => $design,
             'status' => CommentStatus::Open,
         ]);
 
@@ -135,9 +144,9 @@ final readonly class CommentEditor
      *
      * @return list<CommentThread>
      */
-    public function list(?string $pageId, ?CommentStatus $status): array
+    public function list(?string $pageId, ?CommentStatus $status, bool $design = false): array
     {
-        $threads = $this->comments->threads($pageId, $status, $this->link());
+        $threads = $this->comments->threads($pageId, $status, $this->link(), $design);
         $replies = [];
 
         foreach ($this->comments->replies(array_map(static fn(Comment $thread): string => $thread->id, $threads)) as $reply) {
@@ -290,6 +299,7 @@ final readonly class CommentEditor
             $thread->site,
             $thread->excerpt,
             $thread->viewport,
+            $thread->design,
             self::entry($thread),
             array_map(self::entry(...), $replies),
             $thread->resolvedAt,

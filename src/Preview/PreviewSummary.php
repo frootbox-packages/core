@@ -25,6 +25,8 @@ final readonly class PreviewSummary
         public ?string $url,
         /** The page the link opens, null for the start page */
         public ?string $pageId,
+        /** Whether the link opens the design page /_design (decision 0210) */
+        public bool $design,
         /** The name of the user who created it */
         public ?string $createdBy,
         public ?DateTimeImmutable $createdAt,

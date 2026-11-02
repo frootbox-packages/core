@@ -88,12 +88,36 @@ final class CommentsTest extends NotesTestCase
 
         // Only with a link: a guest without one is not let in.
         try {
-            $this->runner()->run(new CreateComment($this->page, 'Hallo', 'Spam'), Context::guest());
+            $this->runner()->run(new CreateComment('Hallo', $this->page, 'Spam'), Context::guest());
             self::fail('A guest without a link commented.');
         } catch (AccessDeniedException) {
         }
 
         self::assertSame(1, $this->runner()->ask(new CountComments(), $this->editor));
+    }
+
+    public function testAGuestCommentsOnTheDesignPage(): void
+    {
+        // Decision 0210: an element of the design page instead of a page.
+        $thread = $this->runner()->run(new CreateComment('Der Hero ist zu hoch.', authorName: 'Agentur', language: 'de', path: '/_design?surface=dark', excerpt: 'Frisch geröstet', design: 'frootbox/theme-base/Hero/Split/1'), $this->customer);
+        $this->comment('Auf einer Seite.', $this->customer);
+
+        self::assertNull($thread->pageId);
+        self::assertNull($thread->pageTitle);
+        self::assertSame('frootbox/theme-base/Hero/Split/1', $thread->design);
+        self::assertSame('/_design?surface=dark', $thread->path);
+        self::assertSame([$thread->id], self::ids($this->runner()->ask(new ListComments(design: true), $this->customer)), 'Only the threads of the design page.');
+        self::assertCount(2, $this->runner()->ask(new ListComments(), $this->editor));
+        self::assertSame(2, $this->runner()->ask(new CountComments(), $this->editor), 'They count like the others.');
+
+        foreach (['/pageId' => new CreateComment('Wo?', authorName: 'Agentur'), '/design' => new CreateComment('Beides', $this->page, 'Agentur', design: 'tokens')] as $pointer => $action) {
+            try {
+                $this->runner()->run($action, $this->customer);
+                self::fail('Accepted: ' . $pointer);
+            } catch (InvalidInputException $error) {
+                self::assertArrayHasKey($pointer, $error->errors);
+            }
+        }
     }
 
     public function testAGuestSeesOnlyTheThreadsOfTheirLink(): void
@@ -149,9 +173,9 @@ final class CommentsTest extends NotesTestCase
     public function testChecksTheInput(): void
     {
         $cases = [
-            '/body' => new CreateComment($this->page, "  \n ", 'Frau Müller'),
-            '/authorName' => new CreateComment($this->page, 'Hallo'),
-            '/pageId' => new CreateComment('01ARZ3NDEKTSV4RRFFQ69G5FAV', 'Hallo', 'Frau Müller'),
+            '/body' => new CreateComment("  \n ", $this->page, 'Frau Müller'),
+            '/authorName' => new CreateComment('Hallo', $this->page),
+            '/pageId' => new CreateComment('Hallo', '01ARZ3NDEKTSV4RRFFQ69G5FAV', 'Frau Müller'),
         ];
 
         foreach ($cases as $field => $action) {
@@ -244,7 +268,7 @@ final class CommentsTest extends NotesTestCase
     {
         $name = null === $context->previewLinkId ? null : ($context === $this->customer ? 'Frau Müller' : 'Herr Meier');
 
-        return $this->runner()->run(new CreateComment($this->page, $body, $name, $blockId, $field, language: 'de', path: '/', excerpt: $excerpt, viewport: 1280), $context);
+        return $this->runner()->run(new CreateComment($body, $this->page, $name, $blockId, $field, language: 'de', path: '/', excerpt: $excerpt, viewport: 1280), $context);
     }
 
     /**

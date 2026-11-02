@@ -66,9 +66,11 @@ final class DesignPageTest extends NotesTestCase
 
         self::assertStringContainsString('<section class="fb-design-section" id="fb-design-group-header" aria-label="Headers">', $html, 'Each group has an address of its own.');
         self::assertStringContainsString('<p class="fb-design-caption">Headers · Hero</p>', $html);
-        self::assertStringContainsString('<section class="hero"><h4>Fresh coffee</h4></section>', $html, 'The example in each variant, its headings below the group.');
+        self::assertStringContainsString('<section data-fb-design="acme/kit/Hero/Default/0" data-fb-title="Headers · Hero" class="hero"><h4>Fresh coffee</h4></section>', $html, 'The example in each variant, its headings below the group, marked as a place for comments (decision 0210).');
         self::assertStringContainsString('<p class="fb-design-caption">Headers · Hero · Split</p>', $html);
-        self::assertStringContainsString('<section class="hero hero--split"><h4>Fresh coffee</h4></section>', $html);
+        self::assertStringContainsString('<section data-fb-design="acme/kit/Hero/Split/0" data-fb-title="Headers · Hero · Split" class="hero hero--split"><h4>Fresh coffee</h4></section>', $html);
+        self::assertStringContainsString('<section data-fb-design="acme/kit/Hero/Split/1" data-fb-title="Headers · Hero · Split · Image: At the end" class="hero hero--split">', $html, 'The number of the example in the list of the block.');
+        self::assertStringContainsString('aria-labelledby="fb-design-tokens-title" data-fb-design="tokens" data-fb-title="Tokens">', $html);
         self::assertSame(1, substr_count($html, 'Roasted next door'), 'An example for one variant shows only there.');
         self::assertStringContainsString('<p class="fb-design-caption">Headers · Hero · Split · Image: At the end</p>', $html, 'The caption names the options it sets.');
         self::assertMatchesRegularExpression('#<img src="/assets/acme/look/assets/examples/beans\.png" width="1" height="1" alt="Beans"[^>]*>#', $html, 'A file of the child stands in for a medium.');
@@ -92,7 +94,7 @@ final class DesignPageTest extends NotesTestCase
         // Decision 0208: a place and a surface of the same block are one frame.
         $html = (string) $this->request('/_design?place=column&surface=dark')->getBody();
 
-        self::assertStringContainsString('<div class="columns columns--dark"><section class="hero"><h4>Fresh coffee</h4></section></div>', $html);
+        self::assertStringContainsString('<div data-fb-design="acme/kit/Hero/Default/0" data-fb-title="Headers · Hero" class="columns columns--dark"><section class="hero"><h4>Fresh coffee</h4></section></div>', $html, 'The frame carries the mark.');
         self::assertStringContainsString('<p class="fb-design-caption">Blocks · In a column · On dark</p>', $html);
         self::assertMatchesRegularExpression('/Not at this place:<\/p>\s*<ul class="fb-design-missing">\s*<li>Broken<\/li>/', $html, 'The area does not allow it.');
         self::assertStringContainsString('<dd><a href="/_design?surface=dark">Main area</a></dd>', $html, 'Each link keeps the rest of the view.');
@@ -105,7 +107,7 @@ final class DesignPageTest extends NotesTestCase
         $html = (string) $this->request('/_design?direction=rtl')->getBody();
 
         self::assertStringContainsString('<html lang="en" dir="rtl">', $html, 'The mirror with known texts.');
-        self::assertMatchesRegularExpression('/<h2>States<\/h2>\s*<div><p class="states">Hover and focus<\/p>/', $html, 'A part of the child theme.');
+        self::assertMatchesRegularExpression('/<section class="fb-design-section" aria-label="States" data-fb-design="part\/States" data-fb-title="States">\s*<h2>States<\/h2>\s*<div><p class="states">Hover and focus<\/p>/', $html, 'A part of the child theme.');
         self::assertLessThan(strpos($html, 'fb-design-blocks-title'), strpos($html, 'Hover and focus'), 'Before the blocks.');
     }
 
@@ -114,7 +116,7 @@ final class DesignPageTest extends NotesTestCase
         $html = (string) $this->request('/_design?place=lost')->getBody();
 
         self::assertStringContainsString('<p role="alert">The frame &quot;lost&quot; of acme/kit names the block acme/kit/Nothing, which does not exist.</p>', $html);
-        self::assertStringContainsString('<section class="hero"><h4>Fresh coffee</h4></section>', $html, 'The blocks stay in the main area.');
+        self::assertStringContainsString('class="hero"><h4>Fresh coffee</h4></section>', $html, 'The blocks stay in the main area.');
     }
 
     public function testDoesNotExistForGuests(): void

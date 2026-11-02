@@ -15,6 +15,7 @@ use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Auth\Permissions;
 use Frootbox\Core\Config\Config;
+use Frootbox\Core\Design\DesignPage;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\PageReader;
 use Frootbox\Core\Support\Message;
@@ -55,7 +56,7 @@ final readonly class PreviewEditor
     /**
      * @throws InvalidInputException
      */
-    public function create(string $action, ?string $note, ?DateTimeImmutable $expiresAt, ?string $pageId): PreviewSummary
+    public function create(string $action, ?string $note, ?DateTimeImmutable $expiresAt, ?string $pageId, bool $design = false): PreviewSummary
     {
         $this->mustSeeAllPages($action);
         $now = new DateTimeImmutable();
@@ -64,6 +65,10 @@ final readonly class PreviewEditor
 
         if (null !== $pageId && null === $this->pages->draft($pageId) && null === $this->pages->published($pageId)) {
             $errors['/pageId'] = new Message('is not a page.');
+        }
+
+        if ($design && null !== $pageId) {
+            $errors['/design'] = new Message('opens the design page, not a page.');
         }
 
         if ([] !== $errors) {
@@ -76,6 +81,7 @@ final readonly class PreviewEditor
             'token' => $this->tokens->encrypt($token),
             'note' => self::clean($note),
             'page_id' => $pageId,
+            'design' => $design,
             'created_by' => $this->context->get()->actor->id,
             'expires_at' => $expiresAt,
             'opens' => 0,
@@ -149,7 +155,7 @@ final readonly class PreviewEditor
     public function summary(PreviewLink $link): PreviewSummary
     {
         $token = $this->tokens->decrypt($link->token);
-        $path = null === $token ? null : $this->path($link->pageId, $token);
+        $path = null === $token ? null : $this->path($link, $token);
         $site = $this->config->get('app.url');
         $base = \is_string($site) && '' !== $site ? rtrim($site, '/') : null;
         $language = $this->languages->default();
@@ -163,6 +169,7 @@ final readonly class PreviewEditor
             $path,
             null === $path || null === $base ? null : $base . $path,
             $link->pageId,
+            $link->design,
             $creator?->name,
             $link->createdAt,
             $link->expiresAt,
@@ -174,12 +181,17 @@ final readonly class PreviewEditor
     }
 
     /**
-     * The link of a token in the first language: the page, or the start page.
+     * The link of a token in the first language: the page, the start page
+     * or the design page.
      */
-    private function path(?string $pageId, string $token): string
+    private function path(PreviewLink $link, string $token): string
     {
+        if ($link->design) {
+            return DesignPage::ROUTE . '?' . self::PARAMETER . '=' . $token;
+        }
+
         $language = $this->languages->default();
-        $path = null === $pageId ? null : ($this->addresses->of($pageId)[$language->code] ?? null)?->path;
+        $path = null === $link->pageId ? null : ($this->addresses->of($link->pageId)[$language->code] ?? null)?->path;
 
         return UrlPath::encode($language->path($path ?? '')) . '?' . self::PARAMETER . '=' . $token;
     }

@@ -25,9 +25,13 @@ final class Comments extends Repository
      *
      * @return list<Comment>
      */
-    public function threads(?string $pageId = null, ?CommentStatus $status = null, ?string $linkId = null): array
+    public function threads(?string $pageId = null, ?CommentStatus $status = null, ?string $linkId = null, bool $design = false): array
     {
         $where = ['threadId' => null];
+
+        if ($design) {
+            $where['design !='] = null;
+        }
 
         if (null !== $pageId) {
             $where['pageId'] = $pageId;

@@ -28,6 +28,8 @@ final readonly class ListComments implements Query
         public ?string $pageId = null,
         #[Description('Only open or only done threads')]
         public ?CommentStatus $status = null,
+        #[Description('Only the threads on the design page /_design')]
+        public bool $design = false,
     ) {}
 
     /**
@@ -35,6 +37,6 @@ final readonly class ListComments implements Query
      */
     public function handle(CommentEditor $editor): array
     {
-        return $editor->list($this->pageId, $this->status);
+        return $editor->list($this->pageId, $this->status, $this->design);
     }
 }
