@@ -15,7 +15,9 @@ use Frootbox\RichText\Html;
 use Twig\Markup;
 
 /**
- * Plain text without formatting. With "multiline: true" line breaks become <br>.
+ * Plain text without formatting. With "multiline: true" line breaks become
+ * <br> alone: an editable field shows a line break next to it as a second
+ * one and reads it back doubled.
  */
 #[AsFieldType('text', 'Plain text without formatting')]
 final readonly class TextType implements FieldType
@@ -47,6 +49,10 @@ final readonly class TextType implements FieldType
             return '';
         }
 
-        return true === $field->setting('multiline') ? new Markup(nl2br(Html::escape($value), false), 'UTF-8') : $value;
+        if (true !== $field->setting('multiline')) {
+            return $value;
+        }
+
+        return new Markup(str_replace(["\r\n", "\r", "\n"], '<br>', Html::escape($value)), 'UTF-8');
     }
 }

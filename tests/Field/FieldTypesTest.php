@@ -129,6 +129,18 @@ final class FieldTypesTest extends TestCase
         self::assertSame('<a href="tel:+4940123">اتصل بنا</a>', $this->link(['url' => 'tel:+4940123', 'text' => 'اتصل بنا']), 'Own text keeps the direction around it.');
     }
 
+    public function testTurnsLineBreaksIntoBrAlone(): void
+    {
+        $type = $this->types->get('text');
+        $multiline = new Field('address', 'text', 'Address', settings: ['multiline' => true]);
+
+        // Without the line break next to it: an editable field would show both.
+        $output = $type->output("Hafenstraße 12\r\n20457 Hamburg\n<Hof>", $multiline);
+        self::assertInstanceOf(\Stringable::class, $output);
+        self::assertSame('Hafenstraße 12<br>20457 Hamburg<br>&lt;Hof&gt;', (string) $output);
+        self::assertSame("Eine Zeile\nzwei", $type->output("Eine Zeile\nzwei", new Field('title', 'text', 'Title')), 'A single line field stays as it is, Twig escapes it.');
+    }
+
     public function testKnowsItsTypes(): void
     {
         self::assertSame(['headline', 'text', 'richtext', 'link', 'list', 'image', 'video', 'icon', 'file', 'table'], $this->types->names());
