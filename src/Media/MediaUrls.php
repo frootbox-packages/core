@@ -35,8 +35,8 @@ final readonly class MediaUrls
     /** A file of a video (decision 0177): "main" for the one of the medium, else the id of the source. */
     public const string VIDEO_PATTERN = '/^(?<name>[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-(?<source>main|[0-9a-z]{26})-(?<signature>[0-9a-f]{16})\.(?<extension>mp4|webm)$/';
 
-    /** The file of a document (decision 0179). */
-    public const string DOCUMENT_PATTERN = '/^(?<name>[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-(?<source>main)-(?<signature>[0-9a-f]{16})\.(?<extension>pdf|docx|xlsx|pptx|odt|ods|odp|txt|csv|zip)$/';
+    /** The file of a document (decision 0179) or an SVG (decision 0182). */
+    public const string DOCUMENT_PATTERN = '/^(?<name>[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-(?<source>main)-(?<signature>[0-9a-f]{16})\.(?<extension>pdf|docx|xlsx|pptx|odt|ods|odp|txt|csv|zip|svg)$/';
 
     public function __construct(
         private Config $config,
@@ -96,7 +96,7 @@ final readonly class MediaUrls
     public function file(Medium $medium): string
     {
         $name = self::name($medium->fileName, $this->languages->default()->code);
-        $extension = Documents::TYPES[$medium->type] ?? 'bin';
+        $extension = self::fileExtension($medium->type) ?? 'bin';
 
         return \sprintf(
             '%s%s/%d/%s-main-%s.%s',
@@ -107,6 +107,14 @@ final readonly class MediaUrls
             $this->signature($medium->id, $medium->version, $name . '-main', 0, 0, $extension),
             $extension,
         );
+    }
+
+    /**
+     * The extension of a file delivered as it is: a document or an SVG.
+     */
+    public static function fileExtension(string $type): ?string
+    {
+        return Svg::TYPE === $type ? 'svg' : Documents::TYPES[$type] ?? null;
     }
 
     public function isValidVideo(string $id, int $version, string $name, string $source, string $extension, string $signature): bool

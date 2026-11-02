@@ -18,7 +18,7 @@ use Frootbox\Core\Auth\Scoped;
 /**
  * @implements Action<MediumDetails>
  */
-#[AsAction('media.create', 'Adds an image (JPEG, PNG, WebP, GIF) from an upload to the media library; it becomes public with the first published page that uses it. Is the same file already there, it gives that medium with "existing": true and keeps its folder, texts and tags')]
+#[AsAction('media.create', 'Adds an image (JPEG, PNG, WebP, GIF, SVG), a video or a document from an upload to the media library; it becomes public with the first published page that uses it. Is the same file already there, it gives that medium with "existing": true and keeps its folder, texts and tags')]
 final readonly class CreateMedium implements Action, Scoped
 {
     /**

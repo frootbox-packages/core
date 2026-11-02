@@ -31,7 +31,7 @@ use Twig\Markup;
  * 100vw"; "eager" loads it at once with high priority, for the first
  * image on a page such as in a hero. Without "ratio" the <img> gets its
  * focus point as object-position, so CSS with object-fit: cover keeps it. {{ field('image') }} gives a <picture> with modern formats and
- * all widths; a deleted medium gives nothing. The editing mode shows the
+ * all widths, an SVG a single <img> (decision 0182); a deleted medium gives nothing. The editing mode shows the
  * draft of the medium, visitors the published state (decision 0147).
  */
 #[AsFieldType('image', 'An image from the media library')]
@@ -85,12 +85,16 @@ final readonly class ImageType implements ReferencesMedia
         $id = $this->media($value, $field)[0] ?? null;
         $medium = null === $id ? null : $this->service(Media::class)->fetchById($id);
 
-        // A video in an image field shows nothing (decision 0177).
-        if (null === $medium || !\is_array($value) || $medium->isVideo()) {
+        // A video or document in an image field shows nothing (decisions 0177, 0179).
+        if (null === $medium || !\is_array($value) || !$medium->isImage()) {
             return '';
         }
 
         $medium = $this->service(MediaDrafts::class)->seen($medium);
+
+        if ($medium->isVector()) {
+            return $this->vector($value, $field, $medium);
+        }
 
         $urls = $this->service(MediaUrls::class);
         $ratio = self::ratio($field, $medium);
@@ -125,6 +129,34 @@ final readonly class ImageType implements ReferencesMedia
         ]);
 
         return new Markup(Html::element('picture', $sources . $img), 'UTF-8');
+    }
+
+    /**
+     * An SVG (decision 0182): one file, sharp at every width. A ratio cuts
+     * it with CSS around the focus point instead of in a generated size.
+     *
+     * @param array<mixed> $value
+     */
+    private function vector(array $value, Field $field, Medium $medium): Markup
+    {
+        $ratio = self::ratio($field, $medium);
+        $eager = true === $field->setting('eager');
+        $height = null === $ratio ? $medium->height : max(1, (int) round($medium->width / $ratio));
+        $focus = self::focus($medium);
+        $style = null === $ratio
+            ? $focus
+            : \sprintf('aspect-ratio: %d / %d; object-fit: cover', $medium->width, $height) . (null === $focus ? '' : '; ' . $focus);
+
+        return new Markup(Html::open('img', [
+            'src' => $this->service(MediaUrls::class)->file($medium),
+            'width' => $medium->width,
+            'height' => $height,
+            'alt' => $this->alt($value, $medium),
+            'loading' => $eager ? 'eager' : 'lazy',
+            'fetchpriority' => $eager ? 'high' : null,
+            'decoding' => 'async',
+            'style' => $style,
+        ]), 'UTF-8');
     }
 
     /**

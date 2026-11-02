@@ -565,7 +565,7 @@ final readonly class MediaEditor
                     'url' => $this->urls->video($medium, $source),
                 ];
             }
-        } elseif ($medium->isDocument()) {
+        } elseif ($medium->isDocument() || $medium->isVector()) {
             $preview = $this->urls->file($medium);
         } else {
             $formats = $this->urls->formats($medium);
@@ -679,7 +679,7 @@ final readonly class MediaEditor
     {
         $found = match (true) {
             Videos::isVideo($path) => 'video',
-            Images::isImage($path) => 'image',
+            Images::isImage($path), Svg::isSvg($path) => 'image',
             Documents::isDocument($path, $name) => 'document',
             default => null,
         };
@@ -700,6 +700,10 @@ final readonly class MediaEditor
             };
         }
 
+        if ('image' === $found && Svg::isSvg($path)) {
+            return self::prepareSvg($path, $target);
+        }
+
         if ('image' === $found) {
             $facts = $this->images->prepare($path, $target);
 
@@ -711,6 +715,31 @@ final readonly class MediaEditor
             'document' => $this->documents->prepare($path, $target, $name),
             default => UploadReceiver::notMedia(),
         };
+    }
+
+    /**
+     * Writes the clean SVG as original (decision 0182): what could run never reaches the storage.
+     *
+     * @return array{type: string, codec: string, width: int, height: int, size: int}|Message
+     */
+    private static function prepareSvg(string $path, string $target): array|Message
+    {
+        $source = @file_get_contents($path);
+        $clean = false === $source ? null : Svg::clean($source);
+
+        if (null === $clean) {
+            return new Message('The SVG cannot be read or holds nothing that can be shown.');
+        }
+
+        $folder = \dirname($target);
+
+        if ((!is_dir($folder) && !@mkdir($folder, 0o775, true) && !is_dir($folder)) || false === @file_put_contents($target, $clean)) {
+            return new Message('The image could not be saved.');
+        }
+
+        [$width, $height] = Svg::size($clean);
+
+        return ['type' => Svg::TYPE, 'codec' => '', 'width' => $width, 'height' => $height, 'size' => \strlen($clean)];
     }
 
     /**

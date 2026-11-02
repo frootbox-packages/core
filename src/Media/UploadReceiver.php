@@ -103,7 +103,7 @@ final readonly class UploadReceiver
 
     public static function notMedia(): Message
     {
-        return new Message('The file is no image (JPEG, PNG, WebP, GIF), video (MP4, WebM) or document (PDF, Office, OpenDocument, text, CSV, ZIP).');
+        return new Message('The file is no image (JPEG, PNG, WebP, GIF, SVG), video (MP4, WebM) or document (PDF, Office, OpenDocument, text, CSV, ZIP).');
     }
 
     /**
@@ -189,7 +189,7 @@ final readonly class UploadReceiver
     private static function kind(string $path, string $name): ?string
     {
         return match (true) {
-            Images::isImage($path) => 'image',
+            Images::isImage($path), Svg::isSvg($path) => 'image',
             Videos::isVideo($path) => 'video',
             Documents::isDocument($path, $name) => 'document',
             default => null,

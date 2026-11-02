@@ -66,7 +66,7 @@ final readonly class ListMedia implements Query, Scoped
         }
 
         $types = match ($this->kind) {
-            'image' => Images::TYPES,
+            'image' => Images::TYPES + [Svg::TYPE => 'svg'],
             'video' => Videos::TYPES,
             'document' => Documents::TYPES,
             default => null,

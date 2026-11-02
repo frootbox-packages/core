@@ -97,7 +97,7 @@ final class Images
 
     public static function notAnImage(): Message
     {
-        return new Message('The file is no image of type JPEG, PNG, WebP or GIF.');
+        return new Message('The file is no image of type JPEG, PNG, WebP, GIF or SVG.');
     }
 
     /**

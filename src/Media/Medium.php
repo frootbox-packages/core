@@ -57,7 +57,15 @@ final readonly class Medium extends Entity
     }
 
     /**
-     * Whether the medium is an image: neither video nor document.
+     * Whether the medium is an SVG graphic, an image without sizes (decision 0182).
+     */
+    public function isVector(): bool
+    {
+        return Svg::TYPE === $this->type;
+    }
+
+    /**
+     * Whether the medium is an image: neither video nor document, also an SVG.
      */
     public function isImage(): bool
     {

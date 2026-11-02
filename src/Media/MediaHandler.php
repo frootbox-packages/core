@@ -32,6 +32,9 @@ final readonly class MediaHandler implements RequestHandlerInterface
 {
     public const string ROUTE = '/media/{id:[0-9A-HJKMNP-TV-Z]{26}}/{version:[1-9][0-9]*}/{file}';
 
+    /** The same as for the copies in public/media/ in the .htaccess of the skeleton. */
+    public const string SVG_POLICY = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox";
+
     private const array TYPES = [
         'avif' => 'image/avif',
         'webp' => 'image/webp',
@@ -84,6 +87,7 @@ final readonly class MediaHandler implements RequestHandlerInterface
 
         if (
             !$medium->isImage()
+            || $medium->isVector()
             || !$this->urls->isValid($id, $version, $match['name'], $width, $height, $extension, $match['signature'])
             || !MediaUrls::allows($medium, $width)
             || !\in_array($extension, $this->urls->formats($medium), true)
@@ -186,8 +190,8 @@ final readonly class MediaHandler implements RequestHandlerInterface
     }
 
     /**
-     * The file of a document (decision 0179): a public one is copied to
-     * public/media/ for the web server, like a video.
+     * The file of a document (decision 0179) or an SVG (decision 0182): a
+     * public one is copied to public/media/ for the web server, like a video.
      *
      * @param array<array-key, string> $match
      */
@@ -198,8 +202,8 @@ final readonly class MediaHandler implements RequestHandlerInterface
         $original = $this->files->original($medium->original());
 
         if (
-            !$medium->isDocument()
-            || (Documents::TYPES[$medium->type] ?? null) !== $match['extension']
+            !($medium->isDocument() || $medium->isVector())
+            || MediaUrls::fileExtension($medium->type) !== $match['extension']
             || !$this->urls->isValidVideo($id, $version, $match['name'], 'main', $match['extension'], $match['signature'])
             || !is_file($original)
         ) {
@@ -211,7 +215,10 @@ final readonly class MediaHandler implements RequestHandlerInterface
         }
 
         // Text without a charset would be read in the encoding of the browser.
-        return $this->ranged($request, $original, str_starts_with($medium->type, 'text/') ? $medium->type . '; charset=utf-8' : $medium->type, $private);
+        $response = $this->ranged($request, $original, str_starts_with($medium->type, 'text/') ? $medium->type . '; charset=utf-8' : $medium->type, $private);
+
+        // Opened on its own, nothing in an SVG may run or load (decision 0182).
+        return $medium->isVector() ? $response->withHeader('Content-Security-Policy', self::SVG_POLICY) : $response;
     }
 
     /**

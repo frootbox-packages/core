@@ -88,7 +88,7 @@ final readonly class VideoType implements ReferencesMedia
 
         $urls = $this->service(MediaUrls::class);
         $poster = \is_string($value['poster'] ?? null) ? $this->medium($value['poster']) : null;
-        $poster = null === $poster || $poster->isVideo() ? null : $poster;
+        $poster = null === $poster || !$poster->isImage() ? null : $poster;
         $files = [['type' => $video->type, 'codec' => $video->codec, 'url' => $urls->video($video)]];
 
         foreach ($this->service(MediaSources::class)->of($video->id) as $source) {
@@ -130,6 +130,11 @@ final readonly class VideoType implements ReferencesMedia
     private function poster(Medium $image): string
     {
         $urls = $this->service(MediaUrls::class);
+
+        if ($image->isVector()) {
+            return $urls->file($image);
+        }
+
         $widths = MediaUrls::widths($image, self::POSTER_WIDTH);
         $extension = \in_array('webp', $urls->modernFormats(), true) ? 'webp' : MediaUrls::fallback($image);
 
