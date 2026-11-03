@@ -73,12 +73,15 @@ use Frootbox\Core\Design\RestoreDesign;
 use Frootbox\Core\Design\ShowDesign;
 use Frootbox\Core\Design\UpdateDesign;
 use Frootbox\Core\Field\Types\BooleanType;
+use Frootbox\Core\Field\Types\ChoiceType;
+use Frootbox\Core\Field\Types\DateType;
 use Frootbox\Core\Field\Types\FileType;
 use Frootbox\Core\Field\Types\HeadlineType;
 use Frootbox\Core\Field\Types\IconType;
 use Frootbox\Core\Field\Types\ImageType;
 use Frootbox\Core\Field\Types\LinkType;
 use Frootbox\Core\Field\Types\ListType;
+use Frootbox\Core\Field\Types\NumberType;
 use Frootbox\Core\Field\Types\RichTextType;
 use Frootbox\Core\Field\Types\TableType;
 use Frootbox\Core\Field\Types\TextType;
@@ -254,7 +257,7 @@ final class CoreExtension implements Extension
         $registry->command(MediaPruneCommand::class);
         $registry->command(MediaUsagesCommand::class);
 
-        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class, FileType::class, TableType::class, BooleanType::class] as $fieldType) {
+        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class, FileType::class, TableType::class, BooleanType::class, NumberType::class, DateType::class, ChoiceType::class] as $fieldType) {
             $registry->fieldType($fieldType);
         }
 
