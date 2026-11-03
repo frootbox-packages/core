@@ -20,6 +20,7 @@ use Frootbox\Core\Container\ContainerFactory;
 use Frootbox\Core\Error\ErrorMiddleware;
 use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Source\ComposerSource;
+use Frootbox\Core\Extension\Source\ExtensionSource;
 use Frootbox\Core\Http\AfterResponse;
 use Frootbox\Core\Http\MiddlewareDispatcher;
 use Frootbox\Core\Http\ResponseEmitter;
@@ -73,14 +74,17 @@ final readonly class Application
 
     /**
      * @param array<string, string>|null $serverEnvironment Defaults to the real environment (getenv()).
+     * @param list<ExtensionSource>|null $sources           Where extensions are found, by default the
+     *                                                      Composer packages of the project; the
+     *                                                      workbench brings its own (decision 0254)
      */
-    public static function fromProjectRoot(string $projectRoot, ?array $serverEnvironment = null): self
+    public static function fromProjectRoot(string $projectRoot, ?array $serverEnvironment = null, ?array $sources = null): self
     {
         $paths = new ProjectPaths($projectRoot);
         $config = ConfigLoader::load($paths, $serverEnvironment ?? getenv());
         TimeZone::apply($config);
 
-        $sources = [new ComposerSource($paths->root . '/vendor', $paths->root . '/extensions')];
+        $sources ??= [new ComposerSource($paths->root . '/vendor', $paths->root . '/extensions')];
         $extensions = ExtensionLoader::discover($sources, $paths, useCache: !$config->environment->isDevelopment());
 
         return new self(ContainerFactory::create($config, $paths, $extensions, ExtensionLoader::boot($extensions)));
@@ -92,8 +96,9 @@ final readonly class Application
      * then point to it.
      *
      * @param array<string, string>|null $serverEnvironment Defaults to the real environment (getenv()).
+     * @param list<ExtensionSource>|null $sources           See fromProjectRoot()
      */
-    public static function console(string $projectRoot, ?InputInterface $input = null, ?OutputInterface $output = null, ?array $serverEnvironment = null): int
+    public static function console(string $projectRoot, ?InputInterface $input = null, ?OutputInterface $output = null, ?array $serverEnvironment = null, ?array $sources = null): int
     {
         $input ??= new ArgvInput();
         $output ??= new ConsoleOutput();
@@ -103,13 +108,13 @@ final readonly class Application
         if ('install' === $input->getFirstArgument()) {
             $console = new ConsoleApplication('Frootbox', Frootbox::VERSION);
             $console->setAutoExit(false);
-            $console->addCommand(new InstallCommand($paths, $serverEnvironment));
+            $console->addCommand(new InstallCommand($paths, $serverEnvironment, $sources));
 
             return $console->run($input, $output);
         }
 
         try {
-            $application = self::fromProjectRoot($projectRoot, $serverEnvironment);
+            $application = self::fromProjectRoot($projectRoot, $serverEnvironment, $sources);
         } catch (ConfigException $error) {
             $errorOutput = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
             $errorOutput->writeln(\sprintf('<error>%s</error>', $error->getMessage()));

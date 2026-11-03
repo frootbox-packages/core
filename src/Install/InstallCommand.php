@@ -18,6 +18,7 @@ use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Application;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Database\Migrator;
+use Frootbox\Core\Extension\Source\ExtensionSource;
 use Frootbox\Core\Frootbox;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\User\CreateUser;
@@ -53,10 +54,12 @@ final class InstallCommand extends Command
 
     /**
      * @param array<string, string>|null $serverEnvironment Defaults to the real environment (getenv()).
+     * @param list<ExtensionSource>|null $sources           See Application::fromProjectRoot()
      */
     public function __construct(
         private readonly ProjectPaths $paths,
         private readonly ?array $serverEnvironment = null,
+        private readonly ?array $sources = null,
     ) {
         parent::__construct();
     }
@@ -84,7 +87,7 @@ final class InstallCommand extends Command
                 throw new InstallException(implode("\n", $problems));
             }
 
-            $container = Application::fromProjectRoot($this->paths->root, $env)->container();
+            $container = Application::fromProjectRoot($this->paths->root, $env, $this->sources)->container();
             $this->service($container, CurrentContext::class)->set(Context::system(Channel::Console));
 
             if ($this->isInstalled($container)) {

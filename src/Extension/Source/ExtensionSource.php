@@ -11,7 +11,8 @@ namespace Frootbox\Core\Extension\Source;
 use Frootbox\Core\Extension\ExtensionPackage;
 
 /**
- * A place where extensions are found. Today there is only Composer.
+ * A place where extensions are found: the Composer packages of the
+ * project, or the source of the workbench (decision 0254).
  */
 interface ExtensionSource
 {
