@@ -80,7 +80,9 @@ final class SpaceFieldsTest extends NotesTestCase
     public function testChecksTheValuesAgainstTheFieldsOfTheSpace(): void
     {
         $this->save(['altitude' => 1650, 'harvest' => '2026-05-01', 'variety' => 'mixed', 'organic' => false, 'origin' => ['de' => 'Huila']]);
-        self::assertSame(['altitude' => 1650, 'harvest' => '2026-05-01', 'variety' => 'mixed', 'organic' => false, 'origin' => ['de' => 'Huila']], $this->draft());
+        $draft = $this->draft();
+        ksort($draft);
+        self::assertSame(['altitude' => 1650, 'harvest' => '2026-05-01', 'organic' => false, 'origin' => ['de' => 'Huila'], 'variety' => 'mixed'], $draft, 'MySQL keeps the keys of JSON in an order of its own.');
 
         $this->assertInvalid('/fields/altitude', ['altitude' => -1]);
         $this->assertInvalid('/fields/altitude', ['altitude' => 1.5], 'Without decimals a whole number.');
