@@ -51,13 +51,13 @@ final class SeederTest extends NotesTestCase
     {
         $file = $this->get(ProjectPaths::class)->var('seed.yaml');
         file_put_contents($file, <<<'YAML'
-            - page.create: { layout: acme/base/Page, translations: { de: { title: 'Ab ${date:2030-01-02 10:00}' } } }
+            - page.create: { layout: acme/base/Page, translations: { de: { title: 'Ab ${date:2030-01-02 10:00}, Tag ${day:2030-01-02 10:00}' } } }
             YAML);
         $seeder = $this->get(Seeder::class);
         $seeder->run($seeder->read($file));
         $expected = new DateTimeImmutable('2030-01-02 10:00')->format(DateTimeInterface::ATOM);
 
-        self::assertStringContainsString('"Ab ' . $expected . '"', (string) json_encode($this->get(Revisions::class)->fetchOne()?->data, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
+        self::assertStringContainsString('"Ab ' . $expected . ', Tag 2030-01-02"', (string) json_encode($this->get(Revisions::class)->fetchOne()?->data, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
     }
 
     public function testUploadsFilesForTheMedia(): void

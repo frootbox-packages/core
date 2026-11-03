@@ -35,7 +35,9 @@ use Symfony\Component\Yaml\Yaml;
  *
  * "${date:+2 weeks 18:00}" is a time relative to now in the time zone of
  * PHP, as "2026-11-17T18:00:00+01:00", e.g. for demo events that stay
- * ahead (decision 0227). Any relative format of PHP works.
+ * ahead (decision 0227). Any relative format of PHP works. "${day:+3
+ * months}" is only the day, as "2027-02-03", e.g. for the start of a job
+ * (decision 0231).
  *
  * The step "upload" keeps a file like POST /api/v1/uploads and gives its
  * token, e.g. for media.create; the path is relative to the seed file or
@@ -263,11 +265,11 @@ final readonly class Seeder
             return $value;
         }
 
-        $value = (string) preg_replace_callback('/\$\{date:([^}]+)\}/', static function (array $match) use ($number): string {
+        $value = (string) preg_replace_callback('/\$\{(date|day):([^}]+)\}/', static function (array $match) use ($number): string {
             try {
-                return new DateTimeImmutable(trim($match[1]))->format(DateTimeInterface::ATOM);
+                return new DateTimeImmutable(trim($match[2]))->format('day' === $match[1] ? 'Y-m-d' : DateTimeInterface::ATOM);
             } catch (Exception) {
-                throw new SeedException(\sprintf('Step %d: ${date:%s} is no time, e.g. ${date:+2 weeks 18:00}.', $number, $match[1]));
+                throw new SeedException(\sprintf('Step %d: ${%s:%s} is no time, e.g. ${date:+2 weeks 18:00}.', $number, $match[1], $match[2]));
             }
         }, $value);
 
