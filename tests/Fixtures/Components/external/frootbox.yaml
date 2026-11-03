@@ -1,0 +1,3 @@
+title: External
+description: A block with content of another provider (decision 0224).
+extension: Frootbox\Core\Tests\Fixtures\External\ExternalExtension

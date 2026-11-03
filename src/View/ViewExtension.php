@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\View;
 
+use Frootbox\Core\Consent\ExternalMarkup;
+use Frootbox\Core\Consent\ExternalServices;
 use Frootbox\Core\I18n\Translator;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
@@ -53,6 +55,9 @@ use Twig\TwigFunction;
  *     <section{{ {id: jump_mark()}|attributes }}> the id of the block's jump mark, null without one
  *     {% for mark in jump_marks() %}  the jump marks of the page, each with id and label
  *     {% if editing() %}              shown for editing, e.g. a hint where visitors see nothing
+ *     {{ external('acme/video/youtube', html, {link: url, title: 'Video: …', ratio: '16/9'}) }}
+ *                                     content of another provider, loaded only after consent (decision 0224)
+ *     {{ privacy_settings() }}        the button to change that consent, e.g. in the footer
  */
 final class ViewExtension extends AbstractExtension
 {
@@ -90,6 +95,8 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('jump_mark', fn(array $context): ?string => $this->service(JumpMarks::class)->id(self::frame($context, 'jump_mark')->instance), ['needs_context' => true]),
             new TwigFunction('jump_marks', fn(): array => $this->service(JumpMarks::class)->all()),
             new TwigFunction('editing', fn(): bool => $this->service(EditMode::class)->marking()),
+            new TwigFunction('external', $this->external(...), ['needs_context' => true, 'is_safe' => ['html']]),
+            new TwigFunction('privacy_settings', $this->privacySettings(...), ['needs_context' => true, 'is_safe' => ['html']]),
         ];
     }
 
@@ -232,6 +239,47 @@ final class ViewExtension extends AbstractExtension
         $frame = $context[Frame::VARIABLE] ?? null;
 
         return $frame instanceof Frame ? $frame : throw new RuntimeError(\sprintf('%s() works only in templates of blocks and layouts.', $function));
+    }
+
+    /**
+     * Content of another provider behind a placeholder (decision 0224).
+     *
+     * @param array<string, mixed>                                            $context
+     * @param array{link?: string|null, title?: string|null, ratio?: string|null} $options
+     */
+    private function external(array $context, string $service, string|Markup $html, array $options = []): Markup
+    {
+        $known = $this->service(ExternalServices::class)->get($service)
+            ?? throw new RuntimeError(\sprintf('The external service "%s" is not registered. Register it with $registry->add(ExternalService::class, …).', $service));
+        $this->consentAssets(self::frame($context, 'external'));
+
+        return new Markup($this->markup()->external($known, (string) $html, $options['link'] ?? null, $options['title'] ?? null, $options['ratio'] ?? null), 'UTF-8');
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function privacySettings(array $context): Markup
+    {
+        $services = $this->service(ExternalServices::class)->all();
+
+        if ([] !== $services) {
+            $this->consentAssets(self::frame($context, 'privacy_settings'));
+        }
+
+        return new Markup($this->markup()->settings($services), 'UTF-8');
+    }
+
+    private function consentAssets(Frame $frame): void
+    {
+        $core = \dirname(__DIR__, 2);
+        $frame->assets?->add($core . '/' . ExternalMarkup::STYLE, 'base');
+        $frame->assets?->add($core . '/' . ExternalMarkup::SCRIPT, 'base');
+    }
+
+    private function markup(): ExternalMarkup
+    {
+        return new ExternalMarkup(fn(string $text, array $parameters): string => $this->text($text, $parameters));
     }
 
     /**

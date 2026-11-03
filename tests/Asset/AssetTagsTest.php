@@ -75,7 +75,8 @@ final class AssetTagsTest extends TestCase
     {
         [$public] = $this->services(Environment::Production);
 
-        self::assertSame(4, $public->publishAll(), "Two per theme; the tests of the core are no assets.");
+        self::assertSame(5, $public->publishAll(), "Two per theme and the assets of the core; its tests are no assets.");
+        self::assertFileExists($public->directory('frootbox/core/assets') . '/external.js');
         self::assertFileExists($public->directory('acme/base/blocks/Teaser/assets/teaser.js'));
         self::assertFileExists($public->directory('acme/site/overrides/acme/base/blocks/Teaser/assets/extra.css'));
     }
