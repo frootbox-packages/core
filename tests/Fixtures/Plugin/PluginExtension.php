@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Tests\Fixtures\Plugin;
 
+use Frootbox\Core\Category\CategoryGroup;
 use Frootbox\Core\Extension\Extension;
 use Frootbox\Core\Extension\Registry;
 
@@ -23,5 +24,6 @@ final class PluginExtension implements Extension
         $registry->action(UnpublishItem::class);
         $registry->plugin(ItemPlugin::class);
         $registry->scheduled(ItemSchedule::class);
+        $registry->add(CategoryGroup::class, new CategoryGroup('acme/plugin/topics', 'Topics', [ItemPlugin::TYPE]));
     }
 }

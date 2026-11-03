@@ -11,6 +11,7 @@ namespace Frootbox\Core\Tests\Fixtures\Plugin;
 use DateTimeImmutable;
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
+use Frootbox\Core\Category\ObjectCategories;
 use Frootbox\Core\Plugin\Space;
 use Frootbox\Core\Revision\Revision;
 use Frootbox\Core\Revision\RevisionStore;
@@ -26,7 +27,8 @@ final readonly class SaveItem implements Action
 {
     /**
      * @param array<string, string> $titles by language
-     * @param array<string, string> $slugs  by language
+     * @param array<string, string> $slugs      by language
+     * @param list<string>          $categories ids, kept in the draft until publishing (decision 0233)
      */
     public function __construct(
         public string $id,
@@ -34,11 +36,13 @@ final readonly class SaveItem implements Action
         public array $slugs,
         public ?DateTimeImmutable $publishAt = null,
         public string $space = Space::DEFAULT,
+        public array $categories = [],
     ) {}
 
-    public function handle(RevisionStore $store): Revision
+    public function handle(RevisionStore $store, ObjectCategories $categories): Revision
     {
-        $draft = $store->saveDraft(ItemPlugin::TYPE, $this->id, ['titles' => $this->titles, 'slugs' => $this->slugs, 'space' => $this->space]);
+        $chosen = $categories->check('acme/plugin/item.save', ItemPlugin::TYPE, $this->categories);
+        $draft = $store->saveDraft(ItemPlugin::TYPE, $this->id, ['titles' => $this->titles, 'slugs' => $this->slugs, 'space' => $this->space, 'categories' => $chosen]);
         $store->publishAt(ItemPlugin::TYPE, $this->id, $this->publishAt);
 
         return $draft;

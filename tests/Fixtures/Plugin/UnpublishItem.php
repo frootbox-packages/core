@@ -10,6 +10,7 @@ namespace Frootbox\Core\Tests\Fixtures\Plugin;
 
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
+use Frootbox\Core\Category\ObjectCategories;
 use Frootbox\Core\Revision\RevisionStore;
 use Frootbox\Core\Url\AddressSync;
 
@@ -21,9 +22,10 @@ final readonly class UnpublishItem implements Action
 {
     public function __construct(public string $id) {}
 
-    public function handle(RevisionStore $store, AddressSync $addresses): null
+    public function handle(RevisionStore $store, AddressSync $addresses, ObjectCategories $categories): null
     {
         $store->archive(ItemPlugin::TYPE, $this->id);
+        $categories->clear(ItemPlugin::TYPE, $this->id);
         $addresses->sync();
 
         return null;

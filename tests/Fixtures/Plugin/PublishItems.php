@@ -11,6 +11,7 @@ namespace Frootbox\Core\Tests\Fixtures\Plugin;
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\ListOf;
+use Frootbox\Core\Category\ObjectCategories;
 use Frootbox\Core\Revision\RevisionStore;
 use Frootbox\Core\Url\AddressSync;
 
@@ -28,10 +29,13 @@ final readonly class PublishItems implements Action
         public array $ids,
     ) {}
 
-    public function handle(RevisionStore $store, AddressSync $addresses): null
+    public function handle(RevisionStore $store, AddressSync $addresses, ObjectCategories $categories): null
     {
         foreach ($this->ids as $id) {
-            $store->publish(ItemPlugin::TYPE, $id);
+            $published = $store->publish(ItemPlugin::TYPE, $id);
+            // The categories of the published state, for lists (decision 0233).
+            $chosen = $published->data['categories'] ?? [];
+            $categories->sync(ItemPlugin::TYPE, $id, \is_array($chosen) ? array_values(array_filter($chosen, \is_string(...))) : []);
         }
 
         // The addresses follow, like after page.publish (decision 0219).

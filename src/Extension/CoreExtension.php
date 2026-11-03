@@ -22,6 +22,16 @@ use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Cache\ClearPageCache;
+use Frootbox\Core\Category\CreateCategory;
+use Frootbox\Core\Category\CreateGroup;
+use Frootbox\Core\Category\DeleteCategory;
+use Frootbox\Core\Category\DeleteGroup;
+use Frootbox\Core\Category\ListCategories;
+use Frootbox\Core\Category\ListGroups;
+use Frootbox\Core\Category\ListGroupTypes;
+use Frootbox\Core\Category\MoveCategory;
+use Frootbox\Core\Category\UpdateCategory;
+use Frootbox\Core\Category\UpdateGroup;
 use Frootbox\Core\Comment\CountComments;
 use Frootbox\Core\Comment\CreateComment;
 use Frootbox\Core\Comment\DeleteComment;
@@ -276,6 +286,15 @@ final class CoreExtension implements Extension
         }
 
         $registry->query(ListSpaces::class);
+
+        // Categories in groups for all objects (decision 0233).
+        foreach ([CreateCategory::class, UpdateCategory::class, MoveCategory::class, DeleteCategory::class, CreateGroup::class, UpdateGroup::class, DeleteGroup::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ListCategories::class);
+        $registry->query(ListGroups::class);
+        $registry->query(ListGroupTypes::class);
         $registry->query(ListPlugins::class);
         $registry->query(ListNotFound::class);
 
