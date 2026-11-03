@@ -14,6 +14,7 @@ use Doctrine\Migrations\Configuration\Connection\ExistingConnection;
 use Doctrine\Migrations\Configuration\Migration\ExistingConfiguration;
 use Doctrine\Migrations\DependencyFactory;
 use Doctrine\Migrations\Metadata\Storage\TableMetadataStorageConfiguration;
+use Doctrine\Migrations\Version\Comparator;
 
 /**
  * Sets up Doctrine Migrations for all migration sources.
@@ -40,9 +41,13 @@ final class MigrationsFactory
         // also decides per database whether a transaction is used.
         $configuration->setCustomTemplate(self::TEMPLATE);
 
-        return DependencyFactory::fromConnection(
+        $factory = DependencyFactory::fromConnection(
             new ExistingConfiguration($configuration),
             new ExistingConnection($connection),
         );
+        // By time across all packages, not by namespace (decision 0247).
+        $factory->setService(Comparator::class, new MigrationOrder());
+
+        return $factory;
     }
 }
