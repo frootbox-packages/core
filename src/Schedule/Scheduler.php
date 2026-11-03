@@ -23,6 +23,7 @@ use Frootbox\Core\Preview\PrunePreviews;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Queue\Worker;
 use Frootbox\Core\Revision\Revisions;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -50,6 +51,7 @@ final readonly class Scheduler
         private Worker $worker,
         private CronStatus $cron,
         private AfterResponse $afterResponse,
+        private EventDispatcherInterface $events,
     ) {}
 
     /**
@@ -57,7 +59,8 @@ final readonly class Scheduler
      */
     public function run(?DateTimeImmutable $now = null): ScheduleResult
     {
-        $due = $this->revisions->due($now ?? new DateTimeImmutable());
+        $now ??= new DateTimeImmutable();
+        $due = $this->revisions->due($now);
         $published = $this->publishPages($due['publish'][PageReader::TYPE] ?? []);
         $unpublished = [];
         $failed = [];
@@ -110,6 +113,12 @@ final readonly class Scheduler
             }
         } catch (TableNotFoundException) {
             // Not migrated yet.
+        }
+
+        try {
+            $this->events->dispatch(new ScheduleRan($now));
+        } catch (Throwable $error) {
+            $failed[] = 'Listeners of the scheduler: ' . $error->getMessage();
         }
 
         return new ScheduleResult($published['done'], $unpublished, [...$published['failed'], ...$failed]);

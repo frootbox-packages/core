@@ -61,6 +61,29 @@ final readonly class Secrets
     }
 
     /**
+     * A signature of a text for a purpose, e.g. the time a form was shown
+     * (decision 0222). Null without APP_SECRET.
+     */
+    public function sign(string $purpose, string $text): ?string
+    {
+        if (!$this->available()) {
+            return null;
+        }
+
+        return sodium_bin2base64(sodium_crypto_auth($text, $this->key('sign:' . $purpose)), \SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
+    }
+
+    /**
+     * Whether the signature belongs to the text and purpose.
+     */
+    public function verify(string $purpose, string $text, string $signature): bool
+    {
+        $expected = $this->sign($purpose, $text);
+
+        return null !== $expected && hash_equals($expected, $signature);
+    }
+
+    /**
      * @return non-empty-string
      */
     private function key(string $purpose): string
