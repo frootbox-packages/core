@@ -15,6 +15,7 @@ use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Auth\AuthenticationMiddleware;
 use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Config\ConfigLoader;
+use Frootbox\Core\Config\TimeZone;
 use Frootbox\Core\Container\ContainerFactory;
 use Frootbox\Core\Error\ErrorMiddleware;
 use Frootbox\Core\Extension\ExtensionLoader;
@@ -77,6 +78,7 @@ final readonly class Application
     {
         $paths = new ProjectPaths($projectRoot);
         $config = ConfigLoader::load($paths, $serverEnvironment ?? getenv());
+        TimeZone::apply($config);
 
         $sources = [new ComposerSource($paths->root . '/vendor', $paths->root . '/extensions')];
         $extensions = ExtensionLoader::discover($sources, $paths, useCache: !$config->environment->isDevelopment());
