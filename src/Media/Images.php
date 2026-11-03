@@ -142,6 +142,54 @@ final class Images
     }
 
     /**
+     * Whether the file of an image says an AI made or changed it
+     * (decision 0251): IPTC DigitalSourceType in XMP or a C2PA manifest,
+     * both with the same address. "compositeWithTrainedAlgorithmicMedia"
+     * is edited, "trainedAlgorithmicMedia" generated. Only searched for,
+     * a C2PA signature is not checked. Read before the metadata go.
+     */
+    public static function aiOrigin(string $path): AiOrigin
+    {
+        $type = (string) new \finfo(\FILEINFO_MIME_TYPE)->file($path);
+
+        if (!isset(self::TYPES[$type])) {
+            return AiOrigin::None;
+        }
+
+        $handle = @fopen($path, 'rb');
+
+        if (false === $handle) {
+            return AiOrigin::None;
+        }
+
+        $generated = false;
+        $edited = false;
+        $carry = '';
+
+        // In parts, with an overlap, so a large image needs little memory.
+        while (!feof($handle)) {
+            $chunk = fread($handle, 1 << 20);
+
+            if (false === $chunk || '' === $chunk) {
+                break;
+            }
+
+            $part = $carry . $chunk;
+            $edited = $edited || str_contains($part, 'digitalsourcetype/compositeWithTrainedAlgorithmicMedia');
+            $generated = $generated || str_contains($part, 'digitalsourcetype/trainedAlgorithmicMedia');
+            $carry = substr($part, -100);
+        }
+
+        fclose($handle);
+
+        return match (true) {
+            $edited => AiOrigin::Edited,
+            $generated => AiOrigin::Generated,
+            default => AiOrigin::None,
+        };
+    }
+
+    /**
      * Text from metadata as UTF-8 on one line; older files write Latin-1.
      */
     private static function line(string $text): string

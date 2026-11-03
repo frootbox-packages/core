@@ -27,6 +27,8 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 final readonly class Document
 {
+    /** The style of the badge on images made with AI (decision 0251). */
+    public const string AI_STYLE = 'assets/ai.css';
     public function __construct(
         private AssetTags $tags,
         private ThemeChain $themes,
@@ -39,6 +41,12 @@ final readonly class Document
     public function render(Head $head, string $body, AssetList $assets, ServerRequestInterface $request, ?Target $target = null): string
     {
         $this->addThemeAssets($assets);
+
+        // The badge of an image made with AI, only where there is one (decision 0251).
+        if (str_contains($body, 'data-fb-ai=')) {
+            $assets->add(\dirname(__DIR__, 2) . '/' . self::AI_STYLE, 'base');
+        }
+
         $this->events->dispatch(new BuildingHead($head, $request, $target));
 
         $lines = [

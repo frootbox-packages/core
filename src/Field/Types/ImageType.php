@@ -14,10 +14,14 @@ use Frootbox\Core\Field\HasParts;
 use Frootbox\Core\Field\ReferencesMedia;
 use Frootbox\Core\Field\Sample;
 use Frootbox\Core\Field\Searchable;
+use Frootbox\Core\I18n\Translator;
+use Frootbox\Core\Media\AiOrigin;
 use Frootbox\Core\Media\Media;
 use Frootbox\Core\Media\MediaDrafts;
 use Frootbox\Core\Media\MediaUrls;
 use Frootbox\Core\Media\Medium;
+use Frootbox\Core\Theme\Theme;
+use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\View\Delivery;
 use Frootbox\RichText\Html;
 use LogicException;
@@ -41,6 +45,11 @@ use Twig\Markup;
  * Parts (decision 0203): {{ field('image', 'copyright') }} gives the
  * copyright of this place or else of the medium, {{ field('image',
  * 'caption') }} the caption, which the setting "caption: true" offers.
+ *
+ * A medium an AI made or changed comes in a wrapper with a badge
+ * (decision 0251): <span class="ai-image" data-fb-ai="generated">, the
+ * image, then <span class="ai-image__badge"> with a short "AI" for the
+ * eye and the full text for screen readers.
  */
 #[AsFieldType('image', 'An image from the media library')]
 final readonly class ImageType implements ReferencesMedia, HasParts, Searchable
@@ -140,7 +149,7 @@ final readonly class ImageType implements ReferencesMedia, HasParts, Searchable
         $medium = $this->service(MediaDrafts::class)->seen($medium);
 
         if ($medium->isVector()) {
-            return $this->vector($value, $field, $medium);
+            return $this->labelled($medium, $this->vector($value, $field, $medium));
         }
 
         $urls = $this->service(MediaUrls::class);
@@ -175,7 +184,27 @@ final readonly class ImageType implements ReferencesMedia, HasParts, Searchable
             'style' => null === $ratio ? self::focus($medium) : null,
         ]);
 
-        return new Markup(Html::element('picture', $sources . $img), 'UTF-8');
+        return $this->labelled($medium, new Markup(Html::element('picture', $sources . $img), 'UTF-8'));
+    }
+
+    /**
+     * The image with the badge of decision 0251, as it is without a label.
+     * The texts are in the language of the page, translated by the themes.
+     */
+    private function labelled(Medium $medium, Markup $image): Markup
+    {
+        $origin = $medium->aiOrigin();
+
+        if (AiOrigin::None === $origin) {
+            return $image;
+        }
+
+        $language = $this->service(Delivery::class)->language()->code;
+        $themes = array_map(static fn(Theme $theme): string => $theme->name, $this->service(ThemeChain::class)->themes);
+        $text = fn(string $text): string => $this->service(Translator::class)->in($language, $text, $themes);
+        $badge = Html::element('span', Html::element('span', Html::escape($text('AI')), ['aria-hidden' => 'true']) . Html::element('span', Html::escape($text($origin->label())), ['class' => 'ai-image__label']), ['class' => 'ai-image__badge']);
+
+        return new Markup(Html::element('span', $image . $badge, ['class' => 'ai-image', 'data-fb-ai' => $origin->value]), 'UTF-8');
     }
 
     /**

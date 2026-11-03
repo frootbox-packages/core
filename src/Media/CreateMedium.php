@@ -38,6 +38,8 @@ final readonly class CreateMedium implements Action, Scoped
         #[Length(max: 300)]
         #[Description('Photographer or image agency, e.g. "Anna Muster / Bildagentur"; left out, it comes from the IPTC or EXIF data of the file, if there')]
         public ?string $copyright = null,
+        #[Description('Whether an AI made ("generated") or changed ("edited") it, shown as a badge on the image; left out, it comes from IPTC DigitalSourceType in the file, if there (decision 0251)')]
+        public ?AiOrigin $ai = null,
     ) {}
 
     /**
@@ -53,6 +55,6 @@ final readonly class CreateMedium implements Action, Scoped
 
     public function handle(MediaEditor $editor): MediumDetails
     {
-        return $editor->create('media.create', $this->upload, $this->folderId, $this->texts, $this->tags, $this->copyright);
+        return $editor->create('media.create', $this->upload, $this->folderId, $this->texts, $this->tags, $this->copyright, $this->ai);
     }
 }

@@ -18,7 +18,7 @@ use Frootbox\Core\Revision\Revisions;
  *
  *     {"version": 3, "focusX": 250, "focusY": 500,
  *      "texts": {"de": {"alt": "…", "title": "…"}},
- *      "copyright": "Anna Muster / Bildagentur",
+ *      "copyright": "Anna Muster / Bildagentur", "ai": "generated",
  *      "file": {"name": "01J…-a1b2c3d4", "fileName": "kaffee.jpg",
  *               "type": "image/jpeg", "size": 81234, "width": 1600,
  *               "height": 900, "hash": "…"}}
@@ -30,7 +30,7 @@ use Frootbox\Core\Revision\Revisions;
  * library the draft.
  *
  * @phpstan-type DraftFile array{name: string, fileName: string, type: string, codec: string, size: int, width: int, height: int, hash: string|null}
- * @phpstan-type Draft array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>, copyright: string, file: DraftFile|null}
+ * @phpstan-type Draft array{version: int, focusX: int, focusY: int, texts: array<string, array{alt: string, title: string}>, copyright: string, ai: string, file: DraftFile|null}
  */
 final readonly class MediaDrafts
 {
@@ -69,7 +69,7 @@ final readonly class MediaDrafts
      */
     public function start(Medium $medium): array
     {
-        return ['version' => $medium->version, 'focusX' => $medium->focusX, 'focusY' => $medium->focusY, 'texts' => $this->published($medium->id), 'copyright' => $medium->copyright, 'file' => null];
+        return ['version' => $medium->version, 'focusX' => $medium->focusX, 'focusY' => $medium->focusY, 'texts' => $this->published($medium->id), 'copyright' => $medium->copyright, 'ai' => $medium->ai, 'file' => null];
     }
 
     /**
@@ -139,6 +139,7 @@ final readonly class MediaDrafts
             file: null === $file ? $medium->file : $file['name'],
             codec: null === $file ? $medium->codec : $file['codec'],
             copyright: $draft['copyright'],
+            ai: $draft['ai'],
         );
     }
 
@@ -204,6 +205,7 @@ final readonly class MediaDrafts
             'focusY' => \is_int($data['focusY'] ?? null) ? $data['focusY'] : 500,
             'texts' => $texts,
             'copyright' => $text($data['copyright'] ?? null),
+            'ai' => AiOrigin::of($text($data['ai'] ?? null))->value,
             'file' => !\is_array($file) || !\is_string($file['name'] ?? null) ? null : [
                 'name' => $file['name'],
                 'fileName' => $text($file['fileName'] ?? null),

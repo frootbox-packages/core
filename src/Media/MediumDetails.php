@@ -20,6 +20,8 @@ use DateTimeImmutable;
  * its format to read (e.g. "MP4 (avc1)"), further files in $sources and
  * the address of its file as preview. A document (kind "document",
  * decision 0179) has its format, e.g. "PDF", and the address of its file.
+ * ai says whether an AI made or changed it: "none", "generated" or
+ * "edited" (decision 0251).
  */
 final readonly class MediumDetails
 {
@@ -51,5 +53,6 @@ final readonly class MediumDetails
         public array $sources = [],
         public string $format = '',
         public string $copyright = '',
+        public string $ai = 'none',
     ) {}
 }

@@ -18,7 +18,8 @@ use Frootbox\Database\Entity;
  * height. The version grows with every change that alters the sizes.
  * The hash is the SHA-256 of the uploaded file, none for media from
  * before decision 0146. The codec is only known for videos. The
- * copyright names the photographer or image agency (decision 0203).
+ * copyright names the photographer or image agency (decision 0203), ai
+ * whether an AI made or changed it (AiOrigin, decision 0251).
  */
 final readonly class Medium extends Entity
 {
@@ -40,7 +41,16 @@ final readonly class Medium extends Entity
         public ?string $file = null,
         public string $codec = '',
         public string $copyright = '',
+        public string $ai = 'none',
     ) {}
+
+    /**
+     * Whether an AI made or changed the medium (decision 0251).
+     */
+    public function aiOrigin(): AiOrigin
+    {
+        return AiOrigin::of($this->ai);
+    }
 
     /**
      * Whether the medium is a video (decision 0177).

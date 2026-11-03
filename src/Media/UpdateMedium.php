@@ -20,7 +20,7 @@ use Frootbox\Core\Auth\Scoped;
 /**
  * @implements Action<MediumDetails>
  */
-#[AsAction('media.update', 'Changes folder, focus point, texts, copyright or tags of a medium; what is left out stays. Folder and tags count at once; focus point, texts and copyright of a public medium go into its draft until media.publish')]
+#[AsAction('media.update', 'Changes folder, focus point, texts, copyright, AI label or tags of a medium; what is left out stays. Folder and tags count at once; focus point, texts, copyright and AI label of a public medium go into its draft until media.publish')]
 final readonly class UpdateMedium implements Action, Scoped
 {
     /**
@@ -45,6 +45,8 @@ final readonly class UpdateMedium implements Action, Scoped
         #[Length(max: 300)]
         #[Description('Photographer or image agency, shown with the image where the theme shows it; "" for none')]
         public ?string $copyright = null,
+        #[Description('Whether an AI made ("generated") or changed ("edited") it, "none" for neither; shown as a badge on the image (decision 0251)')]
+        public ?AiOrigin $ai = null,
     ) {}
 
     /**
@@ -60,6 +62,6 @@ final readonly class UpdateMedium implements Action, Scoped
 
     public function handle(MediaEditor $editor): MediumDetails
     {
-        return $editor->update('media.update', $this->id, $this->folderId, $this->focusX, $this->focusY, $this->texts, $this->tags, $this->copyright);
+        return $editor->update('media.update', $this->id, $this->folderId, $this->focusX, $this->focusY, $this->texts, $this->tags, $this->copyright, $this->ai);
     }
 }

@@ -19,7 +19,7 @@ use Frootbox\Database\Where;
 /**
  * @implements Query<MediaPage>
  */
-#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere, only those with a draft, only those a page uses, only images, videos or documents')]
+#[AsQuery('media.list', 'Returns media of the library, newest first, filtered by folder, tag, a search in file names and texts, only those used nowhere, only those with a draft, only those a page uses, only images, videos or documents, only those with an AI label')]
 final readonly class ListMedia implements Query, Scoped
 {
     public function __construct(
@@ -36,6 +36,8 @@ final readonly class ListMedia implements Query, Scoped
         public ?string $pageId = null,
         #[Description('"image", "video" or "document" for only images, videos (decision 0177) or documents (decision 0179); none for all')]
         public ?string $kind = null,
+        #[Description('Only media an AI made or changed (decision 0251)')]
+        public bool $ai = false,
         #[Range(1)]
         public int $page = 1,
         #[Range(1, 200)]
@@ -74,6 +76,10 @@ final readonly class ListMedia implements Query, Scoped
 
         if (null !== $types) {
             $where['type'] = array_keys($types);
+        }
+
+        if ($this->ai) {
+            $where['ai'] = [AiOrigin::Generated->value, AiOrigin::Edited->value];
         }
 
         $search = null === $this->search ? '' : trim($this->search);
