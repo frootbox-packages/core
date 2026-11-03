@@ -13,12 +13,14 @@ use Frootbox\Core\Page\PageReader;
 
 /**
  * The spaces of the plugins and the pages that show them (decision 0232).
- * The default space of each type exists without a row.
+ * The default space of each type exists without a row, its name comes
+ * from the plugin or from space_defaults (decision 0246).
  */
 final readonly class PluginSpaces
 {
     public function __construct(
         private Spaces $spaces,
+        private SpaceDefaults $defaults,
         private Plugins $plugins,
         private PageReader $pages,
         private Translator $translator,
@@ -38,7 +40,9 @@ final readonly class PluginSpaces
         }
 
         $pages = $this->pages();
-        $spaces = [new SpaceSummary(Space::DEFAULT, $this->translator->get($plugin->label()), true, $pages[$type . '|' . Space::DEFAULT] ?? null)];
+        // The default space is named after the plugin unless an admin renamed it (decision 0246).
+        $title = $this->defaults->ofType($type)->title ?? $this->translator->get($plugin->label());
+        $spaces = [new SpaceSummary(Space::DEFAULT, $title, true, $pages[$type . '|' . Space::DEFAULT] ?? null)];
 
         foreach ($this->spaces->ofType($type) as $space) {
             $spaces[] = new SpaceSummary($space->id, $space->title, false, $pages[$type . '|' . $space->id] ?? null);

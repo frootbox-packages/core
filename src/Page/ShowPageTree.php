@@ -17,7 +17,6 @@ use Frootbox\Core\Auth\Scoped;
 use Frootbox\Core\I18n\Translator;
 use Frootbox\Core\Plugin\Plugins;
 use Frootbox\Core\Plugin\PluginSpaces;
-use Frootbox\Core\Plugin\Space;
 
 /**
  * @implements Query<list<PageTreeNode>>
@@ -50,8 +49,9 @@ final readonly class ShowPageTree implements Query, Scoped
             $plugin = null === $place ? null : $plugins->get($place->type);
 
             if (null !== $place && null !== $plugin) {
-                $space = Space::DEFAULT === $place->space ? null : $spaces->title($place->type, $place->space);
-                $shows[$id] = $translator->get($plugin->label()) . (null === $space ? '' : ' · ' . $space);
+                $label = $translator->get($plugin->label());
+                $space = $spaces->title($place->type, $place->space);
+                $shows[$id] = $label . (null === $space || $space === $label ? '' : ' · ' . $space);
             }
         }
 

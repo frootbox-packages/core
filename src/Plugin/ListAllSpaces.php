@@ -33,8 +33,8 @@ final readonly class ListAllSpaces implements Query
                     SpaceScopes::KIND . ':' . SpaceScopes::id($plugin->type(), $space->id),
                     $plugin->type(),
                     $space->id,
-                    // "Jobs" for the default space, "Jobs · Ausbildung" for others.
-                    $space->default ? $label : $label . ' · ' . $space->title,
+                    // "Jobs" for the default space, "Jobs · Ausbildung" for others and a renamed default one.
+                    $space->title === $label ? $label : $label . ' · ' . $space->title,
                 );
             }
         }

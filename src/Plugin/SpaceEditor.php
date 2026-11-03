@@ -19,6 +19,7 @@ final readonly class SpaceEditor
 {
     public function __construct(
         private Spaces $spaces,
+        private SpaceDefaults $defaults,
         private Plugins $plugins,
         private PluginSpaces $read,
     ) {}
@@ -36,8 +37,12 @@ final readonly class SpaceEditor
         return $this->spaces->insert(['type' => $type, 'title' => $title]);
     }
 
-    public function rename(string $action, string $id, string $title): Space
+    public function rename(string $action, string $id, string $title, ?string $type = null): Space
     {
+        if (Space::DEFAULT === $id) {
+            return $this->renameDefault($action, $type, $title);
+        }
+
         $space = $this->find($action, $id);
         $title = $this->title($action, $space->type, $title, $space->id);
 
@@ -58,6 +63,23 @@ final readonly class SpaceEditor
         }
 
         $this->spaces->delete($space->id);
+    }
+
+    /**
+     * Names the default space of a type (decision 0246); it has no row
+     * in spaces, the name lives in space_defaults.
+     */
+    private function renameDefault(string $action, ?string $type, string $title): Space
+    {
+        if (null === $type || null === $this->plugins->get($type)) {
+            throw new InvalidInputException($action, ['/type' => null === $type ? 'The default space needs the type of its plugin, e.g. "frootbox/jobs/job".' : new Message('There is no plugin "{type}".', ['type' => $type])]);
+        }
+
+        $title = $this->title($action, $type, $title, Space::DEFAULT);
+        $row = $this->defaults->ofType($type);
+        $row = null === $row ? $this->defaults->insert(['type' => $type, 'title' => $title]) : $this->defaults->update($row->id, ['title' => $title]);
+
+        return new Space(Space::DEFAULT, $type, $row->title, $row->createdAt, $row->updatedAt);
     }
 
     private function find(string $action, string $id): Space

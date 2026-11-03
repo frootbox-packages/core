@@ -10,6 +10,7 @@ namespace Frootbox\Core\Tests\Plugin;
 
 use DateTimeImmutable;
 use Frootbox\Core\Action\InvalidInputException;
+use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Category\CreateCategory;
 use Frootbox\Core\Category\CreateGroup;
 use Frootbox\Core\Category\DeleteCategory;
@@ -29,10 +30,12 @@ use Frootbox\Core\Plugin\AssignPlugin;
 use Frootbox\Core\Plugin\CategoryPages;
 use Frootbox\Core\Plugin\CreateSpace;
 use Frootbox\Core\Plugin\DeleteSpace;
+use Frootbox\Core\Plugin\ListAllSpaces;
 use Frootbox\Core\Plugin\ListSpaces;
 use Frootbox\Core\Plugin\PluginPages;
 use Frootbox\Core\Plugin\Plugins;
 use Frootbox\Core\Plugin\PluginSpaces;
+use Frootbox\Core\Plugin\Space;
 use Frootbox\Core\Plugin\SpaceEditor;
 use Frootbox\Core\Plugin\UpdateSpace;
 use Frootbox\Core\Schedule\ScheduledTypes;
@@ -227,6 +230,30 @@ final class PluginsTest extends NotesTestCase
 
         $empty = $this->runner()->run(new CreateSpace(ItemPlugin::TYPE, 'Leer'))->id;
         self::assertTrue($this->runner()->run(new DeleteSpace($empty)));
+    }
+
+    public function testTheDefaultSpaceGetsANameOfItsOwn(): void
+    {
+        self::assertSame('Items', $this->runner()->ask(new ListSpaces(ItemPlugin::TYPE))->items[0]->title, 'Named after the plugin at first.');
+
+        $renamed = $this->runner()->run(new UpdateSpace(Space::DEFAULT, 'Referenzen', ItemPlugin::TYPE));
+        self::assertSame([Space::DEFAULT, 'Referenzen'], [$renamed->id, $renamed->title]);
+        $this->runner()->run(new UpdateSpace(Space::DEFAULT, 'Projekte', ItemPlugin::TYPE));
+        self::assertSame('Projekte', $this->get(PluginSpaces::class)->title(ItemPlugin::TYPE, Space::DEFAULT));
+        self::assertSame('Items · Projekte', $this->runner()->ask(new ListAllSpaces())[0]->title);
+
+        // Undone, the name before comes back.
+        $this->runner()->run(new UndoAction($this->lastEntry()->id));
+        self::assertSame('Referenzen', $this->get(PluginSpaces::class)->title(ItemPlugin::TYPE, Space::DEFAULT));
+
+        foreach ([[null, '/type'], ['acme/nothing/here', '/type']] as [$type, $pointer]) {
+            try {
+                $this->runner()->run(new UpdateSpace(Space::DEFAULT, 'Neu', $type));
+                self::fail('The default space needs its plugin.');
+            } catch (InvalidInputException $error) {
+                self::assertArrayHasKey($pointer, $error->errors);
+            }
+        }
     }
 
     public function testTheViewOfThePluginStaysAndGoesWithThePlugin(): void
