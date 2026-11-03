@@ -152,6 +152,33 @@ final readonly class Languages
     }
 
     /**
+     * Values by language in the order of the languages, unknown codes last
+     * in the order of their codes. JSON columns of MySQL do not keep the
+     * order of keys, so "the first language" needs this order.
+     *
+     * @template T
+     *
+     * @param array<array-key, T> $values
+     *
+     * @return array<array-key, T>
+     */
+    public function sort(array $values): array
+    {
+        $sorted = [];
+
+        foreach ($this->codes() as $code) {
+            if (\array_key_exists($code, $values)) {
+                $sorted[$code] = $values[$code];
+            }
+        }
+
+        $others = array_diff_key($values, $sorted);
+        ksort($others, \SORT_STRING);
+
+        return $sorted + $others;
+    }
+
+    /**
      * @return non-empty-list<Language>
      */
     public function all(): array

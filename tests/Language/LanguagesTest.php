@@ -104,6 +104,18 @@ final class LanguagesTest extends TestCase
         self::assertSame('de', $languages->preferred('example.org', '')->code);
     }
 
+    public function testSortsValuesInTheOrderOfTheLanguages(): void
+    {
+        $languages = self::languages(['en' => ['title' => 'English'], 'de' => ['title' => 'Deutsch', 'prefix' => 'de'], 'ar' => ['title' => 'العربية', 'prefix' => 'ar']]);
+
+        self::assertSame(
+            ['en' => 1, 'de' => 2, 'ar' => 3, 'fr' => 4, 'nl' => 5],
+            $languages->sort(['nl' => 5, 'ar' => 3, 'fr' => 4, 'de' => 2, 'en' => 1]),
+            'As MySQL returns the keys of JSON: known languages first, the others by code.',
+        );
+        self::assertSame([], $languages->sort([]));
+    }
+
     public function testExplainsMistakesInUrls(): void
     {
         $cases = [
