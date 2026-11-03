@@ -18,6 +18,7 @@ use Frootbox\Core\Navigation\MenuItem;
 use Frootbox\Core\Navigation\Menus;
 use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Site\SiteFields;
+use Frootbox\Core\Tag\Taxonomies;
 use Frootbox\Core\Theme\Theme;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\BasePages;
@@ -87,6 +88,10 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('render_block', fn(array $context, string $name, array $options = [], ?string $variant = null): Markup => new Markup($this->renderer->inner(self::frame($context, 'render_block'), $name, $options, $variant), 'UTF-8'), ['needs_context' => true]),
             new TwigFunction('url', $this->url(...)),
             new TwigFunction('block_page', $this->blockPage(...)),
+            // Categories and tags of a published object, e.g. tags('frootbox/news/article:' ~ id) (decisions 0233, 0239).
+            new TwigFunction('categories', fn(string $target, ?string $group = null): array => $this->service(Taxonomies::class)->categories(...[...$this->target($target, 'categories'), 'languages' => $this->contentLanguages(), 'group' => $group])),
+            new TwigFunction('tags', fn(string $target): array => $this->service(Taxonomies::class)->tags(...[...$this->target($target, 'tags'), 'languages' => $this->contentLanguages()])),
+            new TwigFunction('has_tag', fn(string $target, string $key): bool => $this->service(Taxonomies::class)->hasTag(...[...$this->target($target, 'has_tag'), 'key' => $key])),
             new TwigFunction('language', fn(): string => $this->service(Delivery::class)->language()->code),
             new TwigFunction('content_language', fn(): string => $this->service(Delivery::class)->contentLanguage()->code),
             new TwigFunction('direction', fn(): string => $this->service(Delivery::class)->language()->direction->value),
@@ -201,6 +206,28 @@ final class ViewExtension extends AbstractExtension
      * for a link to the search in the head (decision 0228). Null if there
      * is none, also if the extension of the block is not installed.
      */
+    /**
+     * Type and id of a target in a template, e.g. "frootbox/news/article:01J…".
+     *
+     * @return array{type: string, id: string}
+     */
+    private function target(string $target, string $function): array
+    {
+        $parsed = Target::tryParse($target) ?? throw new RuntimeError(\sprintf('%s() needs a target like "frootbox/news/article:<id>", not "%s".', $function, $target));
+
+        return ['type' => $parsed->type, 'id' => $parsed->id];
+    }
+
+    /**
+     * The language of the content and its fallbacks.
+     *
+     * @return list<string>
+     */
+    private function contentLanguages(): array
+    {
+        return $this->service(Languages::class)->contentLanguages($this->service(Delivery::class)->contentLanguage()->code);
+    }
+
     public function blockPage(string $block): ?string
     {
         $id = $this->service(BasePages::class)->of([$block])[$this->service(Delivery::class)->language()->code] ?? null;

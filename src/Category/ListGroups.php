@@ -26,7 +26,7 @@ final readonly class ListGroups implements Query
     /**
      * @return list<GroupSummary>
      */
-    public function handle(CategoryGroups $groups, Categories $categories): array
+    public function handle(CategoryGroups $groups, Categories $categories, CategoryEditor $editor): array
     {
         $list = [];
 
@@ -37,6 +37,7 @@ final readonly class ListGroups implements Query
                 array_map(static fn(string $type): array => ['type' => $type, 'label' => $groups->typeLabel($type)], $group->types),
                 $group->source,
                 $categories->count(['groupKey' => $group->key]),
+                $editor->missingPresets($group),
             );
         }
 

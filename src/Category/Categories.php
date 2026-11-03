@@ -74,6 +74,11 @@ final class Categories extends Repository
     /**
      * The category of a group with this slug in a language.
      */
+    public function byPreset(string $group, string $key): ?Category
+    {
+        return $this->fetchOne(['where' => ['groupKey' => $group, 'preset' => $key]]);
+    }
+
     public function bySlug(string $group, string $language, string $slug): ?Category
     {
         foreach ($this->fetch(['where' => ['groupKey' => $group]]) as $category) {

@@ -15,6 +15,7 @@ use Frootbox\Core\Category\ObjectCategories;
 use Frootbox\Core\Plugin\Space;
 use Frootbox\Core\Revision\Revision;
 use Frootbox\Core\Revision\RevisionStore;
+use Frootbox\Core\Tag\ObjectTags;
 
 /**
  * An item lives only in the table revisions: the published revision is
@@ -29,6 +30,7 @@ final readonly class SaveItem implements Action
      * @param array<string, string> $titles by language
      * @param array<string, string> $slugs      by language
      * @param list<string>          $categories ids, kept in the draft until publishing (decision 0233)
+     * @param list<string>          $tags       ids, keys or labels (decision 0239)
      */
     public function __construct(
         public string $id,
@@ -37,12 +39,14 @@ final readonly class SaveItem implements Action
         public ?DateTimeImmutable $publishAt = null,
         public string $space = Space::DEFAULT,
         public array $categories = [],
+        public array $tags = [],
     ) {}
 
-    public function handle(RevisionStore $store, ObjectCategories $categories): Revision
+    public function handle(RevisionStore $store, ObjectCategories $categories, ObjectTags $tags): Revision
     {
         $chosen = $categories->check('acme/plugin/item.save', ItemPlugin::TYPE, $this->categories);
-        $draft = $store->saveDraft(ItemPlugin::TYPE, $this->id, ['titles' => $this->titles, 'slugs' => $this->slugs, 'space' => $this->space, 'categories' => $chosen]);
+        $tagged = $tags->check('acme/plugin/item.save', ItemPlugin::TYPE, $this->space, $this->tags);
+        $draft = $store->saveDraft(ItemPlugin::TYPE, $this->id, ['titles' => $this->titles, 'slugs' => $this->slugs, 'space' => $this->space, 'categories' => $chosen, 'tags' => $tagged]);
         $store->publishAt(ItemPlugin::TYPE, $this->id, $this->publishAt);
 
         return $draft;

@@ -25,6 +25,8 @@ final readonly class CategoryItem
         /** Place among its siblings, 0 for the first */
         public int $position,
         public array $translations,
+        /** The key of the preset it comes from (decision 0239) */
+        public ?string $preset = null,
     ) {}
 
     public function title(string $language): ?string
@@ -39,7 +41,7 @@ final readonly class CategoryItem
 
     public static function of(Category $category, int $depth): self
     {
-        return new self($category->id, $category->groupKey, $category->parentId, $depth, $category->position, $category->translations);
+        return new self($category->id, $category->groupKey, $category->parentId, $depth, $category->position, $category->translations, $category->preset);
     }
 
     private function text(string $language, string $key): ?string

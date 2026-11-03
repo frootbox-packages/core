@@ -23,5 +23,7 @@ final readonly class GroupSummary
         public array $types,
         public GroupSource $source,
         public int $count,
+        /** How many presets have no category yet (decision 0239) */
+        public int $missing = 0,
     ) {}
 }

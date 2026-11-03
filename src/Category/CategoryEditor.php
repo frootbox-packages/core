@@ -110,6 +110,72 @@ final readonly class CategoryEditor
     }
 
     /**
+     * Creates the presets of a group that have no category yet, below
+     * their parents and after the categories there. A category with the
+     * same slug takes the preset instead. Returns how many it created.
+     *
+     * @param list<CategoryPreset>|null $presets
+     */
+    public function applyPresets(CategoryGroup $group, ?array $presets = null, ?string $parentId = null): int
+    {
+        $created = 0;
+
+        foreach ($presets ?? $group->presets as $preset) {
+            $category = $this->categories->byPreset($group->key, $preset->key) ?? $this->adopt($group->key, $preset);
+
+            if (null === $category) {
+                $translations = [];
+
+                foreach ($preset->titles as $language => $title) {
+                    if ($this->languages->has($language)) {
+                        $translations[$language] = ['title' => $title, 'slug' => Slug::fromTitle($title, $language)];
+                    }
+                }
+
+                $category = $this->categories->insert(['groupKey' => $group->key, 'parentId' => $parentId, 'position' => \count($this->categories->children($group->key, $parentId)), 'translations' => $translations, 'preset' => $preset->key]);
+                ++$created;
+            }
+
+            $created += $this->applyPresets($group, $preset->children, $category->id);
+        }
+
+        return $created;
+    }
+
+    /**
+     * How many presets of a group have no category yet.
+     *
+     * @param list<CategoryPreset>|null $presets
+     */
+    public function missingPresets(CategoryGroup $group, ?array $presets = null): int
+    {
+        $missing = 0;
+
+        foreach ($presets ?? $group->presets as $preset) {
+            $missing += (null === $this->categories->byPreset($group->key, $preset->key) ? 1 : 0) + $this->missingPresets($group, $preset->children);
+        }
+
+        return $missing;
+    }
+
+    /**
+     * A category without a preset whose slug is the one of the preset in
+     * a language, e.g. created by hand before the preset came.
+     */
+    private function adopt(string $group, CategoryPreset $preset): ?Category
+    {
+        foreach ($preset->titles as $language => $title) {
+            $category = $this->categories->bySlug($group, $language, Slug::fromTitle($title, $language));
+
+            if (null !== $category && null === $category->preset) {
+                return $this->categories->update($category->id, ['preset' => $preset->key]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param list<Category|null> $list The siblings in their new order, null for the one placed
      */
     private function renumber(array $list): void
@@ -195,11 +261,11 @@ final readonly class CategoryEditor
             if ('' === $title) {
                 $errors[$at . '/title'] = 'is required.';
             } elseif (mb_strlen($title) > self::TITLE_LENGTH) {
-                $errors[$at . '/title'] = new Message('must be at most {max} characters.', ['max' => self::TITLE_LENGTH]);
+                $errors[$at . '/title'] = new Message('must be at most {max} characters long.', ['max' => self::TITLE_LENGTH]);
             }
 
             if (mb_strlen($description) > self::DESCRIPTION_LENGTH) {
-                $errors[$at . '/description'] = new Message('must be at most {max} characters.', ['max' => self::DESCRIPTION_LENGTH]);
+                $errors[$at . '/description'] = new Message('must be at most {max} characters long.', ['max' => self::DESCRIPTION_LENGTH]);
             }
 
             if (1 !== preg_match('/' . Slug::PATTERN . '/u', $slug) || mb_strlen($slug) > Slug::MAX_LENGTH) {

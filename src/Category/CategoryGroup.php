@@ -17,12 +17,14 @@ namespace Frootbox\Core\Category;
  *
  * A group of an extension is named after its package, one from
  * config/categories.yaml has a name without a slash, one an admin
- * creates its id.
+ * creates its id. Presets are categories the group brings along; they
+ * are created when the presets are applied (decision 0239).
  */
 final readonly class CategoryGroup
 {
     /**
-     * @param list<string> $types The types of objects it applies to, e.g. "frootbox/news/article"
+     * @param list<string>         $types   The types of objects it applies to, e.g. "frootbox/news/article"
+     * @param list<CategoryPreset> $presets
      */
     public function __construct(
         public string $key,
@@ -30,6 +32,7 @@ final readonly class CategoryGroup
         public string $title,
         public array $types,
         public GroupSource $source = GroupSource::Module,
+        public array $presets = [],
     ) {}
 
     public function appliesTo(string $type): bool

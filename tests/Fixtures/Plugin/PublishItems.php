@@ -13,6 +13,7 @@ use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\ListOf;
 use Frootbox\Core\Category\ObjectCategories;
 use Frootbox\Core\Revision\RevisionStore;
+use Frootbox\Core\Tag\ObjectTags;
 use Frootbox\Core\Url\AddressSync;
 
 /**
@@ -29,13 +30,15 @@ final readonly class PublishItems implements Action
         public array $ids,
     ) {}
 
-    public function handle(RevisionStore $store, AddressSync $addresses, ObjectCategories $categories): null
+    public function handle(RevisionStore $store, AddressSync $addresses, ObjectCategories $categories, ObjectTags $tags): null
     {
         foreach ($this->ids as $id) {
             $published = $store->publish(ItemPlugin::TYPE, $id);
             // The categories of the published state, for lists (decision 0233).
             $chosen = $published->data['categories'] ?? [];
             $categories->sync(ItemPlugin::TYPE, $id, \is_array($chosen) ? array_values(array_filter($chosen, \is_string(...))) : []);
+            $tagged = $published->data['tags'] ?? [];
+            $tags->sync(ItemPlugin::TYPE, $id, \is_array($tagged) ? array_values(array_filter($tagged, \is_string(...))) : []);
         }
 
         // The addresses follow, like after page.publish (decision 0219).

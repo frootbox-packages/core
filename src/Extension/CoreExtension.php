@@ -22,6 +22,7 @@ use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Cache\ClearPageCache;
+use Frootbox\Core\Category\ApplyPresets;
 use Frootbox\Core\Category\CreateCategory;
 use Frootbox\Core\Category\CreateGroup;
 use Frootbox\Core\Category\DeleteCategory;
@@ -30,6 +31,7 @@ use Frootbox\Core\Category\ListCategories;
 use Frootbox\Core\Category\ListGroups;
 use Frootbox\Core\Category\ListGroupTypes;
 use Frootbox\Core\Category\MoveCategory;
+use Frootbox\Core\Category\PresetsOnSchedule;
 use Frootbox\Core\Category\UpdateCategory;
 use Frootbox\Core\Category\UpdateGroup;
 use Frootbox\Core\Comment\CountComments;
@@ -155,6 +157,7 @@ use Frootbox\Core\Queue\DeleteJob;
 use Frootbox\Core\Queue\ListJobs;
 use Frootbox\Core\Queue\RetryJob;
 use Frootbox\Core\Queue\ShowQueueStatus;
+use Frootbox\Core\Schedule\ScheduleRan;
 use Frootbox\Core\Search\Search;
 use Frootbox\Core\Search\SearchRebuildCommand;
 use Frootbox\Core\Search\Sources\HelpSource;
@@ -181,6 +184,13 @@ use Frootbox\Core\Site\ShowSite;
 use Frootbox\Core\Site\UnprotectSite;
 use Frootbox\Core\Site\UpdateSite;
 use Frootbox\Core\Site\UpdateSiteField;
+use Frootbox\Core\Tag\ChooseTags;
+use Frootbox\Core\Tag\CreateTag;
+use Frootbox\Core\Tag\DeleteTag;
+use Frootbox\Core\Tag\ListTags;
+use Frootbox\Core\Tag\MergeTags;
+use Frootbox\Core\Tag\TagOptions;
+use Frootbox\Core\Tag\UpdateTag;
 use Frootbox\Core\Theme\ListIcons;
 use Frootbox\Core\Url\ClearNotFound;
 use Frootbox\Core\Url\CreateRedirect;
@@ -288,13 +298,23 @@ final class CoreExtension implements Extension
         $registry->query(ListSpaces::class);
 
         // Categories in groups for all objects (decision 0233).
-        foreach ([CreateCategory::class, UpdateCategory::class, MoveCategory::class, DeleteCategory::class, CreateGroup::class, UpdateGroup::class, DeleteGroup::class] as $action) {
+        foreach ([CreateCategory::class, UpdateCategory::class, MoveCategory::class, DeleteCategory::class, ApplyPresets::class, CreateGroup::class, UpdateGroup::class, DeleteGroup::class] as $action) {
             $registry->action($action);
         }
 
         $registry->query(ListCategories::class);
         $registry->query(ListGroups::class);
         $registry->query(ListGroupTypes::class);
+        $registry->listen(ScheduleRan::class, PresetsOnSchedule::class);
+
+        // One stock of tags for all objects (decisions 0233, 0239).
+        foreach ([CreateTag::class, UpdateTag::class, MergeTags::class, DeleteTag::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ListTags::class);
+        $registry->query(ChooseTags::class);
+        $registry->query(TagOptions::class);
         $registry->query(ListPlugins::class);
         $registry->query(ListNotFound::class);
 

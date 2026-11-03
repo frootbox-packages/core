@@ -13,7 +13,8 @@ use Frootbox\Database\Entity;
 
 /**
  * A category in a group, below another one or at the top (decision
- * 0233). Title, slug and description by language.
+ * 0233). Title, slug and description by language; a category from a
+ * preset of the configuration knows its key.
  */
 final readonly class Category extends Entity
 {
@@ -28,6 +29,7 @@ final readonly class Category extends Entity
         public array $translations,
         public DateTimeImmutable $createdAt,
         public ?DateTimeImmutable $updatedAt,
+        public ?string $preset = null,
     ) {}
 
     public function title(string $language): ?string
