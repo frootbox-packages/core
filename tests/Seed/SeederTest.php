@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Tests\Seed;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Media\Media;
 use Frootbox\Core\Navigation\ShowNavigation;
@@ -43,6 +45,19 @@ final class SeederTest extends NotesTestCase
         self::assertIsString($results['about']['id']);
         self::assertSame('page:' . $results['about']['id'], $items[0]['target'] ?? null);
         self::assertSame('Mehr über Über uns', $items[0]['label'] ?? null);
+    }
+
+    public function testFillsInTimesRelativeToNow(): void
+    {
+        $file = $this->get(ProjectPaths::class)->var('seed.yaml');
+        file_put_contents($file, <<<'YAML'
+            - page.create: { layout: acme/base/Page, translations: { de: { title: 'Ab ${date:2030-01-02 10:00}' } } }
+            YAML);
+        $seeder = $this->get(Seeder::class);
+        $seeder->run($seeder->read($file));
+        $expected = new DateTimeImmutable('2030-01-02 10:00')->format(DateTimeInterface::ATOM);
+
+        self::assertStringContainsString('"Ab ' . $expected . '"', (string) json_encode($this->get(Revisions::class)->fetchOne()?->data, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
     }
 
     public function testUploadsFilesForTheMedia(): void
@@ -107,6 +122,7 @@ final class SeederTest extends NotesTestCase
             "- [\n" => 'Malformed',
             "- upload: { file: gone.jpg }\n" => 'Step 1: There is no file',
             "- upload: { file: a.jpg, name: b }\n" => 'Step 1: "upload" takes only "file"',
+            "- page.show: { id: '\${date:soon-ish}' }\n" => 'Step 1: ${date:soon-ish} is no time',
         ];
         $seeder = $this->get(Seeder::class);
         $file = $this->get(ProjectPaths::class)->var('seed.yaml');

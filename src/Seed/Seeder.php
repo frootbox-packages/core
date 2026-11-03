@@ -8,7 +8,10 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Seed;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\DBAL\Connection;
+use Exception;
 use Frootbox\Core\Action\ActionException;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Normalizer;
@@ -29,6 +32,10 @@ use Symfony\Component\Yaml\Yaml;
  *
  * "${name.path}" puts in a value from an earlier result: alone in a string
  * it keeps its type, inside a text it becomes text.
+ *
+ * "${date:+2 weeks 18:00}" is a time relative to now in the time zone of
+ * PHP, as "2026-11-17T18:00:00+01:00", e.g. for demo events that stay
+ * ahead (decision 0227). Any relative format of PHP works.
  *
  * The step "upload" keeps a file like POST /api/v1/uploads and gives its
  * token, e.g. for media.create; the path is relative to the seed file or
@@ -253,6 +260,18 @@ final readonly class Seeder
         }
 
         if (!\is_string($value) || !str_contains($value, '${')) {
+            return $value;
+        }
+
+        $value = (string) preg_replace_callback('/\$\{date:([^}]+)\}/', static function (array $match) use ($number): string {
+            try {
+                return new DateTimeImmutable(trim($match[1]))->format(DateTimeInterface::ATOM);
+            } catch (Exception) {
+                throw new SeedException(\sprintf('Step %d: ${date:%s} is no time, e.g. ${date:+2 weeks 18:00}.', $number, $match[1]));
+            }
+        }, $value);
+
+        if (!str_contains($value, '${')) {
             return $value;
         }
 
