@@ -116,6 +116,7 @@ use Frootbox\Core\Navigation\PublishNavigations;
 use Frootbox\Core\Navigation\ShowNavigation;
 use Frootbox\Core\Navigation\UpdateNavigation;
 use Frootbox\Core\ObjectField\ShowObjectFields;
+use Frootbox\Core\ObjectField\UpdateObjectField;
 use Frootbox\Core\Page\AddBlock;
 use Frootbox\Core\Page\AddListEntry;
 use Frootbox\Core\Page\CopyBlock;
@@ -319,6 +320,7 @@ final class CoreExtension implements Extension
         $registry->query(TagOptions::class);
         // Further fields at objects of modules (decisions 0234, 0240).
         $registry->query(ShowObjectFields::class);
+        $registry->action(UpdateObjectField::class);
         $registry->query(ListPlugins::class);
         $registry->query(ListNotFound::class);
 

@@ -120,6 +120,10 @@ final class ObjectFieldsTest extends NotesTestCase
         self::assertTrue($output->value(ItemPlugin::TYPE, self::ITEM, 'noContact', ['de']));
         self::assertNull($output->value(ItemPlugin::TYPE, self::ITEM, 'gallery', ['de']));
         self::assertSame('Frisch & geröstet', $output->field(ItemPlugin::TYPE, self::ITEM, 'subtitle', ['en', 'de']), 'In the fallback language.');
+
+        $this->save(['subtitle' => null]);
+        $this->runner()->run(new PublishItems([self::ITEM]));
+        self::assertStringNotContainsString('class="subtitle"', $this->html('/news/neue-sorten'), 'An empty field leaves out its element, as on pages.');
         $this->expectException(RuntimeError::class);
         $this->expectExceptionMessage('acme/plugin/item has no field "price"');
         $output->field(ItemPlugin::TYPE, self::ITEM, 'price', ['de']);

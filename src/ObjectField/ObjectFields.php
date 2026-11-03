@@ -14,6 +14,7 @@ use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Field\Blank;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Support\Message;
 
 /**
@@ -37,6 +38,7 @@ final class ObjectFields
         private readonly FieldTypes $types,
         private readonly Languages $languages,
         private readonly InputValidator $validator,
+        private readonly Revisions $revisions,
     ) {}
 
     /**
@@ -197,6 +199,35 @@ final class ObjectFields
         }
 
         return $result;
+    }
+
+    /**
+     * The values in the draft of an object, null if it has none (decision
+     * 0241). A module keeps the draft in revisions with the type of its
+     * targets and the further fields under "fields".
+     *
+     * @return array<mixed>|null
+     */
+    public function draft(string $type, string $id): ?array
+    {
+        $draft = $this->revisions->draft($type, $id);
+
+        if (null === $draft) {
+            return null;
+        }
+
+        return \is_array($draft->data['fields'] ?? null) ? $draft->data['fields'] : [];
+    }
+
+    /**
+     * The values of the draft of an object, the published ones without a
+     * draft.
+     *
+     * @return array<mixed>
+     */
+    public function current(string $type, string $id): array
+    {
+        return $this->draft($type, $id) ?? $this->of($type, [$id])[$id] ?? [];
     }
 
     /**

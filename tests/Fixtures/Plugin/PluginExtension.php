@@ -22,6 +22,7 @@ final class PluginExtension implements Extension
         $registry->action(SaveItem::class);
         $registry->action(PublishItems::class);
         $registry->action(UnpublishItem::class);
+        $registry->action(UpdateItem::class);
         $registry->plugin(ItemPlugin::class);
         $registry->scheduled(ItemSchedule::class);
         $registry->add(CategoryGroup::class, new CategoryGroup('acme/plugin/topics', 'Topics', [ItemPlugin::TYPE]));

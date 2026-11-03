@@ -23,6 +23,7 @@ use Frootbox\Core\Http\Exception\HttpException;
 use Frootbox\Core\Http\SiteUrl;
 use Frootbox\Core\Http\WelcomeHandler;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\ObjectField\MarkedObjects;
 use Frootbox\Core\Preview\PreviewAccess;
 use Frootbox\Core\Schedule\Scheduler;
 use Frootbox\Core\Url\NotFoundLog;
@@ -83,6 +84,7 @@ final readonly class PageHandler implements RequestHandlerInterface
         $preview = $request->getAttribute(PreviewAccess::class) instanceof PreviewAccess;
         $editing = $installed && ($preview || $this->wantsEditMode($request));
         $this->service(EditMode::class)->set($editing);
+        $this->service(MarkedObjects::class)->clear();
 
         if ($installed) {
             $this->service(Scheduler::class)->runIfDue();
