@@ -47,14 +47,15 @@ final class ObjectFields
      *
      * @param array<mixed> $current The values of the draft so far
      * @param array<mixed> $input
+     * @param string|null  $space   With the fields of the object's space (decision 0250)
      *
      * @return array<string, mixed>
      *
      * @throws InvalidInputException
      */
-    public function check(string $action, string $type, array $current, array $input, string $pointer = '/fields'): array
+    public function check(string $action, string $type, array $current, array $input, string $pointer = '/fields', ?string $space = null): array
     {
-        $fields = $this->schema->fields($type);
+        $fields = $this->schema->fields($type, $space);
         $result = [];
         $errors = [];
 

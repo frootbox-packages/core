@@ -54,11 +54,12 @@ final readonly class UpdateObjectField implements Action
     public function handle(ObjectSchema $schema, ObjectFields $fields, FieldTypes $types, Languages $languages, Catalog $catalog, Runner $runner, Journal $journal): ObjectFieldUpdated
     {
         $target = Target::parse($this->target);
-        $field = $schema->field($target->type, $this->name);
+        $space = $target->isPage() ? null : $schema->spaceOf($target->type, $target->id);
+        $field = $schema->field($target->type, $this->name, $space);
         $action = $target->type . '.update';
 
         if (null === $field || $target->isPage() || !$catalog->has($action)) {
-            $known = array_keys($schema->fields($target->type));
+            $known = array_keys($schema->fields($target->type, $space));
 
             throw new InvalidInputException('object.update-field', ['/name' => new Message('{type} has no field "{name}". Fields: {fields}.', ['type' => $target->type, 'name' => $this->name, 'fields' => [] === $known ? 'none' : implode(', ', $known)])]);
         }

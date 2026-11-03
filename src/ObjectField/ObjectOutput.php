@@ -30,14 +30,20 @@ use Twig\Markup;
  * While drafts are shown, the values come from the draft of the object;
  * with marking, object_field() marks the field for editing if the user
  * may change the object (decision 0241).
+ *
+ * Fields of the object's space, e.g. from the backend of a collection,
+ * count too; object_facts() lists them as a fact sheet (decision 0250).
  */
 final class ObjectOutput
 {
-    /** Types not edited on the website: a switch has nothing to click, lists come later. */
-    private const array NOT_MARKED = ['boolean', 'list'];
+    /** Types not edited on the website: a switch has nothing to click, lists come later, numbers, days and choices in the backend. */
+    private const array NOT_MARKED = ['boolean', 'list', 'number', 'date', 'choice'];
 
     /** @var array<string, bool> Whether the user may change objects of a type */
     private array $editable = [];
+
+    /** @var array<string, array<string, true>> Names shown with object_field() by "type:id", left out of the fact sheet */
+    private array $shown = [];
 
     public function __construct(
         private readonly ObjectSchema $schema,
@@ -58,11 +64,13 @@ final class ObjectOutput
      */
     public function field(string $type, string $id, string $name, array $languages): mixed
     {
-        $field = $this->declared($type, $name, 'object_field');
+        $field = $this->declared($type, $id, $name, 'object_field');
 
         if (null === $field) {
             return '';
         }
+
+        $this->shown[$type . ':' . $id][$name] = true;
 
         $value = ObjectFields::valueIn($field, $this->values($type, $id), $name, $languages);
         $kind = $this->types->get($field->field->type);
@@ -103,7 +111,7 @@ final class ObjectOutput
      */
     public function value(string $type, string $id, string $name, array $languages): mixed
     {
-        $field = $this->declared($type, $name, 'object_value');
+        $field = $this->declared($type, $id, $name, 'object_value');
 
         if (null === $field) {
             return null;
@@ -112,6 +120,46 @@ final class ObjectOutput
         $value = ObjectFields::valueIn($field, $this->values($type, $id), $name, $languages);
 
         return 'boolean' === $field->field->type ? true === $value : $value;
+    }
+
+    /**
+     * The fields of the object's space with a value, in their order, for
+     * a fact sheet ("Label: value"). Fields the view showed before with
+     * object_field() or names in $except are left out.
+     *
+     * @param list<string> $languages The language and its fallbacks
+     * @param list<string> $except
+     *
+     * @return list<array{name: string, type: string, label: string, value: mixed, output: mixed}>
+     */
+    public function facts(string $type, string $id, array $languages, array $except = []): array
+    {
+        $space = $this->schema->spaceOf($type, $id);
+
+        if (null === $space) {
+            return [];
+        }
+
+        $values = $this->values($type, $id);
+        $facts = [];
+
+        foreach ($this->schema->spaceFields($type, $space) as $name => $field) {
+            if (isset($this->shown[$type . ':' . $id][$name]) || \in_array($name, $except, true)) {
+                continue;
+            }
+
+            $value = ObjectFields::valueIn($field, $values, $name, $languages);
+            $output = $this->types->get($field->field->type)->output($value, $field->field);
+
+            // A switch is a fact either way once it was set.
+            if (null === $value || ('' === $output && 'boolean' !== $field->field->type) || ($output instanceof Markup && '' === (string) $output)) {
+                continue;
+            }
+
+            $facts[] = ['name' => $name, 'type' => $field->field->type, 'label' => $field->label($languages), 'value' => $value, 'output' => $output];
+        }
+
+        return $facts;
     }
 
     /**
@@ -132,7 +180,7 @@ final class ObjectOutput
         return $this->editable[$type] ??= $this->catalog->has($action) && $this->gate->allows($this->context->get()->actor, $this->catalog->get($action));
     }
 
-    private function declared(string $type, string $name, string $function): ?ObjectField
+    private function declared(string $type, string $id, string $name, string $function): ?ObjectField
     {
         if ($this->environment->isDevelopment() && [] !== $this->schema->problems()) {
             throw new RuntimeError(\sprintf('%s(): the further fields of objects have problems: %s', $function, implode(' ', $this->schema->problems())));
@@ -140,7 +188,15 @@ final class ObjectOutput
 
         $field = $this->schema->field($type, $name);
 
-        if (null === $field && $this->environment->isDevelopment()) {
+        if (null !== $field) {
+            return $field;
+        }
+
+        // A field of the space may be missing in another space, so only views must declare theirs.
+        $space = $this->schema->spaceOf($type, $id);
+        $field = null === $space ? null : $this->schema->field($type, $name, $space);
+
+        if (null === $field && $this->environment->isDevelopment() && !$this->schema->bySpace($type)) {
             $known = array_keys($this->schema->fields($type));
 
             throw new RuntimeError(\sprintf('%s(): %s has no field "%s". Declare it under "object: fields:" in the header of the view. Fields: %s.', $function, $type, $name, [] === $known ? 'none' : implode(', ', $known)));

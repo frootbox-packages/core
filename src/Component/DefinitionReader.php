@@ -274,8 +274,8 @@ final readonly class DefinitionReader
             }
 
             $nested = $type instanceof HasSubfields;
-            // Below "object" a text can hold one value for all languages and the other way round (decision 0240).
-            $allowed = [...self::FIELD, ...$type->settings(), ...($nested ? ['fields' => self::ANY_MAP] : []), ...($object && 'object.fields' === $path ? ['translatable' => ['type' => 'boolean']] : [])];
+            // Below "object" a text can hold one value for all languages and the other way round (decision 0240), and labels are given by language (decision 0250).
+            $allowed = [...self::FIELD, ...$type->settings(), ...($nested ? ['fields' => self::ANY_MAP] : []), ...($object && 'object.fields' === $path ? ['translatable' => ['type' => 'boolean'], 'labels' => ['type' => 'object', 'additionalProperties' => ['type' => 'string', 'maxLength' => 200]]] : [])];
 
             if (!$this->check($definition, $allowed, ['type'], $where, $at, $errors)) {
                 continue;

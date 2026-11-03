@@ -49,7 +49,7 @@ final readonly class SaveItem implements Action
     public function handle(RevisionStore $store, Revisions $revisions, ObjectCategories $categories, ObjectTags $tags, ObjectFields $objectFields): Revision
     {
         $before = ($revisions->draft(ItemPlugin::TYPE, $this->id) ?? $revisions->published(ItemPlugin::TYPE, $this->id))?->data['fields'] ?? [];
-        $fields = $objectFields->check('acme/plugin/item.save', ItemPlugin::TYPE, \is_array($before) ? $before : [], $this->fields ?? []);
+        $fields = $objectFields->check('acme/plugin/item.save', ItemPlugin::TYPE, \is_array($before) ? $before : [], $this->fields ?? [], space: $this->space);
         $chosen = $categories->check('acme/plugin/item.save', ItemPlugin::TYPE, $this->categories);
         $tagged = $tags->check('acme/plugin/item.save', ItemPlugin::TYPE, $this->space, $this->tags);
         $draft = $store->saveDraft(ItemPlugin::TYPE, $this->id, ['titles' => $this->titles, 'slugs' => $this->slugs, 'space' => $this->space, 'categories' => $chosen, 'tags' => $tagged, 'fields' => $fields]);

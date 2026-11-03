@@ -49,6 +49,7 @@ use Twig\TwigFunction;
  *     {{ url(value('button')) }}      the URL of a link field
  *     {{ object_field(job, 'gallery') }} a further field of an object, declared under "object: fields:" (decision 0240)
  *     {% if object_value(job, 'noContactDetails') %} its stored value, e.g. a switch
+ *     {% for fact in object_facts(entry) %} the fields of its space with a value, e.g. from the backend of a collection (decision 0250)
  *     {{ language() }}                the language of the visitor, e.g. "en"
  *     {{ content_language() }}        the language of the content, e.g. "de" on a fallback
  *     {{ direction() }}               the writing direction of the visitor's language, "ltr" or "rtl"
@@ -98,6 +99,7 @@ final class ViewExtension extends AbstractExtension
             // Further fields of a published object, declared under "object: fields:" (decisions 0234, 0240).
             new TwigFunction('object_field', fn(mixed $object, string $name): mixed => $this->service(ObjectOutput::class)->field(...[...$this->object($object, 'object_field'), 'name' => $name, 'languages' => $this->contentLanguages()])),
             new TwigFunction('object_value', fn(mixed $object, string $name): mixed => $this->service(ObjectOutput::class)->value(...[...$this->object($object, 'object_value'), 'name' => $name, 'languages' => $this->contentLanguages()])),
+            new TwigFunction('object_facts', $this->objectFacts(...)),
             new TwigFunction('language', fn(): string => $this->service(Delivery::class)->language()->code),
             new TwigFunction('content_language', fn(): string => $this->service(Delivery::class)->contentLanguage()->code),
             new TwigFunction('direction', fn(): string => $this->service(Delivery::class)->language()->direction->value),
@@ -222,6 +224,19 @@ final class ViewExtension extends AbstractExtension
         $parsed = Target::tryParse($target) ?? throw new RuntimeError(\sprintf('%s() needs a target like "frootbox/news/article:<id>", not "%s".', $function, $target));
 
         return ['type' => $parsed->type, 'id' => $parsed->id];
+    }
+
+    /**
+     * The fact sheet of an object: the fields of its space with a value
+     * (decision 0250), each with name, type, label, value and output.
+     *
+     * @param array<mixed> $except Names the view shows elsewhere
+     *
+     * @return list<array{name: string, type: string, label: string, value: mixed, output: mixed}>
+     */
+    private function objectFacts(mixed $object, array $except = []): array
+    {
+        return $this->service(ObjectOutput::class)->facts(...[...$this->object($object, 'object_facts'), 'languages' => $this->contentLanguages(), 'except' => array_values(array_filter($except, \is_string(...)))]);
     }
 
     /**
