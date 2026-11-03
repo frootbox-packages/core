@@ -10,6 +10,7 @@ namespace Frootbox\Core\Design;
 
 use Frootbox\Core\Asset\PublicAssets;
 use Frootbox\Core\Theme\Font;
+use Frootbox\Core\Theme\FontFile;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\RichText\Html;
 
@@ -37,7 +38,7 @@ final readonly class WebFonts
         foreach ($this->withFiles() as $font) {
             foreach ($font->files as $file) {
                 $css .= '@font-face{font-family:"' . $font->face . '";'
-                    . 'src:url("' . $this->assets->versioned($file->path) . '") format("' . $file->format() . '");'
+                    . 'src:url("' . $this->address($file) . '") format("' . $file->format() . '");'
                     . 'font-weight:' . $file->weight . ';font-style:' . $file->style . ';font-display:swap;'
                     . (null === $file->range ? '' : 'unicode-range:' . $file->range . ';')
                     . '}';
@@ -64,12 +65,17 @@ final readonly class WebFonts
         foreach ($this->design->usedFonts() as $key) {
             foreach (isset($fonts[$key]) ? $fonts[$key]->files : [] as $file) {
                 if ($file->preload) {
-                    $links[] = \sprintf('<link rel="preload" href="%s" as="font" type="font/%s" crossorigin>', Html::escape($this->assets->versioned($file->path)), Html::escape($file->format()));
+                    $links[] = \sprintf('<link rel="preload" href="%s" as="font" type="font/%s" crossorigin>', Html::escape($this->address($file)), Html::escape($file->format()));
                 }
             }
         }
 
         return $links;
+    }
+
+    private function address(FontFile $file): string
+    {
+        return $file->url ?? $this->assets->versioned($file->path);
     }
 
     /**

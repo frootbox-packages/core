@@ -19,9 +19,21 @@ use Frootbox\Core\Extension\Extensions;
 final readonly class ThemeChain
 {
     /**
-     * @param list<Theme> $themes Active theme first
+     * @param list<Theme>         $themes Active theme first
+     * @param array<string, Font> $added  Fonts of extensions by key (decision 0252)
      */
-    public function __construct(public array $themes = []) {}
+    public function __construct(public array $themes = [], public array $added = []) {}
+
+    /**
+     * The same themes with fonts of extensions (decision 0252); a font of
+     * a theme with the same key wins.
+     *
+     * @param list<Font> $fonts
+     */
+    public function withFonts(array $fonts): self
+    {
+        return new self($this->themes, [...$this->added, ...array_column($fonts, null, 'key')]);
+    }
 
     public static function resolve(Extensions $extensions, ?string $active): self
     {
@@ -146,14 +158,15 @@ final readonly class ThemeChain
     }
 
     /**
-     * The fonts a font token can choose: the system fonts, then those of
-     * the themes, children overriding their parents.
+     * The fonts a font token can choose: the system fonts, those of
+     * extensions (decision 0252), then those of the themes, children
+     * overriding their parents.
      *
      * @return array<string, Font>
      */
     public function fonts(): array
     {
-        $fonts = Font::system();
+        $fonts = [...Font::system(), ...$this->added];
 
         foreach (array_reverse($this->themes) as $theme) {
             $fonts = [...$fonts, ...$theme->fonts];

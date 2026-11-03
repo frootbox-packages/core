@@ -48,6 +48,8 @@ use Frootbox\Core\Schedule\ScheduledTypes;
 use Frootbox\Core\Search\SearchSources;
 use Frootbox\Core\Settings\Settings;
 use Frootbox\Core\Settings\SettingsClasses;
+use Frootbox\Core\Theme\Fonts;
+use Frootbox\Core\Theme\FontSource;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\TargetLink;
 use Frootbox\Core\User\StoredUserLanguages;
@@ -247,11 +249,22 @@ final class ContainerFactory
     /**
      * The active theme comes from "theme:" in config/app.yaml.
      */
-    public static function createThemeChain(Extensions $extensions, Config $config): ThemeChain
+    public static function createThemeChain(Extensions $extensions, Config $config, Registry $registry, ContainerInterface $container): ThemeChain
     {
         $theme = $config->get('theme');
+        $chain = ThemeChain::resolve($extensions, \is_string($theme) ? $theme : null);
+        $fonts = [];
 
-        return ThemeChain::resolve($extensions, \is_string($theme) ? $theme : null);
+        // Fonts of extensions, e.g. imported from Google Fonts (decision 0252).
+        foreach ($registry->items(Fonts::class) as $item) {
+            $source = $container->get($item->source);
+
+            if ($source instanceof FontSource) {
+                $fonts = [...$fonts, ...$source->fonts()];
+            }
+        }
+
+        return [] === $fonts ? $chain : $chain->withFonts($fonts);
     }
 
     public static function createListenerProvider(ContainerInterface $container, Registry $registry): ListenerProvider

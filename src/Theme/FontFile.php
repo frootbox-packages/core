@@ -24,6 +24,8 @@ final readonly class FontFile
         public ?string $range = null,
         /** Loaded at once on pages whose tokens use the font */
         public bool $preload = false,
+        /** The address of a file outside of assets/, e.g. one of StoredFonts (decision 0252) */
+        public ?string $url = null,
     ) {}
 
     /** The format for @font-face, from the extension. */
