@@ -20,5 +20,7 @@ final readonly class SpaceSummary
         public bool $default,
         /** The page that shows the space, published or in a draft */
         public ?string $pageId = null,
+        /** How many objects it holds, drafts included; only plugin.list counts (decision 0242) */
+        public ?int $count = null,
     ) {}
 }

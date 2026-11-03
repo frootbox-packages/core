@@ -14,11 +14,15 @@ use Frootbox\Core\Action\Query;
 use Frootbox\Core\Auth\Gate;
 use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
+use Frootbox\Core\I18n\Translator;
+use Frootbox\Core\Plugin\Plugins;
+use Frootbox\Core\Plugin\PluginSpaces;
+use Frootbox\Core\Plugin\Space;
 
 /**
  * @implements Query<list<PageTreeNode>>
  */
-#[AsQuery('page.tree', 'Returns all pages as a tree with titles, slugs and status, drafts included; with a role only within branches those and the way to them')]
+#[AsQuery('page.tree', 'Returns all pages as a tree with titles, slugs, status and what plugin each shows, drafts included; with a role only within branches those and the way to them')]
 final readonly class ShowPageTree implements Query, Scoped
 {
     /**
@@ -34,12 +38,24 @@ final readonly class ShowPageTree implements Query, Scoped
     /**
      * @return list<PageTreeNode>
      */
-    public function handle(PageReader $reader, Gate $gate, CurrentContext $context): array
+    public function handle(PageReader $reader, Gate $gate, CurrentContext $context, Plugins $plugins, PluginSpaces $spaces, Translator $translator): array
     {
         $nodes = $reader->nodes();
         $within = $gate->within($context->get()->actor, 'page.tree', 'page');
+        $shows = [];
 
-        return self::branch($nodes, $reader->visibility($nodes), null === $within ? null : self::shown($nodes, $within), null, []);
+        // What a page shows, for the mark in the sitemap (decision 0242): "Jobs · Ausbildung".
+        foreach ($nodes as $id => $node) {
+            $place = $node->data->plugin;
+            $plugin = null === $place ? null : $plugins->get($place->type);
+
+            if (null !== $place && null !== $plugin) {
+                $space = Space::DEFAULT === $place->space ? null : $spaces->title($place->type, $place->space);
+                $shows[$id] = $translator->get($plugin->label()) . (null === $space ? '' : ' · ' . $space);
+            }
+        }
+
+        return self::branch($nodes, $reader->visibility($nodes), null === $within ? null : self::shown($nodes, $within), null, [], $shows);
     }
 
     /**
@@ -79,10 +95,11 @@ final readonly class ShowPageTree implements Query, Scoped
      * @param array<string, PageVisibility> $visibility
      * @param array<string, bool>|null      $shown      null for all pages, see shown()
      * @param array<string, true>           $path       Guards against loops in broken data
+     * @param array<string, string>         $shows      What plugin a page shows, by id
      *
      * @return list<PageTreeNode>
      */
-    private static function branch(array $nodes, array $visibility, ?array $shown, ?string $parentId, array $path): array
+    private static function branch(array $nodes, array $visibility, ?array $shown, ?string $parentId, array $path, array $shows): array
     {
         $branch = [];
 
@@ -97,11 +114,12 @@ final readonly class ShowPageTree implements Query, Scoped
                 $node->data->layout,
                 array_map(static fn(TranslationData $translation): string => $translation->title, $node->data->translations),
                 array_map(static fn(TranslationData $translation): string => $translation->slug, $node->data->translations),
-                self::branch($nodes, $visibility, $shown, $node->id, $path + [$node->id => true]),
+                self::branch($nodes, $visibility, $shown, $node->id, $path + [$node->id => true], $shows),
                 $node->publishAt,
                 $node->locked,
                 $visibility[$node->id] ?? new PageVisibility(),
                 $shown[$node->id] ?? false,
+                $shows[$node->id] ?? null,
             );
         }
 

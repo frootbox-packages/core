@@ -35,5 +35,7 @@ final readonly class PageTreeNode
         public PageVisibility $visibility = new PageVisibility(),
         /** Only shown as the way to a branch of the actor (decision 0118) */
         public bool $outside = false,
+        /** The plugin the page shows by name, with a space other than the default one, e.g. "Jobs · Ausbildung" (decision 0242) */
+        public ?string $plugin = null,
     ) {}
 }
