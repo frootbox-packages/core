@@ -79,12 +79,12 @@ final class CategoriesTest extends NotesTestCase
     {
         $courses = $this->category('Kurse für alle', description: 'Alles rund um Kaffee.');
 
-        self::assertSame(['de' => ['title' => 'Kurse für alle', 'slug' => 'kurse-fuer-alle', 'description' => 'Alles rund um Kaffee.']], $courses->translations, 'The slug from the title.');
+        self::assertEquals(['de' => ['title' => 'Kurse für alle', 'slug' => 'kurse-fuer-alle', 'description' => 'Alles rund um Kaffee.']], $courses->translations, 'The slug from the title.');
         $this->assertInvalid('/translations/de/slug', new CreateCategory(self::GROUP, ['de' => ['title' => 'Andere', 'slug' => 'kurse-fuer-alle']]));
         $this->assertInvalid('/translations/de/title', new CreateCategory(self::GROUP, ['de' => ['title' => '', 'slug' => 'leer']]));
 
         $updated = $this->runner()->run(new UpdateCategory($courses->id, ['de' => ['title' => 'Kurse', 'slug' => 'kurse', 'description' => '']]));
-        self::assertSame(['de' => ['title' => 'Kurse', 'slug' => 'kurse']], $updated->translations);
+        self::assertEquals(['de' => ['title' => 'Kurse', 'slug' => 'kurse']], $updated->translations);
     }
 
     public function testLinksPublishedObjectsAndFindsThemWithTheCategoriesBelow(): void

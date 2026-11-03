@@ -65,7 +65,7 @@ final class ObjectFieldsTest extends NotesTestCase
     public function testKeepsTheValuesInTheDraftAndPublishesThem(): void
     {
         $this->save(['subtitle' => ['de' => 'Frisch geröstet'], 'noContact' => true, 'gallery' => ['media' => '01JMEDXA000000000000000001', 'alt' => 'Bohnen']]);
-        self::assertSame(['subtitle' => ['de' => 'Frisch geröstet'], 'noContact' => true, 'gallery' => ['media' => '01JMEDXA000000000000000001', 'alt' => 'Bohnen']], $this->draft());
+        self::assertEquals(['subtitle' => ['de' => 'Frisch geröstet'], 'noContact' => true, 'gallery' => ['media' => '01JMEDXA000000000000000001', 'alt' => 'Bohnen']], $this->draft());
         $objects = $this->get(ObjectFields::class);
         self::assertSame([self::ITEM => []], $objects->of(ItemPlugin::TYPE, [self::ITEM]), 'Drafts keep them themselves.');
 

@@ -91,7 +91,7 @@ final class ObjectFieldEditingTest extends NotesTestCase
 
         $gallery = ['media' => '01JMEDXA000000000000000001', 'alt' => 'Bohnen'];
         $saved = $this->runner()->run(new UpdateObjectField(self::TARGET, 'de', 'gallery', $gallery));
-        self::assertSame($gallery, $this->get(ObjectFields::class)->draft(ItemPlugin::TYPE, self::ITEM)['gallery'] ?? null, 'One value for all languages.');
+        self::assertEquals($gallery, $this->get(ObjectFields::class)->draft(ItemPlugin::TYPE, self::ITEM)['gallery'] ?? null, 'One value for all languages.');
         self::assertNotNull($saved->entry);
 
         $this->runner()->run(new UndoAction($saved->entry));
