@@ -1,0 +1,9 @@
+{# frootbox
+title: Embeds
+fields:
+  video: { type: text }
+#}
+<div class="video">{{ video_embed(value('video'), {title: 'Video: Rösten'}) }}</div>
+<div class="osm">{{ map_embed({coordinates: '51.9607, 7.6261', title: 'Karte: Münster'}) }}</div>
+<div class="google">{{ map_embed({provider: 'google-maps', address: 'Prinzipalmarkt 1, Münster'}) }}</div>
+<div class="none">{{ map_embed({address: 'Prinzipalmarkt 1, Münster'}) }}</div>

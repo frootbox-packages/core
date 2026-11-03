@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Tests\Consent;
 
 use Frootbox\Core\Config\Environment;
+use Frootbox\Core\Consent\Embeds;
 use Frootbox\Core\Consent\ExternalMarkup;
 use Frootbox\Core\Consent\ExternalService;
 use Frootbox\Core\Consent\ExternalServices;
@@ -27,6 +28,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 /**
  * Content of other providers loads only after consent (decision 0224).
  */
+#[CoversClass(Embeds::class)]
 #[CoversClass(ExternalMarkup::class)]
 #[CoversClass(ExternalService::class)]
 #[CoversClass(ExternalServices::class)]
@@ -50,6 +52,44 @@ final class ExternalTest extends NotesTestCase
         self::assertStringContainsString('<li><label><input type="checkbox" value="acme/external/osm"> OpenStreetMap <span class="privacy-settings__provider">(OpenStreetMap Foundation)</span></label>', $html);
 
         self::assertSame(1, substr_count($html, '<script type="module" src="/assets/frootbox/core/assets/external.js?v='), 'The script of the core, once; its CSS is in the bundle.');
+    }
+
+    public function testEmbedsVideosAndMapsOfKnownProviders(): void
+    {
+        $html = $this->page([['block' => 'acme/external/Embeds', 'fields' => ['video' => 'https://youtu.be/dQw4w9WgXcQ?t=1m5s']]]);
+
+        self::assertStringContainsString('<div class="video"><fb-external class="external" service="youtube" style="--external-ratio: 16 / 9"><template><iframe src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=65" title="Video: Rösten" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></template>', $html);
+        self::assertStringContainsString('<a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&amp;t=65s" rel="noopener noreferrer">Open it at YouTube</a>', $html);
+        self::assertStringContainsString('<div class="osm"><fb-external class="external" service="openstreetmap" style="--external-ratio: 4 / 3"><template><iframe src="https://www.openstreetmap.org/export/embed.html?bbox=', $html);
+        self::assertStringContainsString('&amp;layer=mapnik&amp;marker=51.9607%2C7.6261" title="Karte: Münster" loading="lazy"', $html);
+        self::assertStringContainsString('<div class="google"><fb-external class="external" service="google-maps" style="--external-ratio: 4 / 3"><template><iframe src="https://maps.google.com/maps?q=Prinzipalmarkt%201%2C%20M%C3%BCnster&amp;z=16&amp;output=embed" title="Map"', $html);
+        self::assertStringContainsString('<div class="none"></div>', $html, 'OpenStreetMap needs coordinates.');
+    }
+
+    public function testKnowsTheAddressesOfVideos(): void
+    {
+        $embed = static fn(string $url): ?string => Embeds::video($url)?->src;
+
+        self::assertSame('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', $embed('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=x'));
+        self::assertSame('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', $embed('https://m.youtube.com/shorts/dQw4w9WgXcQ'));
+        self::assertSame('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=90', $embed('https://www.youtube.com/embed/dQw4w9WgXcQ?start=90'));
+        self::assertSame('https://player.vimeo.com/video/76979871?dnt=1', $embed('https://vimeo.com/76979871'));
+        self::assertSame('https://player.vimeo.com/video/76979871?dnt=1&h=abc123def0', $embed('https://vimeo.com/76979871/abc123def0'));
+        self::assertSame('https://player.vimeo.com/video/76979871?dnt=1', $embed('https://player.vimeo.com/video/76979871'));
+        self::assertNull($embed('https://www.youtube.com/watch?v=short'));
+        self::assertNull($embed('https://example.org/watch?v=dQw4w9WgXcQ'));
+        self::assertNull($embed('javascript:alert(1)'));
+        self::assertNull($embed(''));
+    }
+
+    public function testKnowsWhatAMapNeeds(): void
+    {
+        self::assertNull(Embeds::map(Embeds::OPENSTREETMAP, null, null, 'Münster'));
+        self::assertNull(Embeds::map(Embeds::OPENSTREETMAP, 91.0, 7.0));
+        self::assertNull(Embeds::map(Embeds::GOOGLE_MAPS, null, null));
+        self::assertNull(Embeds::map('other', 51.0, 7.0));
+        self::assertSame('https://www.openstreetmap.org/?mlat=51.5&mlon=7#map=19/51.5/7', Embeds::map(Embeds::OPENSTREETMAP, 51.5, 7.0, zoom: 30)?->link);
+        self::assertSame('https://www.google.com/maps/search/?api=1&query=51.5%2C7', Embeds::map(Embeds::GOOGLE_MAPS, 51.5, 7.0)?->link);
     }
 
     public function testWithoutServicesThereAreNoPrivacySettings(): void

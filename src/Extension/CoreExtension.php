@@ -34,6 +34,8 @@ use Frootbox\Core\Component\ListBlocks;
 use Frootbox\Core\Component\ListLayouts;
 use Frootbox\Core\Component\PreviewHandler;
 use Frootbox\Core\Component\Previews;
+use Frootbox\Core\Consent\Embeds;
+use Frootbox\Core\Consent\ExternalService;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
 use Frootbox\Core\Console\ActionsCommand;
@@ -223,6 +225,11 @@ final class CoreExtension implements Extension
 
         foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class, FileType::class, TableType::class] as $fieldType) {
             $registry->fieldType($fieldType);
+        }
+
+        // Videos and maps of well-known providers, only after consent (decision 0225).
+        foreach (Embeds::services() as $service) {
+            $registry->add(ExternalService::class, $service);
         }
 
         $registry->action(UndoAction::class);

@@ -81,16 +81,27 @@ class PrivacySettings extends HTMLElement {
             return;
         }
 
-        button.removeAttribute('hidden');
+        // Only what the visitor allowed can be taken back, so the button
+        // shows once a service loads by itself (decision 0225).
+        const show = () => {
+            if (!dialog.open) {
+                button.hidden = allowed().length === 0;
+            }
+        };
+
         button.addEventListener('click', () => {
             const list = allowed();
 
             for (const box of dialog.querySelectorAll('input[type="checkbox"]')) {
                 box.checked = list.includes(box.value);
+                box.closest('li').hidden = !box.checked;
             }
 
             dialog.showModal();
         });
+        dialog.addEventListener('close', show);
+        document.addEventListener(CHANGED, show);
+        show();
         dialog.addEventListener('change', (event) => {
             if (event.target instanceof HTMLInputElement && event.target.type === 'checkbox') {
                 allow(event.target.value, event.target.checked);

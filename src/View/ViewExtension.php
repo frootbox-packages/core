@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\View;
 
+use Frootbox\Core\Consent\Embeds;
 use Frootbox\Core\Consent\ExternalMarkup;
 use Frootbox\Core\Consent\ExternalServices;
 use Frootbox\Core\I18n\Translator;
@@ -58,6 +59,9 @@ use Twig\TwigFunction;
  *     {{ external('acme/video/youtube', html, {link: url, title: 'Video: …', ratio: '16/9'}) }}
  *                                     content of another provider, loaded only after consent (decision 0224)
  *     {{ privacy_settings() }}        the button to change that consent, e.g. in the footer
+ *     {{ video_embed(url, {title: 'Video: …'}) }} a video at YouTube or Vimeo behind consent, nothing for other addresses
+ *     {{ map_embed({coordinates: '50.9, 6.9', address: '…', provider: 'openstreetmap', zoom: 16, title: 'Map: …'}) }}
+ *                                     a map of OpenStreetMap or Google Maps behind consent (decision 0225)
  */
 final class ViewExtension extends AbstractExtension
 {
@@ -97,6 +101,8 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('editing', fn(): bool => $this->service(EditMode::class)->marking()),
             new TwigFunction('external', $this->external(...), ['needs_context' => true, 'is_safe' => ['html']]),
             new TwigFunction('privacy_settings', $this->privacySettings(...), ['needs_context' => true, 'is_safe' => ['html']]),
+            new TwigFunction('video_embed', $this->videoEmbed(...), ['needs_context' => true, 'is_safe' => ['html']]),
+            new TwigFunction('map_embed', $this->mapEmbed(...), ['needs_context' => true, 'is_safe' => ['html']]),
         ];
     }
 
@@ -263,11 +269,80 @@ final class ViewExtension extends AbstractExtension
     {
         $services = $this->service(ExternalServices::class)->all();
 
-        if ([] !== $services) {
-            $this->consentAssets(self::frame($context, 'privacy_settings'));
+        // Error pages render the footer without a frame and without assets.
+        $frame = $context[Frame::VARIABLE] ?? null;
+
+        if ([] !== $services && $frame instanceof Frame) {
+            $this->consentAssets($frame);
         }
 
         return new Markup($this->markup()->settings($services), 'UTF-8');
+    }
+
+    /**
+     * A video at YouTube or Vimeo behind a placeholder (decision 0225).
+     *
+     * @param array<string, mixed>     $context
+     * @param array{title?: string|null} $options
+     */
+    private function videoEmbed(array $context, ?string $url, array $options = []): Markup|string
+    {
+        $embed = null === $url ? null : Embeds::video($url);
+
+        if (null === $embed) {
+            return '';
+        }
+
+        $title = $options['title'] ?? null;
+        $iframe = Html::element('iframe', '', [
+            'src' => $embed->src,
+            'title' => $title ?? $this->text('Video', []),
+            'loading' => 'lazy',
+            'allow' => 'autoplay; fullscreen; picture-in-picture; encrypted-media',
+            'allowfullscreen' => true,
+            'referrerpolicy' => 'strict-origin-when-cross-origin',
+        ]);
+
+        return $this->external($context, $embed->service, new Markup($iframe, 'UTF-8'), ['link' => $embed->link, 'title' => $title, 'ratio' => '16 / 9']);
+    }
+
+    /**
+     * A place on a map behind a placeholder (decision 0225).
+     *
+     * @param array<string, mixed> $context
+     * @param array<string, mixed> $options coordinates (or latitude and longitude), address, provider, zoom, title
+     */
+    private function mapEmbed(array $context, array $options): Markup|string
+    {
+        $number = static fn(mixed $value): ?float => is_numeric($value) ? (float) $value : null;
+
+        // "51.9607, 7.6261" as copied from a map.
+        if (\is_string($options['coordinates'] ?? null) && 1 === preg_match('/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/', $options['coordinates'], $match)) {
+            $options['latitude'] = $match[1];
+            $options['longitude'] = $match[2];
+        }
+
+        $title = \is_string($options['title'] ?? null) && '' !== $options['title'] ? $options['title'] : null;
+        $embed = Embeds::map(
+            \is_string($options['provider'] ?? null) ? $options['provider'] : Embeds::OPENSTREETMAP,
+            $number($options['latitude'] ?? null),
+            $number($options['longitude'] ?? null),
+            \is_string($options['address'] ?? null) ? $options['address'] : '',
+            is_numeric($options['zoom'] ?? null) ? (int) $options['zoom'] : Embeds::ZOOM,
+        );
+
+        if (null === $embed) {
+            return '';
+        }
+
+        $iframe = Html::element('iframe', '', [
+            'src' => $embed->src,
+            'title' => $title ?? $this->text('Map', []),
+            'loading' => 'lazy',
+            'referrerpolicy' => 'no-referrer-when-downgrade',
+        ]);
+
+        return $this->external($context, $embed->service, new Markup($iframe, 'UTF-8'), ['link' => $embed->link, 'title' => $title, 'ratio' => '4 / 3']);
     }
 
     private function consentAssets(Frame $frame): void
