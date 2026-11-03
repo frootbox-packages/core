@@ -85,7 +85,7 @@ final readonly class ListEntries
     {
         $translations = $this->page->translations;
         $translation = $translations[$this->language];
-        $translations[$this->language] = new TranslationData($translation->title, $translation->slug, $this->field->with($translation->content, $entries));
+        $translations[$this->language] = new TranslationData($translation->title, $translation->slug, $this->field->with($translation->content, $entries), $translation->description);
 
         return $editor->saveDraft($this->action, $id, $this->page->with(translations: $translations));
     }

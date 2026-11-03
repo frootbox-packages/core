@@ -115,9 +115,22 @@ final readonly class UrlResolver
         foreach ($this->below($language, $path) as [$page, $rest]) {
             $address = $this->addresses->below($language->code, $page->id, $rest);
             $target = null === $address ? null : Target::tryParse($address->target);
-            $title = null === $target ? null : $this->subpages->get($target->type)?->title($target->id, $page->contentLanguage);
+            $source = null === $target ? null : $this->subpages->get($target->type);
+            $title = null === $target ? null : $source?->title($target->id, $page->contentLanguage);
 
-            return null === $target || null === $title ? null : $page->withSubpage(new Subpage($target, $rest, $title));
+            if (null === $target || null === $title) {
+                return null;
+            }
+
+            $described = $source instanceof DescribedSubpages;
+
+            return $page->withSubpage(new Subpage(
+                $target,
+                $rest,
+                $title,
+                $described ? $source->description($target->id, $page->contentLanguage) ?? '' : '',
+                $described ? $source->image($target->id, $page->contentLanguage) : null,
+            ));
         }
 
         return null;

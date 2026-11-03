@@ -34,6 +34,7 @@ use Frootbox\Core\View\ComponentRenderer;
 use Frootbox\Core\View\Delivery;
 use Frootbox\Core\View\Document;
 use Frootbox\Core\View\Head;
+use Frootbox\Database\Ulid;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -245,6 +246,11 @@ final readonly class PageHandler implements RequestHandlerInterface
             $urls->absolute($shown, $page->isFallback() ? $page->contentLanguage : $page->language, $base),
             $languages->get($page->language)->direction->value,
         );
+        $head->name = $title;
+        $head->site = $site;
+        $head->start = $page->isStart() && null === $page->subpage;
+        $head->description = null === $page->subpage ? $page->translation->description : $page->subpage->description;
+        $head->image = null === $page->subpage ? self::firstImage($page->translation->content) : $page->subpage->image;
 
         if (null !== $this->service(PageOutline::class)->excludedFromSearchEnginesBy($page->id)) {
             $head->add('<meta name="robots" content="noindex">');
@@ -263,6 +269,35 @@ final readonly class PageHandler implements RequestHandlerInterface
         }
 
         return $this->service(Document::class)->render($head, $body, $assets, $request, $page->target());
+    }
+
+    /**
+     * The first value of an image field in the content, e.g. for sharing
+     * the page (decision 0223).
+     *
+     * @param array<mixed> $content
+     *
+     * @return array{media: string, alt?: string}|null
+     */
+    private static function firstImage(array $content): ?array
+    {
+        $media = $content['media'] ?? null;
+
+        if (\is_string($media) && Ulid::isValid($media)) {
+            $alt = $content['alt'] ?? null;
+
+            return \is_string($alt) && '' !== $alt ? ['media' => $media, 'alt' => $alt] : ['media' => $media];
+        }
+
+        foreach ($content as $value) {
+            $image = \is_array($value) ? self::firstImage($value) : null;
+
+            if (null !== $image) {
+                return $image;
+            }
+        }
+
+        return null;
     }
 
     /**

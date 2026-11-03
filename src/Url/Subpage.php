@@ -19,5 +19,9 @@ final readonly class Subpage
         /** The path below the base page, e.g. "neue-sorten" */
         public string $path,
         public string $title,
+        /** See DescribedSubpages */
+        public string $description = '',
+        /** @var array{media: string, alt?: string}|null */
+        public ?array $image = null,
     ) {}
 }

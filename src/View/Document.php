@@ -47,6 +47,13 @@ final readonly class Document
             '<title>' . Html::escape($head->title) . '</title>',
         ];
 
+        // One line, also for a teaser with line breaks.
+        $description = trim((string) preg_replace('/\s+/u', ' ', $head->description));
+
+        if ('' !== $description) {
+            $lines[] = '<meta name="description" content="' . Html::escape($description) . '">';
+        }
+
         if (null !== $head->canonical) {
             $lines[] = '<link rel="canonical" href="' . Html::escape($head->canonical) . '">';
         }

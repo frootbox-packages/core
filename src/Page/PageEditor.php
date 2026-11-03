@@ -29,7 +29,10 @@ use Frootbox\Database\EntityNotFoundException;
  */
 final readonly class PageEditor
 {
-    private const array TRANSLATION_KEYS = ['title', 'slug', 'content'];
+    private const array TRANSLATION_KEYS = ['title', 'slug', 'description', 'content'];
+
+    /** Longer is cut by search engines anyway (decision 0223). */
+    public const int DESCRIPTION_MAX = 300;
 
     public function __construct(
         private PageReader $reader,
@@ -122,6 +125,7 @@ final readonly class PageEditor
             $title = \array_key_exists('title', $value) ? $value['title'] : $old?->title;
             $slug = \array_key_exists('slug', $value) ? $value['slug'] ?? '' : $old->slug ?? '';
             $content = \array_key_exists('content', $value) ? $value['content'] ?? [] : $old->content ?? [];
+            $description = \array_key_exists('description', $value) ? $value['description'] ?? '' : $old->description ?? '';
 
             if (!\is_string($title)) {
                 $errors[$at . '/title'] = null === $title ? 'is required.' : 'must be a string.';
@@ -135,14 +139,25 @@ final readonly class PageEditor
                 $errors[$at . '/content'] = 'must be an object with "options", "fields" and "areas".';
             }
 
-            if (\is_string($title) && \is_string($slug) && \is_array($content)) {
+            if (\is_string($description)) {
+                // One line: search engines show it as a snippet.
+                $description = trim((string) preg_replace('/\s+/u', ' ', $description));
+
+                if (mb_strlen($description) > self::DESCRIPTION_MAX) {
+                    $errors[$at . '/description'] = \sprintf('must be at most %d characters.', self::DESCRIPTION_MAX);
+                }
+            } else {
+                $errors[$at . '/description'] = 'must be a string.';
+            }
+
+            if (\is_string($title) && \is_string($slug) && \is_array($content) && \is_string($description)) {
                 $map = [];
 
                 foreach ($content as $key => $item) {
                     $map[(string) $key] = $item;
                 }
 
-                $current[$language] = new TranslationData($title, $slug, $map);
+                $current[$language] = new TranslationData($title, $slug, $map, $description);
             }
         }
 
@@ -466,7 +481,7 @@ final readonly class PageEditor
                 }
             }
 
-            $translations[$language] = new TranslationData($title, $slug, $content);
+            $translations[$language] = new TranslationData($title, $slug, $content, $translation->description);
         }
 
         return [new PageData($data->parentId, $data->position, $data->layout, $data->variant, $translations, $data->excludeFromSearchEngines, $data->excludeFromSiteSearch), $errors];
@@ -573,7 +588,7 @@ final readonly class PageEditor
         $existing = $this->translations->of($id);
 
         foreach ($data->translations as $language => $translation) {
-            $row = ['title' => $translation->title, 'slug' => $translation->slug, 'content' => $translation->content];
+            $row = ['title' => $translation->title, 'slug' => $translation->slug, 'description' => $translation->description, 'content' => $translation->content];
 
             if (isset($existing[$language])) {
                 $this->translations->update($existing[$language]->id, $row);

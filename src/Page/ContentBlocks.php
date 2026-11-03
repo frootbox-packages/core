@@ -67,7 +67,7 @@ final readonly class ContentBlocks
     {
         $translations = $page->translations;
         $translation = $translations[$language];
-        $translations[$language] = new TranslationData($translation->title, $translation->slug, $this->content);
+        $translations[$language] = new TranslationData($translation->title, $translation->slug, $this->content, $translation->description);
 
         return $editor->saveDraft($this->action, $id, $page->with(translations: $translations));
     }

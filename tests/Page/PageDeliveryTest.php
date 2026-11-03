@@ -15,10 +15,13 @@ use Frootbox\Core\Http\Exception\HttpException;
 use Frootbox\Core\Http\SiteUrl;
 use Frootbox\Core\Page\CreatePage;
 use Frootbox\Core\Page\PageDetails;
+use Frootbox\Core\Page\PageEditor;
 use Frootbox\Core\Page\PageHandler;
 use Frootbox\Core\Page\PageResolver;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\ResolvedPage;
+use Frootbox\Core\Page\ShowPage;
+use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\View\BuildingHead;
@@ -112,6 +115,29 @@ final class PageDeliveryTest extends NotesTestCase
 
         self::assertStringContainsString('<title>Anders</title>', $html);
         self::assertStringContainsString('<meta name="robots" content="noindex">', $html);
+    }
+
+    public function testWritesTheDescriptionOfThePage(): void
+    {
+        $start = $this->createPage(null, 'Start');
+        $this->runner()->run(new UpdatePage($start->id, ['de' => ['description' => "  Frisch geröstet\n in   Münster & Umgebung. "]]));
+
+        self::assertSame('Frisch geröstet in Münster & Umgebung.', $this->runner()->ask(new ShowPage($start->id))->draft?->translations['de']->description, 'One line in the draft.');
+        self::assertStringNotContainsString('name="description"', (string) $this->request('/')->getBody(), 'Only after publishing.');
+
+        $this->runner()->run(new PublishPages([$start->id]));
+        $html = (string) $this->request('/')->getBody();
+        self::assertStringContainsString('<meta name="description" content="Frisch geröstet in Münster &amp; Umgebung.">', $html);
+
+        $this->runner()->run(new UpdatePage($start->id, ['de' => ['title' => 'Startseite']]));
+        self::assertSame('Frisch geröstet in Münster & Umgebung.', $this->runner()->ask(new ShowPage($start->id))->draft?->translations['de']->description, 'Left out, it stays.');
+
+        try {
+            $this->runner()->run(new UpdatePage($start->id, ['de' => ['description' => str_repeat('a', PageEditor::DESCRIPTION_MAX + 1)]]));
+            self::fail('Too long is refused.');
+        } catch (InvalidInputException $error) {
+            self::assertArrayHasKey('/translations/de/description', $error->errors);
+        }
     }
 
     public function testReservesPathsBelowTheStartPage(): void

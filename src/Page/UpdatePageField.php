@@ -75,7 +75,7 @@ final readonly class UpdatePageField implements Action, Scoped
         }
 
         $translations = $current->translations;
-        $translations[$this->language] = new TranslationData($translation->title, $translation->slug, $field->with($translation->content, $this->value));
+        $translations[$this->language] = new TranslationData($translation->title, $translation->slug, $field->with($translation->content, $this->value), $translation->description);
         $details = $editor->saveDraft('page.update-field', $this->id, $current->with(translations: $translations));
         $saved = $field->value(($details->draft ?? $current)->translations[$this->language]->content ?? []);
         $type = $types->get($field->field->type);

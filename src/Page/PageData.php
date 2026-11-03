@@ -54,7 +54,8 @@ final readonly class PageData
                 $content[(string) $key] = $value;
             }
 
-            $translations[(string) $language] = new TranslationData($translation['title'], $translation['slug'], $content);
+            $description = $translation['description'] ?? '';
+            $translations[(string) $language] = new TranslationData($translation['title'], $translation['slug'], $content, \is_string($description) ? $description : '');
         }
 
         $parentId = $data['parentId'] ?? null;
@@ -80,21 +81,21 @@ final readonly class PageData
                 $content[(string) $key] = $value;
             }
 
-            $data[$translation->language] = new TranslationData($translation->title, $translation->slug, $content);
+            $data[$translation->language] = new TranslationData($translation->title, $translation->slug, $content, $translation->description);
         }
 
         return new self($page->parentId, $page->position, $page->layout, $page->variant, $data, $page->excludeFromSearchEngines, $page->excludeFromSiteSearch);
     }
 
     /**
-     * @return array{parentId: string|null, position: string, layout: string, variant: string|null, excludeFromSearchEngines: string, excludeFromSiteSearch: string, translations: array<string, array{title: string, slug: string, content: array<string, mixed>}>}
+     * @return array{parentId: string|null, position: string, layout: string, variant: string|null, excludeFromSearchEngines: string, excludeFromSiteSearch: string, translations: array<string, array{title: string, slug: string, description: string, content: array<string, mixed>}>}
      */
     public function toArray(): array
     {
         $translations = [];
 
         foreach ($this->translations as $language => $translation) {
-            $translations[$language] = ['title' => $translation->title, 'slug' => $translation->slug, 'content' => $translation->content];
+            $translations[$language] = ['title' => $translation->title, 'slug' => $translation->slug, 'description' => $translation->description, 'content' => $translation->content];
         }
 
         return [

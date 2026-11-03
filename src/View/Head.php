@@ -20,6 +20,25 @@ final class Head
     /** @var array<string, string> */
     private array $alternates = [];
 
+    /** One line for search engines, written as meta description (decision 0223) */
+    public string $description = '';
+
+    /** The title of the page or object alone, without the name of the website */
+    public ?string $name = null;
+
+    /** The name of the website */
+    public ?string $site = null;
+
+    /**
+     * An image of the object for sharing, the value of an image field
+     *
+     * @var array{media: string, alt?: string}|null
+     */
+    public ?array $image = null;
+
+    /** The start page of a language */
+    public bool $start = false;
+
     /**
      * @param string $direction "ltr" or "rtl" (decision 0133)
      */
