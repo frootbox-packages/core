@@ -16,6 +16,7 @@ use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Navigation\MenuItem;
 use Frootbox\Core\Navigation\Menus;
+use Frootbox\Core\ObjectField\ObjectOutput;
 use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Site\SiteFields;
 use Frootbox\Core\Tag\Taxonomies;
@@ -46,6 +47,8 @@ use Twig\TwigFunction;
  *     {{ render_block('frootbox/forms/Form', {form: id}) }} another block inside this one, with its options (decision 0230)
  *     {{ url('page:01J…') }}          the URL of a target in the visitor's language
  *     {{ url(value('button')) }}      the URL of a link field
+ *     {{ object_field(job, 'gallery') }} a further field of an object, declared under "object: fields:" (decision 0240)
+ *     {% if object_value(job, 'noContactDetails') %} its stored value, e.g. a switch
  *     {{ language() }}                the language of the visitor, e.g. "en"
  *     {{ content_language() }}        the language of the content, e.g. "de" on a fallback
  *     {{ direction() }}               the writing direction of the visitor's language, "ltr" or "rtl"
@@ -92,6 +95,9 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('categories', fn(string $target, ?string $group = null): array => $this->service(Taxonomies::class)->categories(...[...$this->target($target, 'categories'), 'languages' => $this->contentLanguages(), 'group' => $group])),
             new TwigFunction('tags', fn(string $target): array => $this->service(Taxonomies::class)->tags(...[...$this->target($target, 'tags'), 'languages' => $this->contentLanguages()])),
             new TwigFunction('has_tag', fn(string $target, string $key): bool => $this->service(Taxonomies::class)->hasTag(...[...$this->target($target, 'has_tag'), 'key' => $key])),
+            // Further fields of a published object, declared under "object: fields:" (decisions 0234, 0240).
+            new TwigFunction('object_field', fn(mixed $object, string $name): mixed => $this->service(ObjectOutput::class)->field(...[...$this->object($object, 'object_field'), 'name' => $name, 'languages' => $this->contentLanguages()])),
+            new TwigFunction('object_value', fn(mixed $object, string $name): mixed => $this->service(ObjectOutput::class)->value(...[...$this->object($object, 'object_value'), 'name' => $name, 'languages' => $this->contentLanguages()])),
             new TwigFunction('language', fn(): string => $this->service(Delivery::class)->language()->code),
             new TwigFunction('content_language', fn(): string => $this->service(Delivery::class)->contentLanguage()->code),
             new TwigFunction('direction', fn(): string => $this->service(Delivery::class)->language()->direction->value),
@@ -216,6 +222,31 @@ final class ViewExtension extends AbstractExtension
         $parsed = Target::tryParse($target) ?? throw new RuntimeError(\sprintf('%s() needs a target like "frootbox/news/article:<id>", not "%s".', $function, $target));
 
         return ['type' => $parsed->type, 'id' => $parsed->id];
+    }
+
+    /**
+     * An object as its target, e.g. "frootbox/jobs/job:01J…", as a module
+     * hands it to the view, with "target", or as the subpage.
+     *
+     * @return array{type: string, id: string}
+     */
+    private function object(mixed $object, string $function): array
+    {
+        $target = match (true) {
+            \is_array($object) => $object['target'] ?? null,
+            $object instanceof Subpage => $object->target,
+            default => $object,
+        };
+
+        if ($target instanceof Target) {
+            return ['type' => $target->type, 'id' => $target->id];
+        }
+
+        if (!\is_string($target)) {
+            throw new RuntimeError(\sprintf('%s() needs an object with "target", the subpage or a target like "frootbox/jobs/job:<id>".', $function));
+        }
+
+        return $this->target($target, $function);
     }
 
     /**

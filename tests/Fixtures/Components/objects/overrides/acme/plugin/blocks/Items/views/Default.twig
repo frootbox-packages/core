@@ -1,0 +1,8 @@
+{# frootbox
+object:
+  fields:
+    subtitle: { type: text, label: Subtitle, maxLength: 20 }
+    gallery: { type: image, label: Gallery }
+    noContact: { type: boolean, label: No contact details }
+#}
+{% if subpage %}<article class="item">{{ heading_text(subpage.title) }}<p class="subtitle">{{ object_field(subpage, 'subtitle') }}</p>{% if not object_value(subpage, 'noContact') %}<p class="contact">Call us</p>{% endif %}</article>{% else %}<ul class="items" data-space="{{ space }}"></ul>{% endif %}

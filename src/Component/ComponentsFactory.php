@@ -25,7 +25,7 @@ final class ComponentsFactory
 {
     public const string CACHE_FILE = 'cache/components.cache';
 
-    private const array CLASSES = [Components::class, Component::class, ComponentKind::class, Variant::class, Option::class, Area::class, Field::class];
+    private const array CLASSES = [Components::class, Component::class, ComponentKind::class, Variant::class, Option::class, Area::class, Field::class, ObjectDefinition::class];
 
     public static function create(ComponentLoader $loader, Extensions $extensions, ThemeChain $themes, Environment $environment, ProjectPaths $paths): Components
     {

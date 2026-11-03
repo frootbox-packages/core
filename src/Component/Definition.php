@@ -38,5 +38,7 @@ final readonly class Definition
         public array $query = [],
         /** A layout with a place for a plugin, a block that is the view of one (decision 0232) */
         public bool $plugin = false,
+        /** Further fields of the objects the view shows (decision 0240) */
+        public ?ObjectDefinition $object = null,
     ) {}
 }

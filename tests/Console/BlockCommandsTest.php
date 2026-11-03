@@ -139,7 +139,7 @@ final class BlockCommandsTest extends TestCase
 
         [$exitCode, $output] = $this->console('blocks:check', new Extensions([ExtensionPackage::fromManifest('acme/broken', $root)]));
         self::assertSame(1, $exitCode);
-        self::assertStringContainsString('there is no field type "nope"', $output);
+        self::assertStringContainsString('there is no field type "nope"', (string) preg_replace('/\s+/', ' ', $output), 'The console wraps long lines.');
     }
 
     public function testClearsTheCache(): void

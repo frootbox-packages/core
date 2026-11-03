@@ -27,6 +27,8 @@ final readonly class Variant
         public array $options,
         public string $template,
         public string $from,
+        /** Further fields of the objects this view shows (decision 0240) */
+        public ?ObjectDefinition $object = null,
     ) {}
 
     /**

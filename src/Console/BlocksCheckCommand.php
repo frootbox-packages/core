@@ -17,6 +17,7 @@ use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\ComponentLoader;
 use Frootbox\Core\Component\Previews;
 use Frootbox\Core\Heading\BlockOutlineCheck;
+use Frootbox\Core\ObjectField\ObjectSchema;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -40,6 +41,7 @@ final class BlocksCheckCommand extends Command
         private readonly Twig $twig,
         private readonly BlockGroups $groups,
         private readonly BlockOutlineCheck $headings,
+        private readonly ObjectSchema $objects,
     ) {
         parent::__construct();
     }
@@ -71,6 +73,9 @@ final class BlocksCheckCommand extends Command
                 }
             }
         }
+
+        // Further fields of objects: one type per name (decision 0240).
+        array_push($errors, ...$this->objects->problems());
 
         if ([] !== $errors) {
             $io->error(\sprintf('%d problem(s) found', \count($errors)));

@@ -201,12 +201,12 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/BadYaml/views/Default.twig: the header is not valid YAML: Malformed inline YAML string at line 3.',
             'acme/broken: blocks/Fields/views/Default.twig → areas.main.allow: "not a block" is not a block name, e.g. Column or frootbox/base/Teaser',
             'acme/broken: blocks/Fields/views/Default.twig → areas.main.max: must be at least 1.',
-            'acme/broken: blocks/Fields/views/Default.twig → colour: unknown key. Allowed: title, description, group, keywords, widget, plugin, options, fields, areas, examples, query',
+            'acme/broken: blocks/Fields/views/Default.twig → colour: unknown key. Allowed: title, description, group, keywords, widget, plugin, options, fields, areas, examples, query, object',
             'acme/broken: blocks/Fields/views/Default.twig → fields.button.target: unknown key. Allowed: type, label, description, optional, placeholder',
             'acme/broken: blocks/Fields/views/Default.twig → fields.slides.fields: is missing: the fields of each entry',
             'acme/broken: blocks/Fields/views/Default.twig → fields.text.maxLength: must be at least 1.',
             'acme/broken: blocks/Fields/views/Default.twig → fields.text.multiline: must be true or false.',
-            'acme/broken: blocks/Fields/views/Default.twig → fields.title.type: there is no field type "headlin". Known: headline, text, richtext, link, list, image, video, icon, file, table',
+            'acme/broken: blocks/Fields/views/Default.twig → fields.title.type: there is no field type "headlin". Known: headline, text, richtext, link, list, image, video, icon, file, table, boolean',
             'acme/broken: blocks/Fields/views/Default.twig → fields.untyped.type: is missing, e.g. "type: headline"',
             'acme/broken: blocks/Fields/views/Default.twig → group: has the wrong format.',
             'acme/broken: blocks/Fields/views/Default.twig → keywords.1: must be text.',
@@ -216,7 +216,7 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/NoDefault: views/Default.twig is missing. Every block has a variant Default.',
             'acme/broken: blocks/NoTitle/views/Default.twig → title: is required.',
             'acme/broken: blocks/Shared/block.yaml → options: unknown key. Allowed: title, description, group, keywords, widget, plugin, fields, areas, examples, query',
-            'acme/broken: blocks/Shared/views/Default.twig → fields: unknown key. Allowed: title, description, options',
+            'acme/broken: blocks/Shared/views/Default.twig → fields: unknown key. Allowed: title, description, options, object',
             'acme/broken: blocks/lowercase: folder names are PascalCase, e.g. "ImageGallery"',
         ], $errors);
     }
@@ -234,7 +234,7 @@ final class ComponentLoaderTest extends TestCase
         $extensions = new Extensions([...FixtureSite::extensions('base', 'news')->packages, ExtensionPackage::fromManifest('acme/child', $root)]);
 
         self::assertSame([
-            'acme/child: overrides/acme/base/blocks/Teaser/views/Default.twig → fields: unknown key. Allowed: title, description, options',
+            'acme/child: overrides/acme/base/blocks/Teaser/views/Default.twig → fields: unknown key. Allowed: title, description, options, object',
             'acme/child: overrides/acme/base/blocks/Teasr: acme/base has no block "Teasr"',
         ], $this->errors($extensions, 'acme/child'));
     }

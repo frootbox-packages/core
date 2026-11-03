@@ -72,6 +72,7 @@ use Frootbox\Core\Design\PublishDesign;
 use Frootbox\Core\Design\RestoreDesign;
 use Frootbox\Core\Design\ShowDesign;
 use Frootbox\Core\Design\UpdateDesign;
+use Frootbox\Core\Field\Types\BooleanType;
 use Frootbox\Core\Field\Types\FileType;
 use Frootbox\Core\Field\Types\HeadlineType;
 use Frootbox\Core\Field\Types\IconType;
@@ -114,6 +115,7 @@ use Frootbox\Core\Navigation\NavigationUndoCheck;
 use Frootbox\Core\Navigation\PublishNavigations;
 use Frootbox\Core\Navigation\ShowNavigation;
 use Frootbox\Core\Navigation\UpdateNavigation;
+use Frootbox\Core\ObjectField\ShowObjectFields;
 use Frootbox\Core\Page\AddBlock;
 use Frootbox\Core\Page\AddListEntry;
 use Frootbox\Core\Page\CopyBlock;
@@ -249,7 +251,7 @@ final class CoreExtension implements Extension
         $registry->command(MediaPruneCommand::class);
         $registry->command(MediaUsagesCommand::class);
 
-        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class, FileType::class, TableType::class] as $fieldType) {
+        foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class, FileType::class, TableType::class, BooleanType::class] as $fieldType) {
             $registry->fieldType($fieldType);
         }
 
@@ -315,6 +317,8 @@ final class CoreExtension implements Extension
         $registry->query(ListTags::class);
         $registry->query(ChooseTags::class);
         $registry->query(TagOptions::class);
+        // Further fields at objects of modules (decisions 0234, 0240).
+        $registry->query(ShowObjectFields::class);
         $registry->query(ListPlugins::class);
         $registry->query(ListNotFound::class);
 

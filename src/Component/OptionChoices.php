@@ -44,6 +44,7 @@ final class OptionChoices
             array_map(fn(Option $option): Option => null === $option->source ? $option : $option->withChoices($this->choices($option->source)), $variant->options),
             $variant->template,
             $variant->from,
+            $variant->object,
         ), $component->variants));
     }
 

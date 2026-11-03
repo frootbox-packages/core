@@ -225,6 +225,7 @@ final readonly class ComponentLoader
                 $definition->options,
                 $file,
                 $from,
+                $definition->object,
             );
         }
 

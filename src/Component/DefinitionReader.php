@@ -12,6 +12,7 @@ use Frootbox\Core\Action\Schema\InputValidator;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Field\HasSubfields;
+use Frootbox\Core\Field\ObjectOnly;
 
 /**
  * Checks block.yaml and view headers against the meta schema and turns
@@ -23,10 +24,10 @@ final readonly class DefinitionReader
     public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas', 'examples', 'query', 'plugin'];
 
     /** Keys of the header of views/Default.twig when there is no block.yaml. */
-    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'examples', 'query', 'plugin'];
+    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'examples', 'query', 'plugin', 'object'];
 
     /** Keys of the header of any other view, including views that override. */
-    public const array VARIANT_KEYS = ['title', 'description', 'options'];
+    public const array VARIANT_KEYS = ['title', 'description', 'options', 'object'];
 
     private const string NAME = '/^[a-z][a-zA-Z0-9]*$/';
 
@@ -47,6 +48,14 @@ final readonly class DefinitionReader
         'examples' => ['type' => 'array'],
         // Query parameters the block reads, e.g. [page, category] (decision 0219).
         'query' => ['type' => 'array', 'items' => ['type' => 'string', 'pattern' => '^[a-z][a-zA-Z0-9]*$'], 'uniqueItems' => true],
+        // Further fields of the objects the view shows (decisions 0234, 0240).
+        'object' => ['type' => ['object', 'array']],
+    ];
+
+    /** Keys below "object" (decision 0240). */
+    private const array OBJECT = [
+        'type' => ['type' => 'string', 'pattern' => '^[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*/[a-z][a-z0-9-]*$'],
+        'fields' => self::ANY_MAP,
     ];
 
     /** Keys of an example (decision 0206). */
@@ -107,7 +116,28 @@ final readonly class DefinitionReader
             $this->examples($raw['examples'] ?? null, $where, $errors),
             \is_array($raw['query'] ?? null) ? array_values(array_filter($raw['query'], static fn(mixed $name): bool => \is_string($name) && 1 === preg_match(self::NAME, $name))) : [],
             true === ($raw['plugin'] ?? false),
+            $this->object($raw['object'] ?? null, $where, $errors),
         );
+    }
+
+    /**
+     * Fields of objects alone, e.g. those an extension adds to a type
+     * (decision 0240).
+     *
+     * @return array<string, Field>
+     */
+    public function objectFields(mixed $raw, string $where, DefinitionErrors $errors): array
+    {
+        return $this->fields($raw, $where, 'object.fields', $errors, true);
+    }
+
+    private function object(mixed $raw, string $where, DefinitionErrors $errors): ?ObjectDefinition
+    {
+        if (!\is_array($raw) || !$this->check($raw, self::OBJECT, ['fields'], $where, 'object', $errors)) {
+            return null;
+        }
+
+        return new ObjectDefinition(self::string($raw['type'] ?? null), $this->objectFields($raw['fields'], $where, $errors));
     }
 
     /**
@@ -215,7 +245,7 @@ final readonly class DefinitionReader
     /**
      * @return array<string, Field>
      */
-    private function fields(mixed $raw, string $where, string $path, DefinitionErrors $errors): array
+    private function fields(mixed $raw, string $where, string $path, DefinitionErrors $errors, bool $object = false): array
     {
         $fields = [];
 
@@ -236,8 +266,16 @@ final readonly class DefinitionReader
             }
 
             $type = $this->types->get($typeName);
+
+            if (!$object && $type instanceof ObjectOnly) {
+                $errors->add($where, $at . '.type', \sprintf('"%s" is for fields of objects under "object.fields"; a block uses an option for it', $typeName));
+
+                continue;
+            }
+
             $nested = $type instanceof HasSubfields;
-            $allowed = [...self::FIELD, ...$type->settings(), ...($nested ? ['fields' => self::ANY_MAP] : [])];
+            // Below "object" a text can hold one value for all languages and the other way round (decision 0240).
+            $allowed = [...self::FIELD, ...$type->settings(), ...($nested ? ['fields' => self::ANY_MAP] : []), ...($object && 'object.fields' === $path ? ['translatable' => ['type' => 'boolean']] : [])];
 
             if (!$this->check($definition, $allowed, ['type'], $where, $at, $errors)) {
                 continue;
@@ -252,7 +290,7 @@ final readonly class DefinitionReader
                     continue;
                 }
 
-                $subfields = $this->fields($definition['fields'], $where, $at . '.fields', $errors);
+                $subfields = $this->fields($definition['fields'], $where, $at . '.fields', $errors, $object);
             }
 
             $settings = [];
