@@ -31,7 +31,7 @@ final readonly class PublishItems implements Action
     public function handle(RevisionStore $store, AddressSync $addresses): null
     {
         foreach ($this->ids as $id) {
-            $store->publish(ItemPages::TYPE, $id);
+            $store->publish(ItemPlugin::TYPE, $id);
         }
 
         // The addresses follow, like after page.publish (decision 0219).

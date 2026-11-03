@@ -10,11 +10,13 @@ namespace Frootbox\Core\Url;
 
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Plugin\PluginPages;
+use Frootbox\Core\Plugin\Plugins;
 use Frootbox\Core\ProjectPaths;
 
 /**
  * Keeps the table urls in line with the published pages and the objects
- * of plugins below their base pages (decisions 0105, 0219).
+ * of plugins below the pages of their spaces (decisions 0105, 0219, 0232).
  * Runs inside page.publish, page.delete and system.sync-urls, so every
  * change is recorded and can be undone.
  *
@@ -28,8 +30,8 @@ final readonly class AddressSync
         private PagePaths $paths,
         private Languages $languages,
         private ProjectPaths $project,
-        private SubpageSources $subpages,
-        private BasePages $bases,
+        private Plugins $plugins,
+        private PluginPages $pages,
     ) {}
 
     /**
@@ -70,21 +72,27 @@ final readonly class AddressSync
             $wanted[(string) Target::page($path->pageId) . '|' . $path->language . '|'] = ['target' => (string) Target::page($path->pageId), 'language' => $path->language, 'basePageId' => null, 'path' => $path->path, 'fallback' => $path->isFallback()];
         }
 
-        // Objects of plugins below their base page (decision 0219).
-        foreach ($this->subpages->all() as $type => $source) {
-            $bases = $this->bases->of($source->blocks());
+        // Objects of plugins below the page of their space (decisions 0219, 0232).
+        $this->pages->clear();
+        $languages = [];
 
-            if ([] === $bases) {
+        foreach ($this->paths->all() as $path) {
+            $languages[$path->pageId][$path->language] = true;
+        }
+
+        foreach ($this->pages->all() as $base => $place) {
+            $plugin = $this->plugins->get($place->type);
+
+            if (null === $plugin || !$place->details) {
                 continue;
             }
 
-            foreach ($source->paths() as $id => $paths) {
+            foreach ($plugin->paths($place->space) as $id => $paths) {
                 foreach ($paths as $language => $path) {
-                    $base = $bases[$language] ?? null;
                     $path = trim($path, '/');
 
-                    if (null !== $base && '' !== $path) {
-                        $target = $type . ':' . $id;
+                    if (isset($languages[$base][$language]) && '' !== $path) {
+                        $target = $place->type . ':' . $id;
                         $wanted[$target . '|' . $language . '|' . $base] = ['target' => $target, 'language' => $language, 'basePageId' => $base, 'path' => $path, 'fallback' => false];
                     }
                 }

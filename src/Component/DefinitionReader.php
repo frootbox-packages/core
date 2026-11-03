@@ -20,10 +20,10 @@ use Frootbox\Core\Field\HasSubfields;
 final readonly class DefinitionReader
 {
     /** Keys of block.yaml and layout.yaml. */
-    public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas', 'examples', 'query'];
+    public const array SCHEMA_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'fields', 'areas', 'examples', 'query', 'plugin'];
 
     /** Keys of the header of views/Default.twig when there is no block.yaml. */
-    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'examples', 'query'];
+    public const array FULL_KEYS = ['title', 'description', 'group', 'keywords', 'widget', 'options', 'fields', 'areas', 'examples', 'query', 'plugin'];
 
     /** Keys of the header of any other view, including views that override. */
     public const array VARIANT_KEYS = ['title', 'description', 'options'];
@@ -39,6 +39,7 @@ final readonly class DefinitionReader
         'group' => ['type' => 'string', 'pattern' => BlockGroup::NAME],
         'keywords' => ['type' => 'array', 'items' => ['type' => 'string', 'minLength' => 1]],
         'widget' => ['type' => 'boolean'],
+        'plugin' => ['type' => 'boolean'],
         'options' => self::ANY_MAP,
         'fields' => self::ANY_MAP,
         'areas' => self::ANY_MAP,
@@ -105,6 +106,7 @@ final readonly class DefinitionReader
             \is_array($raw['keywords'] ?? null) ? array_values(array_filter($raw['keywords'], \is_string(...))) : [],
             $this->examples($raw['examples'] ?? null, $where, $errors),
             \is_array($raw['query'] ?? null) ? array_values(array_filter($raw['query'], static fn(mixed $name): bool => \is_string($name) && 1 === preg_match(self::NAME, $name))) : [],
+            true === ($raw['plugin'] ?? false),
         );
     }
 

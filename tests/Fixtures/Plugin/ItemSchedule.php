@@ -15,7 +15,7 @@ final readonly class ItemSchedule implements ScheduledType
 {
     public function type(): string
     {
-        return ItemPages::TYPE;
+        return ItemPlugin::TYPE;
     }
 
     public function publish(array $ids): Action

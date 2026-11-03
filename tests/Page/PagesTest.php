@@ -422,7 +422,7 @@ final class PagesTest extends NotesTestCase
     public function testListsTheLayouts(): void
     {
         self::assertEquals(
-            [new LayoutSummary(self::LAYOUT, 'Page', '', [new VariantSummary('Default', 'Page', '')], [new AreaSummary('main', 'Main', '', null, null, null)], [new FieldSummary('heading', 'headline', 'Heading', '', false, [])])],
+            [new LayoutSummary(self::LAYOUT, 'Page', '', [new VariantSummary('Default', 'Page', '')], [new AreaSummary('main', 'Main', '', null, null, null)], [new FieldSummary('heading', 'headline', 'Heading', '', false, [])], plugin: true)],
             $this->runner()->ask(new ListLayouts()),
         );
     }

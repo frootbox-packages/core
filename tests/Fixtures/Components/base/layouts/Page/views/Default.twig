@@ -1,9 +1,10 @@
 {# frootbox
 title: Page
+plugin: true
 fields:
   heading: { type: headline }
 areas:
   main: {}
 #}
-<main><h1>{{ field('heading') }}</h1>{{ area('main') }}</main>{% if site_value('brand') %}<footer><p>{{ site_field('brand') }}</p><p{{ site_attributes('address')|attributes }}>{{ site_field('address') }}</p></footer>{% endif %}
+<main><h1>{{ field('heading') }}</h1>{{ area('main') }}{{ plugin() }}</main>{% if site_value('brand') %}<footer><p>{{ site_field('brand') }}</p><p{{ site_attributes('address')|attributes }}>{{ site_field('address') }}</p></footer>{% endif %}
 

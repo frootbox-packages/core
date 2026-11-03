@@ -50,7 +50,17 @@ final readonly class ContentValidator
             return [[], ['/' => 'must be an object with "options", "fields" and "areas".']];
         }
 
+        $plugin = $content['plugin'] ?? null;
+        unset($content['plugin']);
         $checked = $this->body($layout, $variant, $content, '', $complete, $errors, $ids, self::BODY_KEYS);
+
+        if (null !== $plugin) {
+            $view = $this->plugin($plugin, $complete, $errors, $ids);
+
+            if (null !== $view) {
+                $checked['plugin'] = $view;
+            }
+        }
 
         return [$checked, $errors];
     }
@@ -240,6 +250,10 @@ final readonly class ContentValidator
             return null;
         }
 
+        if ($component->plugin) {
+            $errors[$pointer . '/block'] = \sprintf('%s is the view of a plugin. It goes into no area, the page shows it when it shows a space of the plugin.', $name);
+        }
+
         if (!$area->allows($name, $component->widget)) {
             $errors[$pointer . '/block'] = null === $area->allow
                 ? \sprintf('%s is a widget and only goes into areas that allow it by name, e.g. the columns of a section.', $name)
@@ -255,6 +269,33 @@ final readonly class ContentValidator
 
         $id = $this->id($block['id'] ?? null, $pointer . '/id', $errors, $ids);
         $body = $this->body($component, $variant, $block, $pointer, $complete, $errors, $ids, self::BLOCK_KEYS);
+
+        return ['id' => $id, 'block' => $name, ...(null === $variant ? [] : ['variant' => $variant]), ...$body];
+    }
+
+    /**
+     * The view of the plugin a page shows (decision 0232): a block with
+     * "plugin: true", outside the areas.
+     *
+     * @param array<string, string> $errors
+     * @param array<string, true>   $ids
+     *
+     * @return array<string, mixed>|null
+     */
+    private function plugin(mixed $block, bool $complete, array &$errors, array &$ids): ?array
+    {
+        $name = self::isMap($block) ? $block['block'] ?? null : null;
+        $component = \is_string($name) ? $this->components->block($name) : null;
+
+        if (!\is_array($block) || !\is_string($name) || null === $component || !$component->plugin) {
+            $errors['/plugin'] = 'must be the view of a plugin, e.g. {"block": "acme/news/ArticleList"}.';
+
+            return null;
+        }
+
+        $variant = \is_string($block['variant'] ?? null) ? $block['variant'] : null;
+        $id = $this->id($block['id'] ?? null, '/plugin/id', $errors, $ids);
+        $body = $this->body($component, $variant, $block, '/plugin', $complete, $errors, $ids, self::BLOCK_KEYS);
 
         return ['id' => $id, 'block' => $name, ...(null === $variant ? [] : ['variant' => $variant]), ...$body];
     }

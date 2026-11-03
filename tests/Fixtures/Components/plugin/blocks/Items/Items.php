@@ -15,6 +15,6 @@ final readonly class Items implements BlockController
 {
     public function data(BlockContext $context): array
     {
-        return ['subpage' => $context->subpage];
+        return ['subpage' => $context->subpage, 'space' => $context->plugin->space ?? null];
     }
 }

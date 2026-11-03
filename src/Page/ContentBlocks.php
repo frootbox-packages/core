@@ -83,6 +83,19 @@ final readonly class ContentBlocks
     }
 
     /**
+     * Fails for the view of a plugin: it stays where the layout puts it,
+     * only an admin takes it away with the plugin (decision 0232).
+     *
+     * @param list<string|int> $way
+     */
+    public function assertPlaced(array $way): void
+    {
+        if ('plugin' === ($way[0] ?? null)) {
+            $this->fail('/block', 'The view of the plugin stays at its place. It goes with the plugin of the page.');
+        }
+    }
+
+    /**
      * The block at the way.
      *
      * @param list<string|int> $way
@@ -261,6 +274,13 @@ final readonly class ContentBlocks
      */
     public static function locate(array $node, string $id): ?array
     {
+        // The view of a plugin outside the areas (decision 0232).
+        $plugin = $node['plugin'] ?? null;
+
+        if (\is_array($plugin) && $id === ($plugin['id'] ?? null)) {
+            return ['plugin'];
+        }
+
         foreach (\is_array($node['areas'] ?? null) ? $node['areas'] : [] as $area => $blocks) {
             foreach (\is_array($blocks) ? $blocks : [] as $index => $block) {
                 if (!\is_array($block)) {

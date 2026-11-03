@@ -140,15 +140,18 @@ final readonly class EditMarkup
 
     /**
      * Adds the block and its area to the outer element of a rendered block.
+     *
+     * @param bool $fixed The view of a plugin: no moving, copying or deleting (decision 0232)
      */
-    public function block(string $html, Instance $block, Component $component, string $area): string
+    public function block(string $html, Instance $block, Component $component, string $area, bool $fixed = false): string
     {
         $attributes = \sprintf(
-            '%s data-fb-name="%s" data-fb-title="%s" data-fb-area="%s"',
+            '%s data-fb-name="%s" data-fb-title="%s" data-fb-area="%s"%s',
             null === $block->id ? '' : ' data-fb-block="' . Html::escape($block->id) . '"',
             Html::escape($component->name),
             Html::escape($component->title),
             Html::escape($area),
+            $fixed ? ' data-fb-fixed' : '',
         );
 
         return (string) preg_replace('/^(\s*(?:<!--.*?-->\s*)*<[a-zA-Z][a-zA-Z0-9-]*)(?=[\s>\/])/s', '$1' . $attributes, $html, 1);

@@ -51,6 +51,8 @@ final readonly class Component
         public ?string $controller = null,
         /** The file of the controller, loaded if Composer does not know the class */
         public ?string $controllerFile = null,
+        /** A layout with plugin(), a block that is the view of a plugin (decision 0232) */
+        public bool $plugin = false,
     ) {}
 
     /**
@@ -61,7 +63,7 @@ final readonly class Component
      */
     public function withVariants(array $variants): self
     {
-        return new self($this->kind, $this->name, $this->path, $this->title, $this->description, $this->fields, $this->areas, $variants, $this->assets, $this->widget, $this->group, $this->keywords, $this->previews, $this->tailored, $this->examples, $this->query, $this->controller, $this->controllerFile);
+        return new self($this->kind, $this->name, $this->path, $this->title, $this->description, $this->fields, $this->areas, $variants, $this->assets, $this->widget, $this->group, $this->keywords, $this->previews, $this->tailored, $this->examples, $this->query, $this->controller, $this->controllerFile, $this->plugin);
     }
 
     public function package(): string

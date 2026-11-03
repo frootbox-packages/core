@@ -23,7 +23,7 @@ final readonly class UnpublishItem implements Action
 
     public function handle(RevisionStore $store, AddressSync $addresses): null
     {
-        $store->archive(ItemPages::TYPE, $this->id);
+        $store->archive(ItemPlugin::TYPE, $this->id);
         $addresses->sync();
 
         return null;

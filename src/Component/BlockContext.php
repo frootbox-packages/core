@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Component;
 
+use Frootbox\Core\Plugin\PluginPlace;
 use Frootbox\Core\Url\Subpage;
 use Frootbox\Core\Url\Target;
 
@@ -32,6 +33,8 @@ final readonly class BlockContext
         public array $query = [],
         /** The object of a plugin shown on the page, e.g. a news article (decision 0219) */
         public ?Subpage $subpage = null,
+        /** The space of a plugin the page shows, only for the view of the plugin (decision 0232) */
+        public ?PluginPlace $plugin = null,
     ) {}
 
     /**

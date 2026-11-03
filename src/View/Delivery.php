@@ -10,6 +10,7 @@ namespace Frootbox\Core\View;
 
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Plugin\PluginPlace;
 use Frootbox\Core\Url\Subpage;
 use Frootbox\Core\Url\Target;
 
@@ -33,6 +34,11 @@ final class Delivery
 
     private ?Subpage $subpage = null;
 
+    private ?PluginPlace $plugin = null;
+
+    /** @var array<mixed>|null The view of the plugin in the content of the page */
+    private ?array $pluginView = null;
+
     /** @var array<string, string> */
     private array $query = [];
 
@@ -50,6 +56,39 @@ final class Delivery
         $this->content = $content ?? $language;
         $this->target = $target;
         $this->subpage = $subpage;
+        $this->plugin = null;
+        $this->pluginView = null;
+    }
+
+    /**
+     * The space of a plugin the page shows and the view of the plugin in
+     * its content (decision 0232), after set().
+     *
+     * @param array<mixed>|null $view
+     */
+    public function setPlugin(?PluginPlace $plugin, ?array $view = null): void
+    {
+        $this->plugin = $plugin;
+        $this->pluginView = null === $plugin ? null : $view;
+    }
+
+    /**
+     * The space of a plugin the page shows, for plugin() and the view of the plugin.
+     */
+    public function plugin(): ?PluginPlace
+    {
+        return $this->plugin;
+    }
+
+    /**
+     * The view of the plugin as the content of the page holds it, with
+     * its options and fields.
+     *
+     * @return array<mixed>|null
+     */
+    public function pluginView(): ?array
+    {
+        return $this->pluginView;
     }
 
     /**

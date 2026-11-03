@@ -29,5 +29,9 @@ final readonly class Page extends Entity
         public Reach $locked = Reach::None,
         public Reach $excludeFromSearchEngines = Reach::None,
         public Reach $excludeFromSiteSearch = Reach::None,
+        /** The space of a plugin the page shows (decision 0232) */
+        public ?string $pluginType = null,
+        public ?string $pluginSpace = null,
+        public bool $pluginDetails = false,
     ) {}
 }

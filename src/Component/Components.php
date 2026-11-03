@@ -27,11 +27,14 @@ final readonly class Components
 
     /**
      * Whether editors may add the block or choose the layout. Hidden ones
-     * stay usable on pages that have them.
+     * stay usable on pages that have them. The view of a plugin is never
+     * placed, it belongs to plugin() (decision 0232).
      */
     public function offers(ComponentKind $kind, string $name): bool
     {
-        return isset($this->all($kind)[$name]) && !isset($this->hidden[$kind->value][$name]);
+        $component = $this->all($kind)[$name] ?? null;
+
+        return null !== $component && !isset($this->hidden[$kind->value][$name]) && !(ComponentKind::Block === $kind && $component->plugin);
     }
 
     public function get(ComponentKind $kind, string $name): ?Component

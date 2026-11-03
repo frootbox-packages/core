@@ -444,6 +444,19 @@ final readonly class PageEditor
             $errors['/translations'] = 'needs at least one language, e.g. {"de": {"title": "Start"}}.';
         }
 
+        // A space of a plugin has one page, in a layout with plugin() (decision 0232).
+        if (null !== $data->plugin) {
+            if (null !== $layout && !$layout->plugin) {
+                $errors['/layout'] = 'The layout has no place for the plugin of the page. Choose a layout with one or take the plugin away first.';
+            }
+
+            foreach ($nodes as $node) {
+                if ($node->id !== $id && null !== $node->data->plugin && $node->data->plugin->is($data->plugin->type, $data->plugin->space)) {
+                    $errors['/plugin'] = \sprintf('The page %s shows this space already. A space has one page.', $node->id);
+                }
+            }
+        }
+
         $siblings = array_filter($nodes, static fn(PageNode $node): bool => $node->id !== $id && $node->data->parentId === $data->parentId);
         $translations = [];
 
@@ -484,7 +497,7 @@ final readonly class PageEditor
             $translations[$language] = new TranslationData($title, $slug, $content, $translation->description);
         }
 
-        return [new PageData($data->parentId, $data->position, $data->layout, $data->variant, $translations, $data->excludeFromSearchEngines, $data->excludeFromSiteSearch), $errors];
+        return [new PageData($data->parentId, $data->position, $data->layout, $data->variant, $translations, $data->excludeFromSearchEngines, $data->excludeFromSiteSearch, $data->plugin), $errors];
     }
 
     /**
@@ -577,6 +590,9 @@ final readonly class PageEditor
             'variant' => $data->variant,
             'excludeFromSearchEngines' => $data->excludeFromSearchEngines,
             'excludeFromSiteSearch' => $data->excludeFromSiteSearch,
+            'pluginType' => $data->plugin?->type,
+            'pluginSpace' => $data->plugin?->space,
+            'pluginDetails' => $data->plugin->details ?? false,
         ];
 
         if (null === $this->pages->fetchById($id)) {

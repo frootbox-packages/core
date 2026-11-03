@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Page;
 
+use Frootbox\Core\Plugin\PluginPlace;
+use Frootbox\Core\Plugin\Space;
 use UnexpectedValueException;
 
 /**
@@ -19,7 +21,9 @@ use UnexpectedValueException;
  *      "translations": {"de": {"title": "Über uns", "slug": "ueber-uns", "content": {…}}}}
  *
  * The two exclusions reach the page only or its whole branch
- * (decision 0117); snapshots without them mean none.
+ * (decision 0117); snapshots without them mean none. A page can show
+ * the space of a plugin (decision 0232):
+ * "plugin": {"type": "frootbox/jobs/job", "space": "default", "details": true}.
  */
 final readonly class PageData
 {
@@ -34,6 +38,7 @@ final readonly class PageData
         public array $translations,
         public Reach $excludeFromSearchEngines = Reach::None,
         public Reach $excludeFromSiteSearch = Reach::None,
+        public ?PluginPlace $plugin = null,
     ) {}
 
     /**
@@ -67,7 +72,7 @@ final readonly class PageData
             throw new UnexpectedValueException('The page snapshot needs parentId, position and layout.');
         }
 
-        return new self($parentId, $position, $layout, $variant, $translations, self::reach($data, 'excludeFromSearchEngines'), self::reach($data, 'excludeFromSiteSearch'));
+        return new self($parentId, $position, $layout, $variant, $translations, self::reach($data, 'excludeFromSearchEngines'), self::reach($data, 'excludeFromSiteSearch'), PluginPlace::fromArray($data['plugin'] ?? null));
     }
 
     public static function fromPage(Page $page, PageTranslation ...$translations): self
@@ -84,11 +89,13 @@ final readonly class PageData
             $data[$translation->language] = new TranslationData($translation->title, $translation->slug, $content, $translation->description);
         }
 
-        return new self($page->parentId, $page->position, $page->layout, $page->variant, $data, $page->excludeFromSearchEngines, $page->excludeFromSiteSearch);
+        $plugin = null === $page->pluginType ? null : new PluginPlace($page->pluginType, $page->pluginSpace ?? Space::DEFAULT, $page->pluginDetails);
+
+        return new self($page->parentId, $page->position, $page->layout, $page->variant, $data, $page->excludeFromSearchEngines, $page->excludeFromSiteSearch, $plugin);
     }
 
     /**
-     * @return array{parentId: string|null, position: string, layout: string, variant: string|null, excludeFromSearchEngines: string, excludeFromSiteSearch: string, translations: array<string, array{title: string, slug: string, description: string, content: array<string, mixed>}>}
+     * @return array{parentId: string|null, position: string, layout: string, variant: string|null, excludeFromSearchEngines: string, excludeFromSiteSearch: string, plugin?: array{type: string, space: string, details: bool}, translations: array<string, array{title: string, slug: string, description: string, content: array<string, mixed>}>}
      */
     public function toArray(): array
     {
@@ -105,6 +112,7 @@ final readonly class PageData
             'variant' => $this->variant,
             'excludeFromSearchEngines' => $this->excludeFromSearchEngines->value,
             'excludeFromSiteSearch' => $this->excludeFromSiteSearch->value,
+            ...(null === $this->plugin ? [] : ['plugin' => $this->plugin->toArray()]),
             'translations' => $translations,
         ];
     }
@@ -129,7 +137,16 @@ final readonly class PageData
             $translations ?? $this->translations,
             $excludeFromSearchEngines ?? $this->excludeFromSearchEngines,
             $excludeFromSiteSearch ?? $this->excludeFromSiteSearch,
+            $this->plugin,
         );
+    }
+
+    /**
+     * The same page with another space of a plugin, null for none.
+     */
+    public function withPlugin(?PluginPlace $plugin): self
+    {
+        return new self($this->parentId, $this->position, $this->layout, $this->variant, $this->translations, $this->excludeFromSearchEngines, $this->excludeFromSiteSearch, $plugin);
     }
 
     /**

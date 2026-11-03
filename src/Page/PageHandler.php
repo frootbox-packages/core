@@ -228,6 +228,8 @@ final readonly class PageHandler implements RequestHandlerInterface
         $languages = $this->service(Languages::class);
         $urls = $this->service(Urls::class);
         $this->service(Delivery::class)->set($languages->get($page->language), $languages->get($page->contentLanguage), $page->target(), $page->subpage);
+        $view = $page->translation->content['plugin'] ?? null;
+        $this->service(Delivery::class)->setPlugin($page->data->plugin, \is_array($view) ? $view : null);
         $this->service(Delivery::class)->setQuery($request->getQueryParams());
 
         $assets = new AssetList();

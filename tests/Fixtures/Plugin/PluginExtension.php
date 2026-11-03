@@ -21,7 +21,7 @@ final class PluginExtension implements Extension
         $registry->action(SaveItem::class);
         $registry->action(PublishItems::class);
         $registry->action(UnpublishItem::class);
-        $registry->subpages(ItemPages::class);
+        $registry->plugin(ItemPlugin::class);
         $registry->scheduled(ItemSchedule::class);
     }
 }

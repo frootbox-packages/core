@@ -26,6 +26,7 @@ use Frootbox\Core\Error\ErrorPage;
 use Frootbox\Core\Event\ListenerProvider;
 use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Plugin\Plugin;
 use Frootbox\Core\Queue\Job;
 use Frootbox\Core\Queue\JobClasses;
 use Frootbox\Core\Routing\Router;
@@ -33,7 +34,6 @@ use Frootbox\Core\Schedule\ScheduledType;
 use Frootbox\Core\Search\SearchSource;
 use Frootbox\Core\Search\SearchSources;
 use Frootbox\Core\Settings\SettingsClasses;
-use Frootbox\Core\Url\SubpageSource;
 use Psr\Http\Server\RequestHandlerInterface;
 use Symfony\Component\Console\Command\Command;
 
@@ -47,7 +47,7 @@ use Symfony\Component\Console\Command\Command;
  *     $registry->query(ListNews::class);
  *     $registry->fieldType(PriceType::class);
  *     $registry->undoCheck(OrderNumbersCheck::class);
- *     $registry->subpages(ArticlePages::class);
+ *     $registry->plugin(ArticlePlugin::class);
  *     $registry->scheduled(ArticleSchedule::class);
  *     $registry->errorPage(ShopErrorPage::class);
  *     $registry->mount('backend.path', '/cms')->get('/login', LoginHandler::class, 'backend.login');
@@ -96,8 +96,8 @@ final class Registry
     /** @var list<class-string<SearchSource>> */
     private array $searchSources = [];
 
-    /** @var list<class-string<SubpageSource>> */
-    private array $subpages = [];
+    /** @var list<class-string<Plugin>> */
+    private array $plugins = [];
 
     /** @var list<class-string<ScheduledType>> */
     private array $scheduled = [];
@@ -459,19 +459,19 @@ final class Registry
     }
 
     /**
-     * Objects of a plugin with addresses below a page, e.g. news
-     * articles (decision 0219).
+     * A type of objects that pages show in spaces, e.g. news articles
+     * (decisions 0219, 0232).
      *
-     * @param class-string<SubpageSource> $class
+     * @param class-string<Plugin> $class
      */
-    public function subpages(string $class): void
+    public function plugin(string $class): void
     {
-        if (!is_subclass_of($class, SubpageSource::class)) {
-            throw new DefinitionException(\sprintf('%s must implement %s.', $class, SubpageSource::class));
+        if (!is_subclass_of($class, Plugin::class)) {
+            throw new DefinitionException(\sprintf('%s must implement %s.', $class, Plugin::class));
         }
 
-        if (!\in_array($class, $this->subpages, true)) {
-            $this->subpages[] = $class;
+        if (!\in_array($class, $this->plugins, true)) {
+            $this->plugins[] = $class;
         }
     }
 
@@ -638,11 +638,11 @@ final class Registry
     }
 
     /**
-     * @return list<class-string<SubpageSource>>
+     * @return list<class-string<Plugin>>
      */
-    public function subpageSources(): array
+    public function plugins(): array
     {
-        return $this->subpages;
+        return $this->plugins;
     }
 
     /**

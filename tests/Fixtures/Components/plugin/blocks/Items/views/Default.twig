@@ -1,5 +1,8 @@
 {# frootbox
 title: Items
-description: Lists the items, or shows the one at its address.
+description: Lists the items of the space, or shows the one at its address.
+plugin: true
+fields:
+  title: { type: headline, optional: true }
 #}
-{% if subpage %}<article class="item">{{ heading_text(subpage.title) }}</article>{% else %}<ul class="items"></ul>{% endif %}
+{% if subpage %}<article class="item">{{ heading_text(subpage.title) }}</article>{% else %}<ul class="items" data-space="{{ space }}"></ul>{% endif %}

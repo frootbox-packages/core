@@ -40,6 +40,7 @@ use Frootbox\Core\I18n\UserLanguages;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Log\LoggerFactory;
 use Frootbox\Core\Page\ThemeErrorPage;
+use Frootbox\Core\Plugin\Plugins;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Queue\JobClasses;
 use Frootbox\Core\Routing\Router;
@@ -48,7 +49,6 @@ use Frootbox\Core\Search\SearchSources;
 use Frootbox\Core\Settings\Settings;
 use Frootbox\Core\Settings\SettingsClasses;
 use Frootbox\Core\Theme\ThemeChain;
-use Frootbox\Core\Url\SubpageSources;
 use Frootbox\Core\Url\TargetLink;
 use Frootbox\Core\User\StoredUserLanguages;
 use Frootbox\Core\View\TwigFactory;
@@ -123,7 +123,7 @@ final class ContainerFactory
             ErrorPages::class => factory([self::class, 'createErrorPages']),
             ScopeResolvers::class => factory([self::class, 'createScopeResolvers']),
             SearchSources::class => factory([self::class, 'createSearchSources']),
-            SubpageSources::class => factory([self::class, 'createSubpageSources']),
+            Plugins::class => factory([self::class, 'createPlugins']),
             ScheduledTypes::class => factory([self::class, 'createScheduledTypes']),
             SettingsClasses::class => factory([self::class, 'createSettingsClasses']),
             JobClasses::class => factory([self::class, 'createJobClasses']),
@@ -199,9 +199,9 @@ final class ContainerFactory
         return new SearchSources($registry->searchSources(), $container);
     }
 
-    public static function createSubpageSources(Registry $registry, ContainerInterface $container): SubpageSources
+    public static function createPlugins(Registry $registry, ContainerInterface $container): Plugins
     {
-        return new SubpageSources($registry->subpageSources(), $container);
+        return new Plugins($registry->plugins(), $container);
     }
 
     public static function createScheduledTypes(Registry $registry, ContainerInterface $container): ScheduledTypes

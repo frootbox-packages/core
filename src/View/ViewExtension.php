@@ -83,6 +83,7 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('heading_text', fn(array $context, string $text, int $rank = 0, array $attributes = [], ?string $href = null): Markup => self::frame($context, 'heading_text')->scope->headingText($text, $rank, $attributes, $href), ['needs_context' => true]),
             new TwigFunction('value', fn(array $context, string $name): mixed => self::frame($context, 'value')->scope->value($name), ['needs_context' => true]),
             new TwigFunction('area', fn(array $context, string $name): Markup => new Markup($this->renderer->area(self::frame($context, 'area'), $name), 'UTF-8'), ['needs_context' => true]),
+            new TwigFunction('plugin', fn(array $context): Markup => new Markup($this->renderer->plugin(self::frame($context, 'plugin')), 'UTF-8'), ['needs_context' => true]),
             new TwigFunction('render_block', fn(array $context, string $name, array $options = [], ?string $variant = null): Markup => new Markup($this->renderer->inner(self::frame($context, 'render_block'), $name, $options, $variant), 'UTF-8'), ['needs_context' => true]),
             new TwigFunction('url', $this->url(...)),
             new TwigFunction('block_page', $this->blockPage(...)),

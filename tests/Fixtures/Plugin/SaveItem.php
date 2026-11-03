@@ -11,6 +11,7 @@ namespace Frootbox\Core\Tests\Fixtures\Plugin;
 use DateTimeImmutable;
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
+use Frootbox\Core\Plugin\Space;
 use Frootbox\Core\Revision\Revision;
 use Frootbox\Core\Revision\RevisionStore;
 
@@ -32,12 +33,13 @@ final readonly class SaveItem implements Action
         public array $titles,
         public array $slugs,
         public ?DateTimeImmutable $publishAt = null,
+        public string $space = Space::DEFAULT,
     ) {}
 
     public function handle(RevisionStore $store): Revision
     {
-        $draft = $store->saveDraft(ItemPages::TYPE, $this->id, ['titles' => $this->titles, 'slugs' => $this->slugs]);
-        $store->publishAt(ItemPages::TYPE, $this->id, $this->publishAt);
+        $draft = $store->saveDraft(ItemPlugin::TYPE, $this->id, ['titles' => $this->titles, 'slugs' => $this->slugs, 'space' => $this->space]);
+        $store->publishAt(ItemPlugin::TYPE, $this->id, $this->publishAt);
 
         return $draft;
     }

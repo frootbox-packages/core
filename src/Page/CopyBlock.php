@@ -51,6 +51,7 @@ final readonly class CopyBlock implements Action, Scoped
         $page = $editor->current($this->id);
         $blocks = ContentBlocks::of('page.copy-block', $components, $page, $this->language);
         $way = $blocks->find($this->block);
+        $blocks->assertPlaced($way);
         $list = \array_slice($way, 0, -1);
         $index = (int) end($way) + 1;
         $copy = $blocks->block($way);

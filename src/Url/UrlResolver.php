@@ -14,6 +14,7 @@ use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\PageResolver;
 use Frootbox\Core\Page\ResolvedPage;
+use Frootbox\Core\Plugin\Plugins;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
 
@@ -36,7 +37,7 @@ final readonly class UrlResolver
         private AddressSync $sync,
         private Runner $runner,
         private Urls $urls,
-        private SubpageSources $subpages,
+        private Plugins $plugins,
     ) {}
 
     public function resolve(ServerRequestInterface $request): Resolution
@@ -115,21 +116,19 @@ final readonly class UrlResolver
         foreach ($this->below($language, $path) as [$page, $rest]) {
             $address = $this->addresses->below($language->code, $page->id, $rest);
             $target = null === $address ? null : Target::tryParse($address->target);
-            $source = null === $target ? null : $this->subpages->get($target->type);
-            $title = null === $target ? null : $source?->title($target->id, $page->contentLanguage);
+            $plugin = null === $target ? null : $this->plugins->get($target->type);
+            $title = null === $target ? null : $plugin?->title($target->id, $page->contentLanguage);
 
-            if (null === $target || null === $title) {
+            if (null === $target || null === $plugin || null === $title) {
                 return null;
             }
-
-            $described = $source instanceof DescribedSubpages;
 
             return $page->withSubpage(new Subpage(
                 $target,
                 $rest,
                 $title,
-                $described ? $source->description($target->id, $page->contentLanguage) ?? '' : '',
-                $described ? $source->image($target->id, $page->contentLanguage) : null,
+                $plugin->description($target->id, $page->contentLanguage) ?? '',
+                $plugin->image($target->id, $page->contentLanguage),
             ));
         }
 

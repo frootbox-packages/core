@@ -70,6 +70,7 @@ final class Labels
             $component->query,
             $component->controller,
             $component->controllerFile,
+            $component->plugin,
         );
     }
 

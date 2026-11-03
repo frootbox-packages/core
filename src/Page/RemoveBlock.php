@@ -49,7 +49,9 @@ final readonly class RemoveBlock implements Action, Scoped
     {
         $page = $editor->current($this->id);
         $blocks = ContentBlocks::of('page.remove-block', $components, $page, $this->language);
-        $blocks->remove($blocks->find($this->block))->save($editor, $this->id, $page, $this->language);
+        $way = $blocks->find($this->block);
+        $blocks->assertPlaced($way);
+        $blocks->remove($way)->save($editor, $this->id, $page, $this->language);
 
         return new BlockChanged($this->id, $this->language, null, $journal->currentEntryId());
     }

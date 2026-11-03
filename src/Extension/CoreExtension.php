@@ -128,6 +128,12 @@ use Frootbox\Core\Page\UnpublishPage;
 use Frootbox\Core\Page\UpdateBlock;
 use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\Page\UpdatePageField;
+use Frootbox\Core\Plugin\AssignPlugin;
+use Frootbox\Core\Plugin\CreateSpace;
+use Frootbox\Core\Plugin\DeleteSpace;
+use Frootbox\Core\Plugin\ListPlugins;
+use Frootbox\Core\Plugin\ListSpaces;
+use Frootbox\Core\Plugin\UpdateSpace;
 use Frootbox\Core\Preview\CreatePreview;
 use Frootbox\Core\Preview\ListPreviews;
 use Frootbox\Core\Preview\OpenPreview;
@@ -263,6 +269,14 @@ final class CoreExtension implements Extension
         }
 
         $registry->query(ListRedirects::class);
+
+        // Spaces of plugins and the pages that show them (decision 0232).
+        foreach ([CreateSpace::class, UpdateSpace::class, DeleteSpace::class, AssignPlugin::class] as $action) {
+            $registry->action($action);
+        }
+
+        $registry->query(ListSpaces::class);
+        $registry->query(ListPlugins::class);
         $registry->query(ListNotFound::class);
 
         foreach ([UpdateNavigation::class, PublishNavigations::class, DiscardNavigation::class, CopyNavigation::class] as $action) {

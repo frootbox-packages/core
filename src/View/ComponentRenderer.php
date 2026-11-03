@@ -21,7 +21,9 @@ use Frootbox\Core\Heading\Headings;
 use Frootbox\Core\Heading\Outline;
 use Frootbox\Core\I18n\Labels;
 use Frootbox\Core\Page\EditMode;
+use Frootbox\Core\Plugin\Plugins;
 use Frootbox\RichText\Html;
+use InvalidArgumentException;
 use Psr\Container\ContainerInterface;
 use Twig\Environment as Twig;
 
@@ -91,6 +93,56 @@ final readonly class ComponentRenderer
         $main = preg_replace_callback('/<main(?:\s[^>]*)?>/i', static fn(array $match): string => $match[0] . $heading, $html, 1, $count);
 
         return 1 === $count && \is_string($main) ? $main : $heading . $html;
+    }
+
+    /**
+     * The view of the plugin whose space the page shows (decision 0232),
+     * between the areas of the layout. Empty on a page without one. In
+     * the edit mode it is a block that stays at its place.
+     *
+     * @internal Called by plugin() in templates
+     */
+    public function plugin(Frame $frame): string
+    {
+        if (ComponentKind::Layout !== $frame->component->kind || 0 !== $frame->depth) {
+            throw new ViewException(\sprintf('plugin() belongs to the view of a layout, not to %s.', $frame->component->name));
+        }
+
+        if (!$frame->component->plugin) {
+            throw new ViewException(\sprintf('%s calls plugin(), so its head needs "plugin: true".', $frame->component->name));
+        }
+
+        $delivery = $this->service(Delivery::class);
+        $place = $delivery->plugin();
+        $plugin = null === $place ? null : $this->service(Plugins::class)->get($place->type);
+
+        if (null === $plugin) {
+            return null !== $place && $this->environment->isDevelopment() ? '<!-- ' . Html::escape(\sprintf('Frootbox: no plugin %s', $place->type)) . ' -->' : '';
+        }
+
+        $view = $delivery->pluginView() ?? [];
+
+        try {
+            $instance = ($view['block'] ?? null) === $plugin->block() ? Instance::fromArray($view) : new Instance($plugin->block());
+        } catch (InvalidArgumentException) {
+            $instance = new Instance($plugin->block());
+        }
+
+        $html = $this->render(ComponentKind::Block, $instance, 1, $frame->assets, $frame->headings->inArea(null, $instance->id));
+
+        if ($delivery->isFallback()) {
+            $language = $delivery->contentLanguage();
+            $html = self::withLanguage($html, $language->code, $language->direction === $delivery->language()->direction ? null : $language->direction->value);
+        }
+
+        if (!$this->editMode->marking() && !$this->editMode->anchors()) {
+            return $html;
+        }
+
+        $component = $this->service(Components::class)->get(ComponentKind::Block, $instance->name);
+        $component = null === $component ? null : $this->service(Labels::class)->component($component);
+
+        return null === $component ? $html : $this->markup->block($html, $instance, $component, '', fixed: true);
     }
 
     /**
@@ -256,6 +308,7 @@ final readonly class ComponentRenderer
             $delivery->target(),
             $delivery->query($component->query),
             $delivery->subpage(),
+            $component->plugin ? $delivery->plugin() : null,
         ));
     }
 

@@ -60,6 +60,7 @@ final readonly class MoveBlock implements Action, Scoped
         $page = $editor->current($this->id);
         $blocks = ContentBlocks::of('page.move-block', $components, $page, $this->language);
         $way = $blocks->find($this->block);
+        $blocks->assertPlaced($way);
         $block = $blocks->block($way);
 
         foreach (['/parent' => $this->parent, '/after' => $this->after] as $key => $target) {

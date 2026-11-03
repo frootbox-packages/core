@@ -11,8 +11,9 @@ namespace Frootbox\Core\Url;
 use Frootbox\Core\Page\PageReader;
 
 /**
- * The base pages of subpages (decision 0219): in each language the first
- * published page in the tree whose content holds one of the blocks.
+ * The first published page in the tree whose content holds one of the
+ * blocks, in each language, e.g. the page with the search for a link in
+ * the head (decision 0228). Plugins have pages of their own (decision 0232).
  */
 final readonly class BasePages
 {
