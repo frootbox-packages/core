@@ -13,7 +13,9 @@ use Frootbox\Core\ProjectPaths;
 
 /**
  * Keeps the index current (decision 0214): after an action only the items
- * its changes concern, or everything anew.
+ * its changes concern, or everything anew. The published state for the
+ * search on the website (decision 0228) comes from the sources that
+ * describe it; the module of that search asks for it.
  */
 final readonly class SearchIndexer
 {
@@ -45,8 +47,9 @@ final readonly class SearchIndexer
      * Writes the entries of the items these changes concern again.
      *
      * @param list<Change> $changes
+     * @param string       $state   SearchIndex::DRAFT or SearchIndex::LIVE
      */
-    public function changed(array $changes): void
+    public function changed(array $changes, string $state = SearchIndex::DRAFT): void
     {
         if ([] === $changes) {
             return;
@@ -54,6 +57,11 @@ final readonly class SearchIndexer
 
         foreach (array_keys($this->sources->all()) as $name) {
             $source = $this->sources->get($name);
+
+            if (SearchIndex::LIVE === $state && !$source instanceof PublishedSource) {
+                continue;
+            }
+
             $items = [];
 
             foreach ($changes as $change) {
@@ -67,7 +75,7 @@ final readonly class SearchIndexer
             $items = array_map(strval(...), array_keys($items));
 
             if ([] !== $items) {
-                $this->index->replace($name, $items, $source->entries($items));
+                $this->index->replace($name, $items, self::entries($source, $items, $state), $state);
             }
         }
     }
@@ -75,32 +83,49 @@ final readonly class SearchIndexer
     /**
      * Builds the index of one source or of all anew.
      *
+     * @param string $state SearchIndex::DRAFT or SearchIndex::LIVE
+     *
      * @return array<string, int> Items by source
      */
-    public function rebuild(?string $only = null): array
+    public function rebuild(?string $only = null, string $state = SearchIndex::DRAFT): array
     {
         $counts = [];
 
         foreach (array_keys($this->sources->all()) as $name) {
-            if (null !== $only && $only !== $name) {
+            $source = $this->sources->get($name);
+
+            if ((null !== $only && $only !== $name) || (SearchIndex::LIVE === $state && !$source instanceof PublishedSource)) {
                 continue;
             }
 
-            $source = $this->sources->get($name);
-            $this->index->clear($name);
+            $this->index->clear($name, $state);
             $counts[$name] = 0;
 
             foreach (self::chunks($source->items(), 100) as $items) {
-                $this->index->replace($name, $items, $source->entries($items));
+                $this->index->replace($name, $items, self::entries($source, $items, $state), $state);
                 $counts[$name] += \count($items);
             }
 
-            if ($source instanceof Fingerprinted) {
+            if (SearchIndex::DRAFT === $state && $source instanceof Fingerprinted) {
                 $this->store($name, $source->fingerprint());
             }
         }
 
         return $counts;
+    }
+
+    /**
+     * @param list<string> $items
+     *
+     * @return iterable<PublishedEntry|SearchEntry>
+     */
+    private static function entries(SearchSource $source, array $items, string $state): iterable
+    {
+        if (SearchIndex::LIVE !== $state) {
+            return $source->entries($items);
+        }
+
+        return $source instanceof PublishedSource ? $source->published($items) : [];
     }
 
     private function stored(string $source): ?string

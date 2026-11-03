@@ -12,12 +12,14 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Builds the index of the global search anew (decision 0214), e.g. after
- * own SQL that no action recorded, or after an update.
+ * own SQL that no action recorded, or after an update. With --website
+ * the index of the search on the website (decision 0228).
  */
 #[AsCommand(name: 'search:rebuild', description: 'Builds the index of the global search anew, of one source or of all')]
 final class SearchRebuildCommand extends Command
@@ -32,6 +34,7 @@ final class SearchRebuildCommand extends Command
     protected function configure(): void
     {
         $this->addArgument('source', InputArgument::OPTIONAL, 'Only this source, e.g. "page"');
+        $this->addOption('website', null, InputOption::VALUE_NONE, 'The published entries for the search on the website instead');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -46,7 +49,7 @@ final class SearchRebuildCommand extends Command
             return Command::FAILURE;
         }
 
-        $counts = $this->indexer->rebuild($source);
+        $counts = $this->indexer->rebuild($source, true === $input->getOption('website') ? SearchIndex::LIVE : SearchIndex::DRAFT);
         $io->table(['Source', 'Items'], array_map(static fn(string $name, int $count): array => [$name, (string) $count], array_keys($counts), $counts));
         $io->success('The search index is built anew.');
 

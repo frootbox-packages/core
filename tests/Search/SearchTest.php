@@ -15,11 +15,13 @@ use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Page\CreatePage;
 use Frootbox\Core\Page\DeletePage;
+use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\Search\Search;
 use Frootbox\Core\Search\SearchHit;
 use Frootbox\Core\Search\SearchIndex;
 use Frootbox\Core\Search\SearchIndexer;
+use Frootbox\Core\Search\SearchRanking;
 use Frootbox\Core\Search\SearchRebuildCommand;
 use Frootbox\Core\Search\SearchSources;
 use Frootbox\Core\Search\SearchTerms;
@@ -39,6 +41,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(SearchIndexer::class)]
 #[CoversClass(SearchSources::class)]
 #[CoversClass(SearchTerms::class)]
+#[CoversClass(SearchRanking::class)]
 #[CoversClass(SearchRebuildCommand::class)]
 #[CoversClass(UpdateSearchIndex::class)]
 #[CoversClass(PageSource::class)]
@@ -158,6 +161,34 @@ final class SearchTest extends NotesTestCase
         self::assertSame(1, $tester->execute(['source' => 'nope']), 'Unknown sources are named.');
     }
 
+    public function testKeepsThePublishedStateApartForTheWebsite(): void
+    {
+        $id = $this->page('Röstkurs', ['fields' => ['heading' => 'Jeden Samstag']]);
+        $this->page('Teekurs');
+        $indexer = $this->get(SearchIndexer::class);
+
+        self::assertSame(['page'], array_keys($indexer->rebuild(null, SearchIndex::LIVE)), 'Only sources that describe what is published.');
+        self::assertCount(0, $this->live('röstkurs'), 'Drafts are not on the website.');
+
+        $this->runner()->run(new UpdatePage($this->start, translations: ['de' => ['title' => 'Start', 'content' => ['fields' => ['heading' => 'Willkommen']]]]));
+        $this->runner()->run(new PublishPages([$this->start, $id]));
+        $indexer->rebuild('page', SearchIndex::LIVE);
+        $rows = $this->live('kurs');
+        self::assertSame([['Röstkurs', 'page:' . $id, '']], array_map(static fn(array $row): array => [$row['title'], $row['target'], $row['permission']], $rows));
+        self::assertSame('Jeden Samstag', $rows[0]['body'] ?? null, 'The text without the slug.');
+
+        $this->runner()->run(new UpdatePage($id, translations: ['de' => ['title' => 'Röstkurs am Samstag']]));
+        $indexer->changed([], SearchIndex::LIVE);
+        self::assertSame('Röstkurs', $this->live('kurs')[0]['title'] ?? null, 'A draft does not change it.');
+        self::assertSame(['Röstkurs am Samstag'], self::titles($this->search('samstag kurs')), 'The global search shows the draft.');
+
+        $tester = new CommandTester($this->get(SearchRebuildCommand::class));
+        $this->get(SearchIndex::class)->clear(null, SearchIndex::LIVE);
+        self::assertSame(0, $tester->execute(['--website' => true]));
+        self::assertCount(1, $this->live('kurs'));
+        self::assertCount(0, $this->live('kurs', 'uk'), 'Only the language asked for.');
+    }
+
     public function testStoresBothSpellings(): void
     {
         self::assertSame(' groesse tassen grosse ', SearchTerms::column('Größe Tassen', 'de'));
@@ -189,6 +220,14 @@ final class SearchTest extends NotesTestCase
     private function search(string $q, ?Context $context = null): array
     {
         return $this->runner()->ask(new Search($q), $context);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function live(string $q, string $language = 'de'): array
+    {
+        return $this->get(SearchIndex::class)->candidates(SearchRanking::words($q, $language), null, SearchIndex::LIVE, $language);
     }
 
     /**

@@ -16,15 +16,17 @@ use Frootbox\Core\Page\Pages;
 use Frootbox\Core\Page\PageTranslations;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Search\AsSearchSource;
+use Frootbox\Core\Search\PublishedEntry;
+use Frootbox\Core\Search\PublishedSource;
 use Frootbox\Core\Search\SearchEntry;
-use Frootbox\Core\Search\SearchSource;
+use Frootbox\Core\Url\Target;
 
 /**
  * Pages in every language as editors see them, the draft first: title,
  * address and the text of all fields of layout and blocks (decision 0214).
  */
 #[AsSearchSource('page', 'Pages')]
-final readonly class PageSource implements SearchSource
+final readonly class PageSource implements PublishedSource
 {
     /** At most this much text of a page per language. */
     public const int MAX_TEXT = 20000;
@@ -70,6 +72,25 @@ final readonly class PageSource implements SearchSource
                     scopeKind: 'page',
                     scopeId: $id,
                 );
+            }
+        }
+    }
+
+    /**
+     * The published pages with their description and text, without the
+     * slug; whether a page is locked or left out of the search on the
+     * website is checked when searching, as it depends on the pages above.
+     */
+    public function published(array $items): iterable
+    {
+        foreach ($items as $id) {
+            $data = $this->reader->published($id);
+            $layout = null === $data ? null : $this->components->layout($data->layout);
+
+            foreach (null === $data ? [] : $data->translations as $language => $translation) {
+                $text = implode("\n", array_filter([$translation->description, null === $layout ? '' : $this->text($layout, $translation->content)], static fn(string $part): bool => '' !== $part));
+
+                yield new PublishedEntry($id, $language, $translation->title, mb_substr($text, 0, self::MAX_TEXT), Target::page($id));
             }
         }
     }

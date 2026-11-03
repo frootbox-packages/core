@@ -23,8 +23,11 @@ final readonly class SearchIndex
 {
     public const string TABLE = 'search_index';
 
-    /** What editors see; the search for visitors adds "live" later. */
+    /** What editors see, drafts included. */
     public const string DRAFT = 'draft';
+
+    /** What visitors find on the website (decision 0228). */
+    public const string LIVE = 'live';
 
     /** At most this many rows are ranked for one search. */
     public const int CANDIDATES = 200;
@@ -37,8 +40,8 @@ final readonly class SearchIndex
     /**
      * Replaces the rows of these items of a source with the entries.
      *
-     * @param list<string>          $items
-     * @param iterable<SearchEntry> $entries
+     * @param list<string>                         $items
+     * @param iterable<PublishedEntry|SearchEntry> $entries
      */
     public function replace(string $source, array $items, iterable $entries, string $state = self::DRAFT): void
     {
@@ -59,6 +62,7 @@ final readonly class SearchIndex
                 $now = new DateTimeImmutable()->format('Y-m-d H:i:s');
 
                 foreach ($entries as $entry) {
+                    $published = $entry instanceof PublishedEntry;
                     $this->connection->insert(self::TABLE, [
                         'source' => $source,
                         'item' => $entry->item,
@@ -67,10 +71,11 @@ final readonly class SearchIndex
                         'title' => mb_substr($entry->title, 0, 255),
                         'body' => $entry->text,
                         'terms' => SearchTerms::column($entry->title . "\n" . $entry->text, $entry->language),
-                        'permission' => $entry->permission,
-                        'scope_kind' => $entry->scopeKind,
-                        'scope_id' => $entry->scopeId,
-                        'label' => $entry->label ? 1 : 0,
+                        'permission' => $published ? '' : $entry->permission,
+                        'scope_kind' => $published ? null : $entry->scopeKind,
+                        'scope_id' => $published ? null : $entry->scopeId,
+                        'label' => !$published && $entry->label ? 1 : 0,
+                        'target' => $published ? (string) $entry->target : null,
                         'updated_at' => $now,
                     ]);
                 }
@@ -98,10 +103,11 @@ final readonly class SearchIndex
      *
      * @param list<list<string>> $words   Spellings per word
      * @param list<string>|null  $sources null for all
+     * @param string|null        $language Only entries in this language, e.g. on the website
      *
      * @return list<array<string, mixed>>
      */
-    public function candidates(array $words, ?array $sources = null, string $state = self::DRAFT): array
+    public function candidates(array $words, ?array $sources = null, string $state = self::DRAFT, ?string $language = null): array
     {
         $query = $this->connection->createQueryBuilder()
             ->select('*')
@@ -126,6 +132,10 @@ final readonly class SearchIndex
 
         if (null !== $sources) {
             $query->andWhere('source IN (:sources)')->setParameter('sources', $sources, ArrayParameterType::STRING);
+        }
+
+        if (null !== $language) {
+            $query->andWhere('language = :language')->setParameter('language', $language);
         }
 
         return $query->executeQuery()->fetchAllAssociative();
