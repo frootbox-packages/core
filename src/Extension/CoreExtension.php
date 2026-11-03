@@ -146,8 +146,10 @@ use Frootbox\Core\Page\UpdatePageField;
 use Frootbox\Core\Plugin\AssignPlugin;
 use Frootbox\Core\Plugin\CreateSpace;
 use Frootbox\Core\Plugin\DeleteSpace;
+use Frootbox\Core\Plugin\ListAllSpaces;
 use Frootbox\Core\Plugin\ListPlugins;
 use Frootbox\Core\Plugin\ListSpaces;
+use Frootbox\Core\Plugin\SpaceScopes;
 use Frootbox\Core\Plugin\UpdateSpace;
 use Frootbox\Core\Preview\CreatePreview;
 use Frootbox\Core\Preview\ListPreviews;
@@ -286,6 +288,7 @@ final class CoreExtension implements Extension
 
         $registry->undoCheck(PageUndoCheck::class);
         $registry->scope('page', PageScopes::class);
+        $registry->scope(SpaceScopes::KIND, SpaceScopes::class);
 
         foreach ([SyncUrls::class, CreateRedirect::class, UpdateRedirect::class, DeleteRedirect::class, ClearNotFound::class] as $action) {
             $registry->action($action);
@@ -299,6 +302,7 @@ final class CoreExtension implements Extension
         }
 
         $registry->query(ListSpaces::class);
+        $registry->query(ListAllSpaces::class);
 
         // Categories in groups for all objects (decision 0233).
         foreach ([CreateCategory::class, UpdateCategory::class, MoveCategory::class, DeleteCategory::class, ApplyPresets::class, CreateGroup::class, UpdateGroup::class, DeleteGroup::class] as $action) {

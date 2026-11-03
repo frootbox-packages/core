@@ -58,7 +58,7 @@ final readonly class ItemPlugin implements Plugin
     public function paths(string $space): iterable
     {
         foreach ($this->revisions->fetch(['where' => ['type' => self::TYPE, 'status' => RevisionStatus::Published]]) as $revision) {
-            if (self::space($revision) !== $space) {
+            if (self::spaceOf($revision) !== $space) {
                 continue;
             }
 
@@ -79,12 +79,19 @@ final readonly class ItemPlugin implements Plugin
         $ids = [];
 
         foreach ($this->revisions->fetch(['where' => ['type' => self::TYPE]]) as $revision) {
-            if (self::space($revision) === $space) {
+            if (self::spaceOf($revision) === $space) {
                 $ids[$revision->entityId] = true;
             }
         }
 
         return \count($ids);
+    }
+
+    public function space(string $id): ?string
+    {
+        $revision = $this->revisions->draft(self::TYPE, $id) ?? $this->revisions->published(self::TYPE, $id);
+
+        return null === $revision ? null : self::spaceOf($revision);
     }
 
     public function title(string $id, string $language): ?string
@@ -105,7 +112,7 @@ final readonly class ItemPlugin implements Plugin
         return null;
     }
 
-    private static function space(Revision $revision): string
+    private static function spaceOf(Revision $revision): string
     {
         $space = $revision->data['space'] ?? null;
 

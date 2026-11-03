@@ -25,7 +25,8 @@ use Frootbox\Core\Support\Message;
 #[AsAction('user.assign-role', 'Gives a user a role, everywhere or only within a scope')]
 final readonly class AssignRole implements Action
 {
-    public const string SCOPE_PATTERN = '^[a-z][a-z0-9-]*:[A-Za-z0-9_-]+$';
+    /** A kind and an id, which may hold "/", "." and ":" for the spaces of plugins (decision 0245) */
+    public const string SCOPE_PATTERN = '^[a-z][a-z0-9-]*:[A-Za-z0-9_./:-]+$';
 
     public function __construct(
         public int $userId,
@@ -33,7 +34,7 @@ final readonly class AssignRole implements Action
         public string $role,
         #[Pattern(self::SCOPE_PATTERN)]
         #[Length(max: 100)]
-        #[Description('Only within this scope, e.g. "page:01J…" for a page and everything below it')]
+        #[Description('Only within this scope, e.g. "page:01J…" for a page and everything below it or "space:frootbox/jobs/job:default" for a space of a plugin, see space.all')]
         public ?string $scope = null,
     ) {}
 

@@ -66,6 +66,13 @@ interface Plugin
     public function paths(string $space): iterable;
 
     /**
+     * The space an object is in, the one of its draft first; null if
+     * there is no such object. Roles within a space (decision 0245)
+     * apply to the objects in it.
+     */
+    public function space(string $id): ?string;
+
+    /**
      * How many objects a space holds, drafts included. A space with
      * objects cannot be deleted.
      */
