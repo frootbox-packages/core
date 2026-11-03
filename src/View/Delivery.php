@@ -39,6 +39,9 @@ final class Delivery
     /** @var array<string, true> The query parameters the rendered blocks declared */
     private array $used = [];
 
+    /** Whether the page may go into the page cache, see withoutCache() */
+    private bool $cacheable = true;
+
     public function __construct(private readonly Languages $languages) {}
 
     public function set(Language $language, ?Language $content = null, ?Target $target = null, ?Subpage $subpage = null): void
@@ -86,6 +89,8 @@ final class Delivery
      */
     public function setQuery(array $query): void
     {
+        // A new request: it may go into the cache until a block says otherwise.
+        $this->cacheable = true;
         $this->query = [];
 
         foreach ($query as $name => $value) {
@@ -116,6 +121,20 @@ final class Delivery
         }
 
         return $values;
+    }
+
+    /**
+     * Keeps this page out of the page cache, e.g. the results of a search:
+     * every word would be a page of its own (decision 0228).
+     */
+    public function withoutCache(): void
+    {
+        $this->cacheable = false;
+    }
+
+    public function cacheable(): bool
+    {
+        return $this->cacheable;
     }
 
     /**

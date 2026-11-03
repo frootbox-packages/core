@@ -20,6 +20,7 @@ use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Site\SiteFields;
 use Frootbox\Core\Theme\Theme;
 use Frootbox\Core\Theme\ThemeChain;
+use Frootbox\Core\Url\BasePages;
 use Frootbox\Core\Url\Subpage;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
@@ -82,6 +83,7 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('value', fn(array $context, string $name): mixed => self::frame($context, 'value')->scope->value($name), ['needs_context' => true]),
             new TwigFunction('area', fn(array $context, string $name): Markup => new Markup($this->renderer->area(self::frame($context, 'area'), $name), 'UTF-8'), ['needs_context' => true]),
             new TwigFunction('url', $this->url(...)),
+            new TwigFunction('block_page', $this->blockPage(...)),
             new TwigFunction('language', fn(): string => $this->service(Delivery::class)->language()->code),
             new TwigFunction('content_language', fn(): string => $this->service(Delivery::class)->contentLanguage()->code),
             new TwigFunction('direction', fn(): string => $this->service(Delivery::class)->language()->direction->value),
@@ -188,6 +190,19 @@ final class ViewExtension extends AbstractExtension
         $parsed = Target::tryParse($target);
 
         return null === $parsed ? $target : $this->service(Urls::class)->href($parsed, $language);
+    }
+
+    /**
+     * The address of the first published page with this block in the
+     * language of the visitor, e.g. block_page('frootbox/search/Search')
+     * for a link to the search in the head (decision 0228). Null if there
+     * is none, also if the extension of the block is not installed.
+     */
+    public function blockPage(string $block): ?string
+    {
+        $id = $this->service(BasePages::class)->of([$block])[$this->service(Delivery::class)->language()->code] ?? null;
+
+        return null === $id ? null : $this->service(Urls::class)->href(Target::page($id));
     }
 
     /**

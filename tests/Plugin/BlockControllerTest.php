@@ -22,6 +22,7 @@ use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\View\ComponentRenderer;
 use Frootbox\Core\View\Delivery;
+use Frootbox\Core\View\ViewExtension;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Http\Message\ResponseInterface;
@@ -31,6 +32,7 @@ use Psr\Http\Message\ResponseInterface;
 #[CoversClass(BlockContext::class)]
 #[CoversClass(Delivery::class)]
 #[CoversClass(PageCache::class)]
+#[CoversClass(ViewExtension::class)]
 final class BlockControllerTest extends NotesTestCase
 {
     private string $start;
@@ -78,6 +80,21 @@ final class BlockControllerTest extends NotesTestCase
         self::assertSame('miss', $plain->getHeaderLine(PageCache::HEADER));
         self::assertStringContainsString('HELLO WORLD', (string) $plain->getBody());
         self::assertSame('hit', $this->request('/?name=Bob')->getHeaderLine(PageCache::HEADER));
+    }
+
+    public function testABlockKeepsItsPageOutOfTheCache(): void
+    {
+        self::assertSame('', $this->request('/?name=secret')->getHeaderLine(PageCache::HEADER));
+        self::assertSame('', $this->request('/?name=secret')->getHeaderLine(PageCache::HEADER), 'Still not cached.');
+        self::assertSame('miss', $this->request('/?name=Ada')->getHeaderLine(PageCache::HEADER), 'Only that page.');
+    }
+
+    public function testFindsThePageOfABlock(): void
+    {
+        $views = $this->get(ViewExtension::class);
+
+        self::assertSame('/', $views->blockPage('acme/plugin/Greeting'));
+        self::assertNull($views->blockPage('acme/plugin/Nothing'), 'Also for blocks nobody installed.');
     }
 
     protected function environment(): Environment

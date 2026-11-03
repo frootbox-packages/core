@@ -118,7 +118,7 @@ final readonly class PageHandler implements RequestHandlerInterface
             $html = $this->render($resolution->page, $request);
             $cache = $this->service(PageCache::class);
 
-            if (!$cache->accepts($request)) {
+            if (!$cache->accepts($request) || !$this->service(Delivery::class)->cacheable()) {
                 return $this->page($html, null);
             }
 
