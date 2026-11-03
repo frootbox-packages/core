@@ -30,6 +30,6 @@ final readonly class ListSpaces implements Query
     {
         $plugin = $plugins->get($this->type) ?? throw new InvalidInputException('space.list', ['/type' => new Message('There is no plugin "{type}".', ['type' => $this->type])]);
 
-        return new SpaceList($this->type, $translator->get($plugin->label()), $plugin->spaces(), $spaces->all($this->type), $plugin->details());
+        return new SpaceList($this->type, $translator->get($plugin->label()), $plugin->spaces(), $spaces->all($this->type), $plugin->details(), $plugin->categories());
     }
 }

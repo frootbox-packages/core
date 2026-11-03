@@ -91,7 +91,7 @@ final class PluginPages
 
             foreach ($this->pages->fetch(['where' => ['pluginType !=' => null], 'order' => 'id']) as $page) {
                 if (null !== $page->pluginType) {
-                    $place = new PluginPlace($page->pluginType, $page->pluginSpace ?? Space::DEFAULT, $page->pluginDetails);
+                    $place = new PluginPlace($page->pluginType, $page->pluginSpace ?? Space::DEFAULT, $page->pluginDetails, $page->pluginCategories);
                     $this->places[$place->type . '|' . $place->space] ??= [$page->id, $place];
                 }
             }

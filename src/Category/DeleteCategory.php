@@ -11,6 +11,7 @@ namespace Frootbox\Core\Category;
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\Pattern;
+use Frootbox\Core\Url\AddressSync;
 use Frootbox\Database\Ulid;
 
 /**
@@ -24,9 +25,11 @@ final readonly class DeleteCategory implements Action
         public string $id,
     ) {}
 
-    public function handle(CategoryEditor $editor): null
+    public function handle(CategoryEditor $editor, AddressSync $addresses): null
     {
         $editor->delete('category.delete', $this->id);
+        // The pages of the categories follow (decision 0243).
+        $addresses->sync();
 
         return null;
     }

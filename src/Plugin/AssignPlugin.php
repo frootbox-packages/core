@@ -44,6 +44,8 @@ final readonly class AssignPlugin implements Action, Scoped
         public string $space = Space::DEFAULT,
         #[Description('Pages of their own for the objects, where the plugin lets the admin choose; left out for yes')]
         public ?bool $details = null,
+        #[Description('Pages of their own for the categories, e.g. /news/presse, where the plugin offers them; left out for no')]
+        public ?bool $categories = null,
         #[Length(1, 100)]
         #[Description('The name of a new space to create and show instead of "space", e.g. "Ausbildung"')]
         public ?string $newSpace = null,
@@ -83,7 +85,7 @@ final readonly class AssignPlugin implements Action, Scoped
             throw new InvalidInputException('plugin.assign', ['/space' => 'Another page shows this space already. A space has one page.']);
         }
 
-        $place = new PluginPlace($this->type, $space, $plugin->details()->resolve($this->details));
+        $place = new PluginPlace($this->type, $space, $plugin->details()->resolve($this->details), $plugin->categories()->resolve($this->categories, default: false));
 
         return $editor->saveDraft('plugin.assign', $this->id, $current->withPlugin($place)->with(translations: self::views($current->translations, $plugin->block())));
     }

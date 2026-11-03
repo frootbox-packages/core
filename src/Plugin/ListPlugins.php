@@ -33,6 +33,7 @@ final readonly class ListPlugins implements Query
             // With the number of objects, e.g. for the screen of the spaces (decision 0242).
             array_map(static fn(SpaceSummary $space): SpaceSummary => new SpaceSummary($space->id, $space->title, $space->default, $space->pageId, $plugin->count($space->id)), $spaces->all($plugin->type())),
             $plugin->details(),
+            $plugin->categories(),
         ), array_values($plugins->all()));
         usort($lists, static fn(SpaceList $a, SpaceList $b): int => $a->label <=> $b->label);
 

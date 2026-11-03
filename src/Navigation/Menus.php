@@ -91,6 +91,16 @@ final readonly class Menus
 
         if (null !== $subpage && null !== $url) {
             $items = array_map(static fn(MenuItem $item): MenuItem => new MenuItem($item->id, $item->type, $item->label, $item->url, false, true, $item->newWindow, $item->options, $item->children), $items);
+
+            // The categories above the page of a category (decision 0243).
+            foreach ($subpage->parents as $parent) {
+                $href = $this->urls->href($parent['target']);
+
+                if (null !== $href) {
+                    $items[] = new MenuItem((string) $parent['target'], 'target', $parent['title'], $href, false, true);
+                }
+            }
+
             $items[] = new MenuItem((string) $subpage->target, 'target', $subpage->title, $url, true, true);
         }
 

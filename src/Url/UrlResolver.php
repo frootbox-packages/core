@@ -14,6 +14,7 @@ use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Page\PageResolver;
 use Frootbox\Core\Page\ResolvedPage;
+use Frootbox\Core\Plugin\CategoryPages;
 use Frootbox\Core\Plugin\Plugins;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
@@ -38,6 +39,7 @@ final readonly class UrlResolver
         private Runner $runner,
         private Urls $urls,
         private Plugins $plugins,
+        private CategoryPages $categories,
     ) {}
 
     public function resolve(ServerRequestInterface $request): Resolution
@@ -109,13 +111,21 @@ final readonly class UrlResolver
 
     /**
      * An object of a plugin below the deepest page of the path (decision
-     * 0219), e.g. "news/neue-sorten" below "news".
+     * 0219), e.g. "news/neue-sorten" below "news", or the page of a
+     * category there (decision 0243).
      */
     private function subpage(Language $language, string $path): ?ResolvedPage
     {
         foreach ($this->below($language, $path) as [$page, $rest]) {
             $address = $this->addresses->below($language->code, $page->id, $rest);
             $target = null === $address ? null : Target::tryParse($address->target);
+
+            if (null !== $target && $target->isCategory()) {
+                $category = $this->categories->subpage($target, $rest, $page->contentLanguage);
+
+                return null === $category ? null : $page->withSubpage($category);
+            }
+
             $plugin = null === $target ? null : $this->plugins->get($target->type);
             $title = null === $target ? null : $plugin?->title($target->id, $page->contentLanguage);
 

@@ -33,5 +33,6 @@ final readonly class Page extends Entity
         public ?string $pluginType = null,
         public ?string $pluginSpace = null,
         public bool $pluginDetails = false,
+        public bool $pluginCategories = false,
     ) {}
 }

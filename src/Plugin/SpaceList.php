@@ -24,5 +24,7 @@ final readonly class SpaceList
         public array $items,
         /** Pages of their own for the objects: required, optional or none */
         public Offer $details = Offer::Required,
+        /** Pages of their own for the categories (decision 0243) */
+        public Offer $categories = Offer::None,
     ) {}
 }

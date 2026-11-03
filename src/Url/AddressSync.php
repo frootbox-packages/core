@@ -10,13 +10,15 @@ namespace Frootbox\Core\Url;
 
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Plugin\CategoryPages;
 use Frootbox\Core\Plugin\PluginPages;
 use Frootbox\Core\Plugin\Plugins;
 use Frootbox\Core\ProjectPaths;
 
 /**
- * Keeps the table urls in line with the published pages and the objects
- * of plugins below the pages of their spaces (decisions 0105, 0219, 0232).
+ * Keeps the table urls in line with the published pages, the objects
+ * of plugins below the pages of their spaces and the pages of their
+ * categories (decisions 0105, 0219, 0232, 0243).
  * Runs inside page.publish, page.delete and system.sync-urls, so every
  * change is recorded and can be undone.
  *
@@ -32,6 +34,7 @@ final readonly class AddressSync
         private ProjectPaths $project,
         private Plugins $plugins,
         private PluginPages $pages,
+        private CategoryPages $categories,
     ) {}
 
     /**
@@ -83,17 +86,31 @@ final readonly class AddressSync
         foreach ($this->pages->all() as $base => $place) {
             $plugin = $this->plugins->get($place->type);
 
-            if (null === $plugin || !$place->details) {
+            if (null === $plugin) {
                 continue;
             }
 
-            foreach ($plugin->paths($place->space) as $id => $paths) {
+            $taken = [];
+
+            foreach ($place->details ? $plugin->paths($place->space) : [] as $id => $paths) {
                 foreach ($paths as $language => $path) {
                     $path = trim($path, '/');
 
                     if (isset($languages[$base][$language]) && '' !== $path) {
                         $target = $place->type . ':' . $id;
                         $wanted[$target . '|' . $language . '|' . $base] = ['target' => $target, 'language' => $language, 'basePageId' => $base, 'path' => $path, 'fallback' => false];
+                        $taken[$language][$path] = true;
+                    }
+                }
+            }
+
+            // The pages of the categories (decision 0243); an object with the same path wins.
+            if ($place->categories) {
+                foreach ($this->categories->paths($place->type, $base, array_map(strval(...), array_keys($languages[$base] ?? []))) as $target => $paths) {
+                    foreach ($paths as $language => $path) {
+                        if (!isset($taken[$language][$path])) {
+                            $wanted[$target . '|' . $language . '|' . $base] = ['target' => $target, 'language' => $language, 'basePageId' => $base, 'path' => $path, 'fallback' => false];
+                        }
                     }
                 }
             }

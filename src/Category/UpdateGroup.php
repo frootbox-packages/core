@@ -13,6 +13,7 @@ use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\Description;
 use Frootbox\Core\Action\Schema\Length;
 use Frootbox\Core\Action\Schema\Pattern;
+use Frootbox\Core\Url\AddressSync;
 use Frootbox\Database\Ulid;
 
 /**
@@ -33,8 +34,12 @@ final readonly class UpdateGroup implements Action
         public ?array $types = null,
     ) {}
 
-    public function handle(GroupEditor $editor): AdminGroup
+    public function handle(GroupEditor $editor, AddressSync $addresses): AdminGroup
     {
-        return $editor->update('category-group.update', $this->id, $this->title, $this->types);
+        $group = $editor->update('category-group.update', $this->id, $this->title, $this->types);
+        // The pages of the categories follow (decision 0243).
+        $addresses->sync();
+
+        return $group;
     }
 }

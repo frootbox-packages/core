@@ -89,7 +89,7 @@ final readonly class PageData
             $data[$translation->language] = new TranslationData($translation->title, $translation->slug, $content, $translation->description);
         }
 
-        $plugin = null === $page->pluginType ? null : new PluginPlace($page->pluginType, $page->pluginSpace ?? Space::DEFAULT, $page->pluginDetails);
+        $plugin = null === $page->pluginType ? null : new PluginPlace($page->pluginType, $page->pluginSpace ?? Space::DEFAULT, $page->pluginDetails, $page->pluginCategories);
 
         return new self($page->parentId, $page->position, $page->layout, $page->variant, $data, $page->excludeFromSearchEngines, $page->excludeFromSiteSearch, $plugin);
     }

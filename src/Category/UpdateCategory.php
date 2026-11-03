@@ -12,6 +12,7 @@ use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\Description;
 use Frootbox\Core\Action\Schema\Pattern;
+use Frootbox\Core\Url\AddressSync;
 use Frootbox\Database\Ulid;
 
 /**
@@ -30,8 +31,12 @@ final readonly class UpdateCategory implements Action
         public array $translations,
     ) {}
 
-    public function handle(CategoryEditor $editor): Category
+    public function handle(CategoryEditor $editor, AddressSync $addresses): Category
     {
-        return $editor->update('category.update', $this->id, $this->translations);
+        $category = $editor->update('category.update', $this->id, $this->translations);
+        // The pages of the categories follow (decision 0243).
+        $addresses->sync();
+
+        return $category;
     }
 }

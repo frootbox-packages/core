@@ -13,6 +13,7 @@ use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Schema\Description;
 use Frootbox\Core\Support\Message;
+use Frootbox\Core\Url\AddressSync;
 
 /**
  * @implements Action<int>
@@ -25,7 +26,7 @@ final readonly class ApplyPresets implements Action
         public ?string $group = null,
     ) {}
 
-    public function handle(CategoryEditor $editor, CategoryGroups $groups): int
+    public function handle(CategoryEditor $editor, CategoryGroups $groups, AddressSync $addresses): int
     {
         if (null !== $this->group && null === $groups->get($this->group)) {
             throw new InvalidInputException('category.apply-presets', ['/group' => new Message('There is no group of categories "{group}".', ['group' => $this->group])]);
@@ -37,6 +38,11 @@ final readonly class ApplyPresets implements Action
             if (null === $this->group || $group->key === $this->group) {
                 $created += $editor->applyPresets($group);
             }
+        }
+
+        if ($created > 0) {
+            // The pages of the categories follow (decision 0243).
+            $addresses->sync();
         }
 
         return $created;

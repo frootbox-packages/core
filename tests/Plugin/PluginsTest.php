@@ -10,6 +10,10 @@ namespace Frootbox\Core\Tests\Plugin;
 
 use DateTimeImmutable;
 use Frootbox\Core\Action\InvalidInputException;
+use Frootbox\Core\Category\CreateCategory;
+use Frootbox\Core\Category\CreateGroup;
+use Frootbox\Core\Category\DeleteCategory;
+use Frootbox\Core\Category\UpdateCategory;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Http\Exception\HttpException;
@@ -22,6 +26,7 @@ use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\RemoveBlock;
 use Frootbox\Core\Page\UpdatePage;
 use Frootbox\Core\Plugin\AssignPlugin;
+use Frootbox\Core\Plugin\CategoryPages;
 use Frootbox\Core\Plugin\CreateSpace;
 use Frootbox\Core\Plugin\DeleteSpace;
 use Frootbox\Core\Plugin\ListSpaces;
@@ -39,6 +44,7 @@ use Frootbox\Core\Tests\Fixtures\Plugin\UnpublishItem;
 use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\Url\AddressSync;
+use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\UrlResolver;
 use Frootbox\Core\Url\Urls;
 use Nyholm\Psr7\ServerRequest;
@@ -55,6 +61,7 @@ use Psr\Http\Message\ResponseInterface;
 #[CoversClass(PluginPages::class)]
 #[CoversClass(Plugins::class)]
 #[CoversClass(AddressSync::class)]
+#[CoversClass(CategoryPages::class)]
 #[CoversClass(UrlResolver::class)]
 #[CoversClass(Scheduler::class)]
 #[CoversClass(Menus::class)]
@@ -94,6 +101,38 @@ final class PluginsTest extends NotesTestCase
         self::assertSame('/news/neue-sorten', $this->get(Urls::class)->path('acme/plugin/item:' . self::ITEM, 'de'));
         self::assertSame(404, $this->statusOf('/news/alte-sorten'));
         self::assertSame(404, $this->statusOf('/neue-sorten'), 'Only below the page of the space.');
+    }
+
+    public function testCategoriesGetPagesOfTheirOwnWithTheSwitch(): void
+    {
+        $group = $this->runner()->run(new CreateGroup('Bereiche', [ItemPlugin::TYPE]))->id;
+        $care = $this->runner()->run(new CreateCategory($group, ['de' => ['title' => 'Pflege', 'description' => 'Alles zur Pflege']]))->id;
+        $intensive = $this->runner()->run(new CreateCategory($group, ['de' => ['title' => 'Intensivpflege']], $care))->id;
+        // The same path as the item: the item wins (decision 0243).
+        $clash = $this->runner()->run(new CreateCategory($group, ['de' => ['title' => 'Neue Sorten']]))->id;
+        self::assertSame(404, $this->statusOf('/news/pflege'), 'Off unless the admin turns them on.');
+
+        $this->runner()->run(new AssignPlugin($this->news, ItemPlugin::TYPE, categories: true));
+        $this->runner()->run(new PublishPages([$this->news]));
+        $html = (string) $this->request('/news/pflege/intensivpflege')->getBody();
+        self::assertMatchesRegularExpression('~<article class="item"><h\d>Intensivpflege</h\d></article>~', $html, 'The view of the plugin on the page of the category.');
+        self::assertStringContainsString('<title>Intensivpflege – Testsite</title>', $html);
+        self::assertStringContainsString('<link rel="canonical" href="https://example.org/news/pflege/intensivpflege">', $html);
+        self::assertSame([['Start', false], ['News', false], ['Pflege', false], ['Intensivpflege', true]], array_map(static fn(MenuItem $item): array => [$item->label, $item->current], $this->get(Menus::class)->breadcrumb()), 'The categories above on the way.');
+        self::assertStringContainsString('<meta name="description" content="Alles zur Pflege">', (string) $this->request('/news/pflege')->getBody());
+        self::assertSame('/news/pflege/intensivpflege', $this->get(Urls::class)->path(Target::category($this->news, $intensive), 'de'));
+        self::assertSame('Intensivpflege', $this->get(CategoryPages::class)->title(Target::category($this->news, $intensive), 'de'), 'E.g. for the statistics.');
+        self::assertNull($this->get(Urls::class)->path(Target::category($this->news, $clash), 'de'), 'The item has the path.');
+
+        // A new slug redirects, a category that is gone is gone.
+        $this->runner()->run(new UpdateCategory($care, ['de' => ['title' => 'Pflege', 'slug' => 'pflegedienst']]));
+        self::assertSame(['/news/pflegedienst/intensivpflege', 301], $this->redirect('/news/pflege/intensivpflege'));
+        $this->runner()->run(new DeleteCategory($intensive));
+        self::assertSame(410, $this->statusOf('/news/pflegedienst/intensivpflege'));
+
+        $this->runner()->run(new AssignPlugin($this->news, ItemPlugin::TYPE, categories: false));
+        $this->runner()->run(new PublishPages([$this->news]));
+        self::assertSame(410, $this->statusOf('/news/pflegedienst'), 'Switched off.');
     }
 
     public function testRedirectsWhenThePathOrThePageChanges(): void

@@ -11,7 +11,7 @@ namespace Frootbox\Core\Plugin;
 /**
  * The space of a plugin a page shows (decision 0232), part of the page:
  *
- *     "plugin": {"type": "frootbox/jobs/job", "space": "default", "details": true}
+ *     "plugin": {"type": "frootbox/jobs/job", "space": "default", "details": true, "categories": false}
  */
 final readonly class PluginPlace
 {
@@ -20,6 +20,8 @@ final readonly class PluginPlace
         public string $space = Space::DEFAULT,
         /** Pages of their own for the objects */
         public bool $details = true,
+        /** Pages of their own for the categories (decision 0243) */
+        public bool $categories = false,
     ) {}
 
     /**
@@ -34,15 +36,15 @@ final readonly class PluginPlace
         $space = $data['space'] ?? null;
         $details = $data['details'] ?? null;
 
-        return new self($data['type'], \is_string($space) && '' !== $space ? $space : Space::DEFAULT, \is_bool($details) ? $details : true);
+        return new self($data['type'], \is_string($space) && '' !== $space ? $space : Space::DEFAULT, \is_bool($details) ? $details : true, true === ($data['categories'] ?? false));
     }
 
     /**
-     * @return array{type: string, space: string, details: bool}
+     * @return array{type: string, space: string, details: bool, categories: bool}
      */
     public function toArray(): array
     {
-        return ['type' => $this->type, 'space' => $this->space, 'details' => $this->details];
+        return ['type' => $this->type, 'space' => $this->space, 'details' => $this->details, 'categories' => $this->categories];
     }
 
     public function is(string $type, string $space): bool

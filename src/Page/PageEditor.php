@@ -593,6 +593,7 @@ final readonly class PageEditor
             'pluginType' => $data->plugin?->type,
             'pluginSpace' => $data->plugin?->space,
             'pluginDetails' => $data->plugin->details ?? false,
+            'pluginCategories' => $data->plugin->categories ?? false,
         ];
 
         if (null === $this->pages->fetchById($id)) {

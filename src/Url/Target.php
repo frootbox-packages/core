@@ -13,15 +13,19 @@ use Stringable;
 
 /**
  * Something with a URL, by type and id (decision 0105): "page:01J…" for
- * pages of the core, "acme/shop/product:123" for objects of extensions.
+ * pages of the core, "acme/shop/product:123" for objects of extensions,
+ * "category:<page>-<category>" for the page of a category below the page
+ * of a plugin (decision 0243).
  * Links, redirects and later SEO data point to the target, never to a
  * URL, so they survive when the URL changes.
  */
 final readonly class Target implements Stringable
 {
-    public const string PATTERN = '^(page|[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*):([A-Za-z0-9_-]{1,64})$';
+    public const string PATTERN = '^(page|category|[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*):([A-Za-z0-9_-]{1,64})$';
 
     public const string PAGE = 'page';
+
+    public const string CATEGORY = 'category';
 
     private function __construct(
         public string $type,
@@ -31,6 +35,14 @@ final readonly class Target implements Stringable
     public static function page(string $id): self
     {
         return self::parse(self::PAGE . ':' . $id);
+    }
+
+    /**
+     * The page of a category below a page that shows a plugin (decision 0243).
+     */
+    public static function category(string $pageId, string $categoryId): self
+    {
+        return self::parse(self::CATEGORY . ':' . $pageId . '-' . $categoryId);
     }
 
     /**
@@ -53,6 +65,11 @@ final readonly class Target implements Stringable
     public function isPage(): bool
     {
         return self::PAGE === $this->type;
+    }
+
+    public function isCategory(): bool
+    {
+        return self::CATEGORY === $this->type;
     }
 
     public function __toString(): string

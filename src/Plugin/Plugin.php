@@ -46,6 +46,13 @@ interface Plugin
     public function details(): Offer;
 
     /**
+     * Whether the categories of the type (decision 0233) get pages of
+     * their own below the page of a space, e.g. /news/presse (decision
+     * 0243). Unlike details off unless the admin turns them on.
+     */
+    public function categories(): Offer;
+
+    /**
      * Whether an admin may add spaces besides the default one.
      */
     public function spaces(): bool;
