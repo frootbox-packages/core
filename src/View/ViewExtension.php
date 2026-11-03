@@ -42,6 +42,7 @@ use Twig\TwigFunction;
  *     {{ item.heading('question', 1) }} a heading one rank below the main one
  *     {{ value('button').url }}       the stored value
  *     {{ area('columns') }}           the blocks placed in an area
+ *     {{ render_block('frootbox/forms/Form', {form: id}) }} another block inside this one, with its options (decision 0230)
  *     {{ url('page:01J…') }}          the URL of a target in the visitor's language
  *     {{ url(value('button')) }}      the URL of a link field
  *     {{ language() }}                the language of the visitor, e.g. "en"
@@ -82,6 +83,7 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('heading_text', fn(array $context, string $text, int $rank = 0, array $attributes = [], ?string $href = null): Markup => self::frame($context, 'heading_text')->scope->headingText($text, $rank, $attributes, $href), ['needs_context' => true]),
             new TwigFunction('value', fn(array $context, string $name): mixed => self::frame($context, 'value')->scope->value($name), ['needs_context' => true]),
             new TwigFunction('area', fn(array $context, string $name): Markup => new Markup($this->renderer->area(self::frame($context, 'area'), $name), 'UTF-8'), ['needs_context' => true]),
+            new TwigFunction('render_block', fn(array $context, string $name, array $options = [], ?string $variant = null): Markup => new Markup($this->renderer->inner(self::frame($context, 'render_block'), $name, $options, $variant), 'UTF-8'), ['needs_context' => true]),
             new TwigFunction('url', $this->url(...)),
             new TwigFunction('block_page', $this->blockPage(...)),
             new TwigFunction('language', fn(): string => $this->service(Delivery::class)->language()->code),

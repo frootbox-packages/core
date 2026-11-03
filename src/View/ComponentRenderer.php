@@ -94,6 +94,25 @@ final readonly class ComponentRenderer
     }
 
     /**
+     * Another block inside the view of the block being rendered, e.g. the
+     * form of the forms module below the details of a job (decision
+     * 0230): with its controller, styles and scripts, its main heading
+     * below the one of the outer block. Editors change it through the
+     * options of the outer block, so it gets no marks for editing.
+     *
+     * @param array<mixed> $options By name, as in the options of a placed block
+     *
+     * @internal Called by render_block() in templates
+     */
+    public function inner(Frame $frame, string $name, array $options = [], ?string $variant = null): string
+    {
+        $options = array_filter($options, \is_string(...), \ARRAY_FILTER_USE_KEY);
+        $id = null === $frame->instance->id ? null : $frame->instance->id . '-' . substr(hash('xxh3', $name), 0, 8);
+
+        return $this->render(ComponentKind::Block, new Instance($name, $variant, $options, id: $id), $frame->depth + 1, $frame->assets, $frame->headings->inArea(null, $id), plain: true);
+    }
+
+    /**
      * The blocks of an area of the block or layout being rendered.
      *
      * @internal Called by area() in templates
@@ -158,7 +177,10 @@ final readonly class ComponentRenderer
         return (string) preg_replace($tag . '(?![^>]*\slang=)/s', '$1 lang="' . Html::escape($language) . '"', $html, 1);
     }
 
-    private function render(ComponentKind $kind, Instance $instance, int $depth, ?AssetList $assets, Headings $headings): string
+    /**
+     * @param bool $plain Without marks for editing or comments, for a block inside another
+     */
+    private function render(ComponentKind $kind, Instance $instance, int $depth, ?AssetList $assets, Headings $headings, bool $plain = false): string
     {
         $component = $this->service(Components::class)->get($kind, $instance->name);
 
@@ -170,11 +192,12 @@ final readonly class ComponentRenderer
 
         $assets?->addComponent($component);
 
-        if ($this->editMode->marking() || $this->editMode->anchors()) {
+        if (!$plain && ($this->editMode->marking() || $this->editMode->anchors())) {
             $component = $this->service(Labels::class)->component($component);
         }
 
         $markup = match (true) {
+            $plain => null,
             $this->editMode->marking() => $this->markup,
             $this->editMode->anchors() => $this->markup->forPreview(),
             default => null,

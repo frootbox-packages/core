@@ -97,6 +97,19 @@ final class BlockControllerTest extends NotesTestCase
         self::assertNull($views->blockPage('acme/plugin/Nothing'), 'Also for blocks nobody installed.');
     }
 
+    public function testABlockShowsAnotherInside(): void
+    {
+        $page = $this->runner()->run(new CreatePage('acme/base/Page', ['de' => ['title' => 'Rahmen', 'content' => [
+            'fields' => ['heading' => 'Rahmen'],
+            'areas' => ['main' => [['block' => 'acme/plugin/Framed']]],
+        ]]], $this->start))->id;
+        $this->runner()->run(new PublishPages([$page]));
+        $html = (string) $this->request('/rahmen')->getBody();
+
+        self::assertStringContainsString('<section class="framed"><h1>Rahmen</h1><p class="stamp"><h2>Stempel</h2>Echt</p>', $html, 'With its options, its heading one level below the one of the outer block.');
+        self::assertStringContainsString('/assets/acme/plugin/blocks/Stamp/assets/stamp.js', $html, 'With its scripts.');
+    }
+
     protected function environment(): Environment
     {
         return Environment::Production;
