@@ -13,6 +13,7 @@ use Frootbox\Core\Action\Channel;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Auth\AuthenticationMiddleware;
+use Frootbox\Core\Backup\RestoreLock;
 use Frootbox\Core\Config\ConfigException;
 use Frootbox\Core\Config\ConfigLoader;
 use Frootbox\Core\Config\TimeZone;
@@ -61,6 +62,8 @@ final readonly class Application
      * @var list<class-string<MiddlewareInterface>>
      */
     public const array MIDDLEWARE = [
+        // Before anything reads the database (decision 0183).
+        RestoreLock::class,
         ErrorMiddleware::class,
         AuthenticationMiddleware::class,
         // Again behind the sign-in, so error pages know the user (decision 0132).

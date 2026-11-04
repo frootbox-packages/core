@@ -13,6 +13,7 @@ use Frootbox\Core\Action\Schema\InputMapper;
 use Frootbox\Core\Action\Schema\InputValidator;
 use Frootbox\Core\Auth\ActorType;
 use Frootbox\Core\Auth\Gate;
+use Frootbox\Core\Backup\DailyBackup;
 use Invoker\InvokerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -22,9 +23,9 @@ use Throwable;
  * Runs actions and queries. Every way into Frootbox ends here: backend,
  * REST, MCP, AI, app and console.
  *
- * An action is checked (permission, input schema), runs in a database
- * transaction, is logged with its changes and fires ActionExecuted. A
- * query is only checked and run.
+ * An action is checked (permission, input schema), may first trigger the
+ * daily backup, runs in a database transaction, is logged with its
+ * changes and fires ActionExecuted. A query is only checked and run.
  */
 final readonly class Runner
 {
@@ -40,6 +41,7 @@ final readonly class Runner
         private EventDispatcherInterface $events,
         private LoggerInterface $logger,
         private Bookkeeping $afterwards,
+        private DailyBackup $backup,
     ) {}
 
     /**
@@ -58,6 +60,12 @@ final readonly class Runner
         $parentId = $this->journal->currentEntryId();
 
         $this->check($descriptor, $input, $context, $parentId, $action);
+
+        // The state before the first change of the day (decision 0183).
+        if (null === $parentId) {
+            $this->backup->beforeAction($descriptor->name);
+        }
+
         $started = hrtime(true);
 
         try {

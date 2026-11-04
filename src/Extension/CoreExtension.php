@@ -21,6 +21,14 @@ use Frootbox\Core\Action\ActionExecuted;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
+use Frootbox\Core\Backup\BackupCreateCommand;
+use Frootbox\Core\Backup\BackupListCommand;
+use Frootbox\Core\Backup\BackupPruneCommand;
+use Frootbox\Core\Backup\BackupRestoreCommand;
+use Frootbox\Core\Backup\BackupsOnSchedule;
+use Frootbox\Core\Backup\CreateBackup;
+use Frootbox\Core\Backup\DeleteBackup;
+use Frootbox\Core\Backup\ListBackups;
 use Frootbox\Core\Cache\ClearPageCache;
 use Frootbox\Core\Category\ApplyPresets;
 use Frootbox\Core\Category\CreateCategory;
@@ -413,6 +421,16 @@ final class CoreExtension implements Extension
         $registry->action(DeleteJob::class);
         // Mails leave through the queue (decision 0222).
         $registry->job(SendMail::class);
+
+        // Backups of the database (decision 0183).
+        $registry->command(BackupCreateCommand::class);
+        $registry->command(BackupListCommand::class);
+        $registry->command(BackupPruneCommand::class);
+        $registry->command(BackupRestoreCommand::class);
+        $registry->action(CreateBackup::class);
+        $registry->action(DeleteBackup::class);
+        $registry->query(ListBackups::class);
+        $registry->listen(ScheduleRan::class, BackupsOnSchedule::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListLanguages::class);

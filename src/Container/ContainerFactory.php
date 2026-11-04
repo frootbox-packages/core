@@ -18,6 +18,8 @@ use Frootbox\Core\Action\Undo\UndoChecks;
 use Frootbox\Core\Auth\Permissions;
 use Frootbox\Core\Auth\RolePermissions;
 use Frootbox\Core\Auth\ScopeResolvers;
+use Frootbox\Core\Backup\Driver as BackupDriver;
+use Frootbox\Core\Backup\Drivers as BackupDrivers;
 use Frootbox\Core\Component\BlockGroups;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ComponentsFactory;
@@ -112,6 +114,7 @@ final class ContainerFactory
             Connection::class => factory([ConnectionFactory::class, 'create']),
             // Repositories write only inside actions and record every change.
             Writer::class => get(RecordingWriter::class),
+            BackupDriver::class => factory([BackupDrivers::class, 'create']),
             MigrationSources::class => factory([self::class, 'createMigrationSources']),
             DependencyFactory::class => factory([MigrationsFactory::class, 'create']),
             ConsoleApplication::class => factory([ConsoleFactory::class, 'create']),
