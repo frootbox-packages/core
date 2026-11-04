@@ -34,6 +34,7 @@ final class Descriptor
         public readonly bool $undoable,
         public readonly string $class,
         public readonly bool $preview = false,
+        public readonly bool $transactional = true,
     ) {}
 
     /**
@@ -68,6 +69,10 @@ final class Descriptor
             throw new DefinitionException(\sprintf('%s cannot be for preview links and public or signedIn at once.', $class));
         }
 
+        if ($info instanceof AsAction && !$info->transactional && (!str_starts_with($info->name, 'system.') || $info->undoable)) {
+            throw new DefinitionException(\sprintf('%s may only run without a transaction as a system.* action with "undoable: false" (decision 0277).', $class));
+        }
+
         if (!$reflection->hasMethod('handle') || !$reflection->getMethod('handle')->isPublic() || $reflection->getMethod('handle')->isStatic()) {
             throw new DefinitionException(\sprintf('%s needs a public method handle().', $class));
         }
@@ -82,6 +87,7 @@ final class Descriptor
             $info instanceof AsAction && $info->undoable,
             $class,
             $info->preview,
+            !$info instanceof AsAction || $info->transactional,
         );
     }
 

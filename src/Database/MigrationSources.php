@@ -20,15 +20,41 @@ final class MigrationSources
     /** @var array<string, string> namespace => directory */
     private array $sources = [];
 
-    public function add(string $namespace, string $directory): self
+    /** @var array<string, string> namespace => package */
+    private array $packages = [];
+
+    public function add(string $namespace, string $directory, ?string $package = null): self
     {
         if (!is_dir($directory)) {
             throw new InvalidArgumentException(\sprintf('Migration directory "%s" does not exist.', $directory));
         }
 
-        $this->sources[trim($namespace, '\\')] = $directory;
+        $namespace = trim($namespace, '\\');
+        $this->sources[$namespace] = $directory;
+
+        if (null !== $package) {
+            $this->packages[$namespace] = $package;
+        }
 
         return $this;
+    }
+
+    /**
+     * The package a migration belongs to, by the longest namespace that
+     * holds its class (decision 0277).
+     */
+    public function packageOf(string $class): ?string
+    {
+        $class = trim($class, '\\');
+        $found = null;
+
+        foreach ($this->packages as $namespace => $package) {
+            if (str_starts_with($class, $namespace . '\\') && (null === $found || \strlen($namespace) > \strlen($found))) {
+                $found = $namespace;
+            }
+        }
+
+        return null === $found ? null : $this->packages[$found];
     }
 
     /**

@@ -128,7 +128,7 @@ final class MigratorTest extends TestCase
         $empty = $this->project->root . '/migrations';
         mkdir($empty);
 
-        $migrator = new Migrator(MigrationsFactory::create($this->connection, new MigrationSources()->add('Empty\Migrations', $empty)));
+        $migrator = new Migrator($this->connection, new MigrationSources()->add('Empty\Migrations', $empty));
 
         self::assertSame(0, $migrator->pending());
         self::assertSame([], $migrator->migrate());
@@ -138,6 +138,6 @@ final class MigratorTest extends TestCase
     {
         $sources = new MigrationSources()->add('Frootbox\Core\Tests\Fixtures\Migrations', \dirname(__DIR__) . '/Fixtures/Migrations');
 
-        return new Migrator(MigrationsFactory::create($this->connection, $sources));
+        return new Migrator($this->connection, $sources);
     }
 }

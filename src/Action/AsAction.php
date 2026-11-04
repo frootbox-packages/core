@@ -24,6 +24,7 @@ final readonly class AsAction
      * @param bool        $signedIn    Every signed-in user may run it, e.g. signing out
      * @param bool        $undoable    False if it has effects outside the database, such as sending a mail
      * @param bool        $preview     Guests with a valid preview link may run it as well, e.g. commenting (decision 0156)
+     * @param bool        $transactional False to run without a database transaction, e.g. to change the schema; only for system.* and not undoable (decision 0277)
      */
     public function __construct(
         public string $name,
@@ -33,5 +34,6 @@ final readonly class AsAction
         public bool $signedIn = false,
         public bool $undoable = true,
         public bool $preview = false,
+        public bool $transactional = true,
     ) {}
 }

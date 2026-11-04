@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Database;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\Migrations\DependencyFactory;
 use Doctrine\Migrations\Metadata\AvailableMigration;
+use Doctrine\Migrations\Metadata\MigrationPlanList;
 use Doctrine\Migrations\MigratorConfiguration;
 use Doctrine\Migrations\Version\Version;
 
@@ -18,7 +20,28 @@ use Doctrine\Migrations\Version\Version;
  */
 final readonly class Migrator
 {
-    public function __construct(private DependencyFactory $dependencyFactory) {}
+    public function __construct(
+        private Connection $connection,
+        private MigrationSources $sources,
+    ) {}
+
+    /**
+     * The migrations that have not run yet, in the order they run.
+     *
+     * @return list<PendingMigration>
+     */
+    public function pendingList(): array
+    {
+        $factory = $this->factory();
+        $pending = [];
+
+        foreach ($this->plan($factory)->getItems() as $item) {
+            $version = (string) $item->getVersion();
+            $pending[] = new PendingMigration($version, $this->sources->packageOf($version), $item->getMigration()->getDescription());
+        }
+
+        return $pending;
+    }
 
     /**
      * Runs all migrations that have not run yet.
@@ -27,21 +50,14 @@ final readonly class Migrator
      */
     public function migrate(): array
     {
-        $this->dependencyFactory->getMetadataStorage()->ensureInitialized();
-
-        $plan = $this->dependencyFactory->getMigrationPlanCalculator()->getPlanForVersions(
-            array_map(
-                static fn(AvailableMigration $migration): Version => $migration->getVersion(),
-                $this->dependencyFactory->getMigrationStatusCalculator()->getNewMigrations()->getItems(),
-            ),
-            'up',
-        );
+        $factory = $this->factory();
+        $plan = $this->plan($factory);
 
         if (0 === \count($plan)) {
             return [];
         }
 
-        $this->dependencyFactory->getMigrator()->migrate($plan, new MigratorConfiguration());
+        $factory->getMigrator()->migrate($plan, new MigratorConfiguration());
 
         $versions = [];
 
@@ -57,8 +73,29 @@ final readonly class Migrator
      */
     public function pending(): int
     {
-        $this->dependencyFactory->getMetadataStorage()->ensureInitialized();
+        return \count($this->factory()->getMigrationStatusCalculator()->getNewMigrations());
+    }
 
-        return \count($this->dependencyFactory->getMigrationStatusCalculator()->getNewMigrations());
+    /**
+     * A fresh one each time: Doctrine freezes the migrations it ran, so a
+     * second run in the same process, e.g. after an installation, needs new ones.
+     */
+    private function factory(): DependencyFactory
+    {
+        $factory = MigrationsFactory::create($this->connection, $this->sources);
+        $factory->getMetadataStorage()->ensureInitialized();
+
+        return $factory;
+    }
+
+    private function plan(DependencyFactory $factory): MigrationPlanList
+    {
+        return $factory->getMigrationPlanCalculator()->getPlanForVersions(
+            array_map(
+                static fn(AvailableMigration $migration): Version => $migration->getVersion(),
+                $factory->getMigrationStatusCalculator()->getNewMigrations()->getItems(),
+            ),
+            'up',
+        );
     }
 }

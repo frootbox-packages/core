@@ -79,6 +79,8 @@ use Frootbox\Core\Console\ScheduleRunCommand;
 use Frootbox\Core\Console\SeedCommand;
 use Frootbox\Core\Console\UserCreateCommand;
 use Frootbox\Core\Console\UserTokenCommand;
+use Frootbox\Core\Database\ListMigrations;
+use Frootbox\Core\Database\RunMigrations;
 use Frootbox\Core\Design\DesignPage;
 use Frootbox\Core\Design\DiscardDesign;
 use Frootbox\Core\Design\ListDesignVersions;
@@ -463,6 +465,8 @@ final class CoreExtension implements Extension
         $registry->action(CreateBackup::class);
         $registry->action(DeleteBackup::class);
         $registry->query(ListBackups::class);
+        $registry->query(ListMigrations::class);
+        $registry->action(RunMigrations::class);
         $registry->listen(ScheduleRan::class, BackupsOnSchedule::class);
 
         $registry->query(ShowAccount::class);
@@ -470,6 +474,6 @@ final class CoreExtension implements Extension
         $registry->query(ListTokens::class);
         $registry->sensitive(Users::TABLE, 'password');
 
-        $registry->migrations('Frootbox\Core\Migrations', \dirname(__DIR__, 2) . '/migrations');
+        $registry->migrations('Frootbox\Core\Migrations', \dirname(__DIR__, 2) . '/migrations', 'frootbox/core');
     }
 }

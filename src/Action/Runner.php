@@ -67,11 +67,15 @@ final readonly class Runner
         }
 
         $started = hrtime(true);
+        $execute = fn(): array => $this->context->runAs($context, fn(): array => $this->execute($descriptor, $action, $context, $logged, $parentId, $started));
+
+        // E.g. migrations, whose changes to the schema end a transaction on MySQL (decision 0277).
+        if (!$descriptor->transactional && (null !== $parentId || $this->connection->isTransactionActive())) {
+            throw new DefinitionException(\sprintf('%s runs without a transaction and so not inside another action.', $descriptor->name));
+        }
 
         try {
-            [$result, $entryId] = $this->connection->transactional(
-                fn(): array => $this->context->runAs($context, fn(): array => $this->execute($descriptor, $action, $context, $logged, $parentId, $started)),
-            );
+            [$result, $entryId] = $descriptor->transactional ? $this->connection->transactional($execute) : $execute();
         } catch (Throwable $error) {
             $this->bookkeeping(fn() => $this->log->failed($descriptor, $context, $logged, $parentId, $error, self::since($started)));
 

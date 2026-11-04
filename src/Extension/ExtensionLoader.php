@@ -127,7 +127,7 @@ final class ExtensionLoader
             ));
         }
 
-        $registry->migrations($namespace, $directory);
+        $registry->migrations($namespace, $directory, $package->name);
     }
 
     private static function instantiate(ExtensionPackage $package): Extension

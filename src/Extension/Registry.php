@@ -533,9 +533,9 @@ final class Registry
      *
      * @internal Called by the ExtensionLoader.
      */
-    public function migrations(string $namespace, string $directory): void
+    public function migrations(string $namespace, string $directory, ?string $package = null): void
     {
-        $this->migrations->add($namespace, $directory);
+        $this->migrations->add($namespace, $directory, $package ?? $this->package);
     }
 
     /**
