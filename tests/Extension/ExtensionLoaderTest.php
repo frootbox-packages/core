@@ -86,6 +86,20 @@ final class ExtensionLoaderTest extends TestCase
         self::assertTrue($this->discover()->get('acme/site')?->isProject);
     }
 
+    public function testAProjectExtensionCopiedIntoVendorStaysOne(): void
+    {
+        // As "workbench build" leaves it for a webspace (decision 0267).
+        $this->composer->add('acme/site', [], dist: ['type' => 'path', 'url' => 'extensions/acme-site']);
+        $this->composer->add('vendor/news', [], dist: ['type' => 'path', 'url' => '/monorepo/packages/modules/news']);
+        $this->composer->add('vendor/alpha', []);
+
+        $extensions = $this->discover();
+
+        self::assertTrue($extensions->get('acme/site')?->isProject);
+        self::assertFalse($extensions->get('vendor/news')?->isProject, 'Only a path below extensions/ of the project.');
+        self::assertSame('acme/site', $extensions->packages[\count($extensions->packages) - 1]->name, 'Loaded last, as below extensions/.');
+    }
+
     public function testRejectsCircularDependencies(): void
     {
         $this->composer->add('vendor/a', [], ['vendor/b']);

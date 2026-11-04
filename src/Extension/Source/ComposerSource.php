@@ -15,7 +15,8 @@ use Frootbox\Core\Extension\ExtensionPackage;
  * Finds extensions among the Composer packages of an installation: every
  * installed package with a frootbox.yaml is one.
  *
- * Packages below <project>/extensions/ count as project extensions.
+ * Packages below <project>/extensions/ count as project extensions, also
+ * when Composer copied them from there into vendor/.
  */
 final readonly class ComposerSource implements ExtensionSource
 {
@@ -44,7 +45,7 @@ final readonly class ComposerSource implements ExtensionSource
                 $path,
                 array_map(strval(...), array_keys($require)),
                 $this->psr4($package),
-                false !== $projectDirectory && str_starts_with($path . '/', $projectDirectory . '/'),
+                (false !== $projectDirectory && str_starts_with($path . '/', $projectDirectory . '/')) || self::copiedFromProject($package),
             );
         }
 
@@ -78,6 +79,21 @@ final readonly class ComposerSource implements ExtensionSource
         }
 
         return array_values(array_filter($packages, \is_array(...)));
+    }
+
+    /**
+     * A package of the project copied into vendor/, e.g. by "workbench
+     * build" for a webspace (decision 0267): Composer took it from a path
+     * repository below extensions/.
+     *
+     * @param array<mixed> $package
+     */
+    private static function copiedFromProject(array $package): bool
+    {
+        $dist = \is_array($package['dist'] ?? null) ? $package['dist'] : [];
+        $url = \is_string($dist['url'] ?? null) ? str_replace('\\', '/', $dist['url']) : '';
+
+        return 'path' === ($dist['type'] ?? null) && (str_starts_with($url, 'extensions/') || str_starts_with($url, './extensions/'));
     }
 
     /**
