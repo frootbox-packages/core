@@ -1,0 +1,28 @@
+{#
+  The button "Privacy settings" and its dialog, from privacy_settings()
+  and, when a page has none of its own, from the core next to the banner
+  (decisions 0224, 0264). A theme overrides this file in
+  partials/consent/ to design it. The script needs the element
+  fb-privacy-settings, a <dialog> in it, the boxes with the name of a
+  service as value and the attributes data-consent-*; the rest is free.
+
+  groups   by purpose: purpose (value), title, services (name, title,
+           provider, privacyUrl, reach)
+  version  of the services, for the stored choice
+  proof    whether a proof of consent is kept, then the ID shows
+  floating true when the core adds it because the theme has none
+#}
+<fb-privacy-settings class="privacy-settings{% if floating %} privacy-settings--floating{% endif %}" data-consent-version="{{ version }}"{% if proof %} data-consent-proof{% endif %}><button type="button" class="privacy-settings__button" hidden>{{ t('Privacy settings') }}</button>
+{#- #}<dialog class="privacy-settings__dialog" aria-labelledby="privacy-settings-title"><form method="dialog">
+{#- #}<p class="privacy-settings__title" id="privacy-settings-title">{{ t('Privacy settings') }}</p>
+{#- #}<p>{{ t('Content of these services loads only if you agree. Ticked services load by themselves. A change applies to the next page you open.') }}</p>
+{%- for group in groups -%}
+<fieldset class="privacy-settings__group" data-consent-group="{{ group.purpose }}"><legend class="privacy-settings__purpose">{{ t(group.title) }}</legend><ul class="privacy-settings__services">
+{%- for service in group.services -%}
+<li data-consent-reach="{{ service.reach }}"><label><input type="checkbox" value="{{ service.name }}"> {{ service.title }} <span class="privacy-settings__provider">({{ service.provider }})</span></label> <a href="{{ service.privacyUrl }}" rel="noopener noreferrer" target="_blank">{{ t('Privacy policy') }}</a></li>
+{%- endfor -%}
+</ul></fieldset>
+{%- endfor -%}
+{%- if proof %}<p class="privacy-settings__id" data-consent-id hidden>{{ t('Your consent ID') }}: <code></code></p>{% endif -%}
+<button type="submit" class="privacy-settings__done">{{ t('Done') }}</button></form></dialog></fb-privacy-settings>
+{#- #}

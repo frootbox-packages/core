@@ -57,7 +57,7 @@ final class SettingsTest extends NotesTestCase
         self::assertSame('ratio', $details->fields[2]->title, 'Without #[Title] the name is the title.');
         self::assertTrue($details->fields[5]->secret);
         self::assertFalse($details->fields[5]->set);
-        self::assertSame(['acme/notes'], array_map(static fn(object $settings): string => $settings->package, $this->runner()->ask(new ListSettings())));
+        self::assertSame(['acme/notes', 'frootbox/core'], array_map(static fn(object $settings): string => $settings->package, $this->runner()->ask(new ListSettings())), 'The core has settings about consent (decision 0264).');
     }
 
     public function testChangesValuesAndResetsThemToTheDefault(): void

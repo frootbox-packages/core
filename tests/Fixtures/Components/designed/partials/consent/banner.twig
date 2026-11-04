@@ -1,0 +1,1 @@
+<fb-consent-banner class="designed-banner" data-consent-version="{{ version }}" hidden>{% for service in services %}<p data-consent-service="{{ service.name }}">{{ service.title }}</p>{% endfor %}<button type="button" data-consent-reject>{{ t('Reject all') }}</button><button type="button" data-consent-accept>{{ t('Accept all') }}</button></fb-consent-banner>

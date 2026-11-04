@@ -2,8 +2,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* Content of other providers behind a placeholder (decision 0224).
-   Neutral on purpose: themes style .external__notice and its parts. */
+/* Content of other providers behind a placeholder, the privacy settings
+   and the banner (decisions 0224, 0264). Neutral on purpose: themes style
+   .external__notice, .privacy-settings and .consent-banner and their
+   parts, or override the partials in partials/consent/. */
 
 fb-external {
     display: block;
@@ -37,7 +39,8 @@ fb-external {
 
 .external__button,
 .privacy-settings__button,
-.privacy-settings__done {
+.privacy-settings__done,
+.consent-banner__button {
     font: inherit;
     cursor: pointer;
 }
@@ -70,4 +73,69 @@ fb-external[loaded] > iframe {
     gap: 0.5em;
     padding: 0;
     list-style: none;
+}
+
+.privacy-settings__group {
+    margin: 0 0 1em;
+    padding: 0;
+    border: 0;
+}
+
+.privacy-settings__group[hidden] {
+    display: none;
+}
+
+.privacy-settings__purpose {
+    padding: 0;
+    font-weight: bold;
+}
+
+/* Only when the theme has no button of its own. */
+.privacy-settings--floating .privacy-settings__button {
+    position: fixed;
+    inset-block-end: 1rem;
+    inset-inline-start: 1rem;
+    z-index: 1000;
+}
+
+.consent-banner {
+    position: fixed;
+    inset-inline: 1rem;
+    inset-block-end: 1rem;
+    z-index: 1000;
+    display: block;
+    max-inline-size: 40rem;
+    max-block-size: calc(100dvh - 2rem);
+    overflow: auto;
+    margin-inline: auto;
+    padding: 1.25em;
+    border: 1px solid color-mix(in srgb, currentcolor 25%, transparent);
+    border-radius: 0.5em;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: 0 0.5em 2em color-mix(in srgb, CanvasText 20%, transparent);
+}
+
+.consent-banner[hidden] {
+    display: none;
+}
+
+.consent-banner__title {
+    margin: 0;
+    font-weight: bold;
+}
+
+.consent-banner__services {
+    padding-inline-start: 1.25em;
+}
+
+.consent-banner__services [hidden] {
+    display: none;
+}
+
+/* The three choices weigh the same: one look, one size. */
+.consent-banner__actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9em, 1fr));
+    gap: 0.75em;
 }

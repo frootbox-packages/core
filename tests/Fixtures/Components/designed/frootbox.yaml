@@ -1,0 +1,4 @@
+title: Designed theme
+description: Designs the banner of consent in a partial of its own (decision 0264).
+theme:
+  parent: acme/site

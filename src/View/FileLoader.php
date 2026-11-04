@@ -21,13 +21,18 @@ use Twig\Source;
  *
  *     {% include '@theme/header.twig' %}
  *
- * finds partials/header.twig in the active theme or else its parents.
+ * finds partials/header.twig in the active theme or else its parents,
+ * and last in partials/ of the core, which brings a few for every theme
+ * to override, e.g. consent/banner.twig (decision 0264).
  */
 final class FileLoader implements LoaderInterface
 {
     public const string NAMESPACE = '@theme/';
 
     private const string PARTIAL = '/^@theme\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.twig$/';
+
+    /** The partials of the core, after those of the themes */
+    public const string CORE = __DIR__ . '/../../partials';
 
     public function __construct(private readonly ThemeChain $themes = new ThemeChain()) {}
 
@@ -72,7 +77,9 @@ final class FileLoader implements LoaderInterface
             }
         }
 
-        return null;
+        $file = self::CORE . '/' . $path;
+
+        return is_file($file) ? (string) realpath($file) : null;
     }
 
     private function file(string $name): string
@@ -89,7 +96,7 @@ final class FileLoader implements LoaderInterface
 
         throw new LoaderError(1 === preg_match(self::PARTIAL, $name)
             ? \sprintf(
-                'The partial "%s" does not exist. Looked in partials/ of %s.',
+                'The partial "%s" does not exist. Looked in partials/ of %s and of the core.',
                 $name,
                 [] === $this->themes->themes ? 'no theme, there is no active one' : implode(', ', array_map(static fn(Theme $theme): string => $theme->name, $this->themes->themes)),
             )

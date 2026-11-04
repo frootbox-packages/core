@@ -52,7 +52,7 @@ final class PartialsTest extends NotesTestCase
         $loader = $this->get(Environment::class)->getLoader();
 
         foreach ([
-            '@theme/missing.twig' => 'The partial "@theme/missing.twig" does not exist. Looked in partials/ of acme/site, acme/base.',
+            '@theme/missing.twig' => 'The partial "@theme/missing.twig" does not exist. Looked in partials/ of acme/site, acme/base and of the core.',
             '@theme/../x.twig' => '"@theme/../x.twig" is no valid partial name: letters, digits, "-", "_" and "/", ending in .twig, e.g. "@theme/header.twig".',
             'header.twig' => 'The template "header.twig" does not exist.',
         ] as $name => $message) {

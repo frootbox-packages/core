@@ -1,0 +1,22 @@
+{#
+  The banner for services on every page (decision 0264), from the core at
+  the start of <body> when an extension registers such a service. It
+  stays hidden until the script finds a script of a service on the page
+  the visitor has not decided about. A theme overrides this file in
+  partials/consent/ to design it; the three choices must stay equal in
+  weight. The script needs the element fb-consent-banner, the entries
+  with data-consent-service and the buttons with data-consent-*.
+
+  services  name, title, provider, privacyUrl, purpose (title)
+  version   of the services, for the stored choice
+  proof     whether a proof of consent is kept
+#}
+<fb-consent-banner class="consent-banner" data-consent-version="{{ version }}"{% if proof %} data-consent-proof{% endif %} hidden><section class="consent-banner__inner" aria-labelledby="consent-banner-title">
+{#- #}<p class="consent-banner__title" id="consent-banner-title">{{ t('Services of other providers') }}</p>
+{#- #}<p class="consent-banner__text">{{ t('This website would like to use these services. They load only if you agree, and you can change your choice at any time in the privacy settings.') }}</p>
+{#- #}<ul class="consent-banner__services">
+{%- for service in services -%}
+<li data-consent-service="{{ service.name }}" hidden><span class="consent-banner__service">{{ service.title }}</span> <span class="consent-banner__provider">({{ service.provider }}, {{ t(service.purpose) }})</span> <a href="{{ service.privacyUrl }}" rel="noopener noreferrer" target="_blank">{{ t('Privacy policy') }}</a></li>
+{%- endfor -%}
+</ul><div class="consent-banner__actions"><button type="button" class="consent-banner__button" data-consent-reject>{{ t('Reject all') }}</button><button type="button" class="consent-banner__button" data-consent-settings>{{ t('Settings') }}</button><button type="button" class="consent-banner__button" data-consent-accept>{{ t('Accept all') }}</button></div></section></fb-consent-banner>
+{#- #}

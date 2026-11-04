@@ -8,8 +8,8 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\View;
 
+use Frootbox\Core\Consent\ConsentMarkup;
 use Frootbox\Core\Consent\Embeds;
-use Frootbox\Core\Consent\ExternalMarkup;
 use Frootbox\Core\Consent\ExternalServices;
 use Frootbox\Core\I18n\Translator;
 use Frootbox\Core\Language\Language;
@@ -352,7 +352,7 @@ final class ViewExtension extends AbstractExtension
             ?? throw new RuntimeError(\sprintf('The external service "%s" is not registered. Register it with $registry->add(ExternalService::class, …).', $service));
         $this->consentAssets(self::frame($context, 'external'));
 
-        return new Markup($this->markup()->external($known, (string) $html, $options['link'] ?? null, $options['title'] ?? null, $options['ratio'] ?? null), 'UTF-8');
+        return new Markup($this->service(ConsentMarkup::class)->external($known, (string) $html, $options['link'] ?? null, $options['title'] ?? null, $options['ratio'] ?? null), 'UTF-8');
     }
 
     /**
@@ -369,7 +369,7 @@ final class ViewExtension extends AbstractExtension
             $this->consentAssets($frame);
         }
 
-        return new Markup($this->markup()->settings($services), 'UTF-8');
+        return new Markup($this->service(ConsentMarkup::class)->settings(), 'UTF-8');
     }
 
     /**
@@ -441,13 +441,8 @@ final class ViewExtension extends AbstractExtension
     private function consentAssets(Frame $frame): void
     {
         $core = \dirname(__DIR__, 2);
-        $frame->assets?->add($core . '/' . ExternalMarkup::STYLE, 'base');
-        $frame->assets?->add($core . '/' . ExternalMarkup::SCRIPT, 'base');
-    }
-
-    private function markup(): ExternalMarkup
-    {
-        return new ExternalMarkup(fn(string $text, array $parameters): string => $this->text($text, $parameters));
+        $frame->assets?->add($core . '/' . ConsentMarkup::STYLE, 'base');
+        $frame->assets?->add($core . '/' . ConsentMarkup::SCRIPT, 'base');
     }
 
     /**

@@ -9,8 +9,8 @@ declare(strict_types=1);
 namespace Frootbox\Core\Tests\Consent;
 
 use Frootbox\Core\Config\Environment;
+use Frootbox\Core\Consent\ConsentMarkup;
 use Frootbox\Core\Consent\Embeds;
-use Frootbox\Core\Consent\ExternalMarkup;
 use Frootbox\Core\Consent\ExternalService;
 use Frootbox\Core\Consent\ExternalServices;
 use Frootbox\Core\Extension\ExtensionException;
@@ -29,7 +29,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * Content of other providers loads only after consent (decision 0224).
  */
 #[CoversClass(Embeds::class)]
-#[CoversClass(ExternalMarkup::class)]
+#[CoversClass(ConsentMarkup::class)]
 #[CoversClass(ExternalService::class)]
 #[CoversClass(ExternalServices::class)]
 #[CoversClass(ViewExtension::class)]
@@ -48,8 +48,8 @@ final class ExternalTest extends NotesTestCase
         self::assertStringContainsString('<div class="external__actions" hidden><button type="button" class="external__button" data-external-load>Load content</button><label class="external__always"><input type="checkbox" data-external-always> Always load OpenStreetMap</label></div>', $html, 'The buttons need the script.');
         self::assertStringContainsString('<p class="external__link"><a href="https://www.openstreetmap.org/#map=15/51.96/7.63" rel="noopener noreferrer">Open it at OpenStreetMap</a></p>', $html, 'Without JavaScript, a link to the provider.');
 
-        self::assertStringContainsString('<fb-privacy-settings class="privacy-settings"><button type="button" class="privacy-settings__button" hidden>Privacy settings</button><dialog class="privacy-settings__dialog" aria-labelledby="privacy-settings-title">', $html);
-        self::assertStringContainsString('<li><label><input type="checkbox" value="acme/external/osm"> OpenStreetMap <span class="privacy-settings__provider">(OpenStreetMap Foundation)</span></label>', $html);
+        self::assertStringContainsString('<button type="button" class="privacy-settings__button" hidden>Privacy settings</button><dialog class="privacy-settings__dialog" aria-labelledby="privacy-settings-title">', $html);
+        self::assertStringContainsString('<li data-consent-reach="content"><label><input type="checkbox" value="acme/external/osm"> OpenStreetMap <span class="privacy-settings__provider">(OpenStreetMap Foundation)</span></label>', $html);
 
         self::assertSame(1, substr_count($html, '<script type="module" src="/assets/frootbox/core/assets/external.js?v='), 'The script of the core, once; its CSS is in the bundle.');
     }
@@ -90,11 +90,6 @@ final class ExternalTest extends NotesTestCase
         self::assertNull(Embeds::map('other', 51.0, 7.0));
         self::assertSame('https://www.openstreetmap.org/?mlat=51.5&mlon=7#map=19/51.5/7', Embeds::map(Embeds::OPENSTREETMAP, 51.5, 7.0, zoom: 30)?->link);
         self::assertSame('https://www.google.com/maps/search/?api=1&query=51.5%2C7', Embeds::map(Embeds::GOOGLE_MAPS, 51.5, 7.0)?->link);
-    }
-
-    public function testWithoutServicesThereAreNoPrivacySettings(): void
-    {
-        self::assertSame('', new ExternalMarkup(static fn(string $text): string => $text)->settings([]));
     }
 
     public function testANameBelongsToOneExtension(): void

@@ -54,8 +54,13 @@ use Frootbox\Core\Component\ListBlocks;
 use Frootbox\Core\Component\ListLayouts;
 use Frootbox\Core\Component\PreviewHandler;
 use Frootbox\Core\Component\Previews;
+use Frootbox\Core\Consent\ConsentSettings;
 use Frootbox\Core\Consent\Embeds;
 use Frootbox\Core\Consent\ExternalService;
+use Frootbox\Core\Consent\ListServices;
+use Frootbox\Core\Consent\Proof\ListProofs;
+use Frootbox\Core\Consent\Proof\ProofHandler;
+use Frootbox\Core\Consent\Proof\Proofs;
 use Frootbox\Core\Console\AboutCommand;
 use Frootbox\Core\Console\ActionLogCommand;
 use Frootbox\Core\Console\ActionsCommand;
@@ -274,6 +279,13 @@ final class CoreExtension implements Extension
         foreach (Embeds::services() as $service) {
             $registry->add(ExternalService::class, $service);
         }
+
+        // Banner, privacy settings and consent tools (decision 0264).
+        $registry->settings(ConsentSettings::class);
+        $registry->query(ListServices::class);
+        $registry->query(ListProofs::class);
+        $registry->post(ProofHandler::ROUTE, ProofHandler::class, 'consent.proof');
+        $registry->listen(ScheduleRan::class, Proofs::class);
 
         $registry->action(UndoAction::class);
 

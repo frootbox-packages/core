@@ -1,0 +1,21 @@
+{#
+  The placeholder of content of another provider, from external(),
+  video_embed() and map_embed() (decisions 0224, 0264). A theme overrides
+  this file in partials/consent/ to design it. The script needs the
+  element fb-external with "service", the <template> with the content
+  and the attributes data-external-*; the rest is free.
+
+  service  name, title, provider, privacyUrl
+  content  the HTML that loads after consent
+  link     the content at the provider, for visitors without JavaScript
+  title    what the content is, e.g. "Video: Our roastery"
+  ratio    keeps the place, e.g. "16 / 9"
+#}
+{%- set names = {service: service.title, provider: service.provider} -%}
+<fb-external class="external" service="{{ service.name }}"{% if ratio %} style="--external-ratio: {{ ratio }}"{% endif %}><template>{{ content|raw }}</template>
+{#- #}<div class="external__notice" role="group" aria-label="{{ title ?: service.title }}">
+{#- #}<p>{{ t('This content comes from {service}. When it loads, your browser sends data to {provider}.', names) }} <a href="{{ service.privacyUrl }}" rel="noopener noreferrer" target="_blank">{{ t('Privacy policy') }}</a></p>
+{#- #}<div class="external__actions" hidden><button type="button" class="external__button" data-external-load>{{ t('Load content', names) }}</button><label class="external__always"><input type="checkbox" data-external-always> {{ t('Always load {service}', names) }}</label></div>
+{%- if link %}<p class="external__link"><a href="{{ link }}" rel="noopener noreferrer">{{ t('Open it at {service}', names) }}</a></p>{% endif -%}
+</div></fb-external>
+{#- #}
