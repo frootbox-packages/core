@@ -21,6 +21,12 @@ use Frootbox\Core\Field\FieldTypes;
  * A draft may be unfinished: required fields and the minimum number of
  * blocks in an area are only checked when $complete is true, e.g. on
  * publishing.
+ *
+ * What no definition knows any more, because an extension was removed or
+ * updated, is orphaned (decision 0276): a block whose name is gone, the
+ * view of a plugin, or a variant, option, field or area a block or the
+ * layout no longer has. It is kept as it is and no error if it is
+ * unchanged from the stored content. New or changed, it is an error.
  */
 final readonly class ContentValidator
 {
@@ -39,9 +45,11 @@ final readonly class ContentValidator
     ) {}
 
     /**
+     * @param mixed $stored The content as it is stored, to keep what is orphaned in it
+     *
      * @return array{array<string, mixed>, array<string, string>} The content with block ids, and messages by JSON pointer
      */
-    public function check(Component $layout, ?string $variant, mixed $content, bool $complete): array
+    public function check(Component $layout, ?string $variant, mixed $content, bool $complete, mixed $stored = null): array
     {
         $errors = [];
         $ids = [];
@@ -50,12 +58,14 @@ final readonly class ContentValidator
             return [[], ['/' => 'must be an object with "options", "fields" and "areas".']];
         }
 
+        $stored = self::isMap($stored) ? $stored : [];
+        $before = self::index($stored);
         $plugin = $content['plugin'] ?? null;
         unset($content['plugin']);
-        $checked = $this->body($layout, $variant, $content, '', $complete, $errors, $ids, self::BODY_KEYS);
+        $checked = $this->body($layout, $variant, $content, '', $complete, $errors, $ids, self::BODY_KEYS, $stored, $before);
 
         if (null !== $plugin) {
-            $view = $this->plugin($plugin, $complete, $errors, $ids);
+            $view = $this->plugin($plugin, $complete, $errors, $ids, $stored['plugin'] ?? null, $before);
 
             if (null !== $view) {
                 $checked['plugin'] = $view;
@@ -70,10 +80,12 @@ final readonly class ContentValidator
      * @param array<string, string> $errors
      * @param array<string, true>   $ids
      * @param list<string>          $keys
+     * @param array<mixed>          $stored The same block or layout as stored, or [] for a new one
+     * @param array<string, mixed>  $before Stored blocks by id
      *
      * @return array<string, mixed>
      */
-    private function body(Component $component, ?string $variant, array $data, string $pointer, bool $complete, array &$errors, array &$ids, array $keys): array
+    private function body(Component $component, ?string $variant, array $data, string $pointer, bool $complete, array &$errors, array &$ids, array $keys, array $stored, array $before): array
     {
         $unknown = array_diff(array_map(strval(...), array_keys($data)), $keys);
 
@@ -83,13 +95,13 @@ final readonly class ContentValidator
 
         $checked = [];
 
-        if (null !== $variant && !isset($component->variants[$variant])) {
+        if (null !== $variant && !isset($component->variants[$variant]) && $variant !== ($stored['variant'] ?? null)) {
             $errors[$pointer . '/variant'] = \sprintf('%s has no variant "%s". Variants: %s.', $component->name, $variant, implode(', ', array_keys($component->variants)));
         }
 
-        $options = $this->options($component->variant($variant), $data['options'] ?? [], $pointer . '/options', $errors);
-        $fields = $this->fields($component, $data['fields'] ?? [], $pointer . '/fields', $complete, $errors);
-        $areas = $this->areas($component, $data['areas'] ?? [], $pointer . '/areas', $complete, $errors, $ids);
+        $options = $this->options($component->variant($variant), $data['options'] ?? [], $pointer . '/options', $errors, self::map($stored['options'] ?? null));
+        $fields = $this->fields($component, $data['fields'] ?? [], $pointer . '/fields', $complete, $errors, self::map($stored['fields'] ?? null));
+        $areas = $this->areas($component, $data['areas'] ?? [], $pointer . '/areas', $complete, $errors, $ids, self::map($stored['areas'] ?? null), $before);
 
         foreach (['options' => $options, 'fields' => $fields, 'areas' => $areas] as $key => $value) {
             if ([] !== $value) {
@@ -102,10 +114,11 @@ final readonly class ContentValidator
 
     /**
      * @param array<string, string> $errors
+     * @param array<string, mixed>  $stored
      *
      * @return array<string, mixed>
      */
-    private function options(Variant $variant, mixed $options, string $pointer, array &$errors): array
+    private function options(Variant $variant, mixed $options, string $pointer, array &$errors, array $stored): array
     {
         if (!self::isMap($options)) {
             $errors[$pointer] = 'must be an object.';
@@ -119,7 +132,9 @@ final readonly class ContentValidator
             $name = (string) $name;
             $option = $variant->options[$name] ?? null;
 
-            if (null === $option) {
+            if ((null === $option || !$option->accepts($value)) && self::unchanged($stored, $name, $value)) {
+                $checked[$name] = $value;
+            } elseif (null === $option) {
                 $errors[$pointer . '/' . $name] = \sprintf('is not an option of this variant. Options: %s.', [] === $variant->options ? 'none' : implode(', ', array_keys($variant->options)));
             } elseif (!$option->accepts($value)) {
                 $errors[$pointer . '/' . $name] = 'choice' === $option->type
@@ -135,10 +150,11 @@ final readonly class ContentValidator
 
     /**
      * @param array<string, string> $errors
+     * @param array<string, mixed>  $stored
      *
      * @return array<string, mixed>
      */
-    private function fields(Component $component, mixed $fields, string $pointer, bool $complete, array &$errors): array
+    private function fields(Component $component, mixed $fields, string $pointer, bool $complete, array &$errors, array $stored): array
     {
         if (!self::isMap($fields)) {
             $errors[$pointer] = 'must be an object.';
@@ -147,9 +163,16 @@ final readonly class ContentValidator
         }
 
         $values = [];
+        $orphaned = [];
 
         foreach ($fields as $name => $value) {
-            $values[(string) $name] = $value;
+            $name = (string) $name;
+
+            if (!isset($component->fields[$name]) && self::unchanged($stored, $name, $value)) {
+                $orphaned[$name] = $value;
+            } else {
+                $values[$name] = $value;
+            }
         }
 
         $schema = $complete ? $this->types->schemaForPublishing($component->fields, $values) : self::withoutMinimums($this->types->schemaFor($component->fields));
@@ -160,16 +183,18 @@ final readonly class ContentValidator
             $errors[$pointer . ('/' === $path ? '' : $path)] = $message;
         }
 
-        return $values;
+        return $values + $orphaned;
     }
 
     /**
      * @param array<string, string> $errors
      * @param array<string, true>   $ids
+     * @param array<string, mixed>  $stored
+     * @param array<string, mixed>  $before
      *
      * @return array<string, list<array<string, mixed>>>
      */
-    private function areas(Component $component, mixed $areas, string $pointer, bool $complete, array &$errors, array &$ids): array
+    private function areas(Component $component, mixed $areas, string $pointer, bool $complete, array &$errors, array &$ids, array $stored, array $before): array
     {
         if (!self::isMap($areas)) {
             $errors[$pointer] = 'must be an object with a list of blocks per area.';
@@ -177,13 +202,23 @@ final readonly class ContentValidator
             return [];
         }
 
-        foreach (array_keys($areas) as $name) {
-            if (!isset($component->areas[(string) $name])) {
+        $checked = [];
+        $orphaned = [];
+
+        foreach ($areas as $name => $blocks) {
+            $name = (string) $name;
+
+            if (isset($component->areas[$name])) {
+                continue;
+            }
+
+            if (\is_array($blocks) && self::unchanged($stored, $name, $blocks) && $this->claimAll($blocks, $pointer . '/' . $name, $errors, $ids)) {
+                /** @var list<array<string, mixed>> $blocks */
+                $orphaned[$name] = $blocks;
+            } else {
                 $errors[$pointer . '/' . $name] = \sprintf('%s has no area "%s". Areas: %s.', $component->name, $name, [] === $component->areas ? 'none' : implode(', ', array_keys($component->areas)));
             }
         }
-
-        $checked = [];
 
         foreach ($component->areas as $name => $area) {
             $blocks = $areas[$name] ?? [];
@@ -205,7 +240,7 @@ final readonly class ContentValidator
             $list = [];
 
             foreach ($blocks as $index => $block) {
-                $checkedBlock = $this->block($area, $block, $pointer . '/' . $name . '/' . $index, $complete, $errors, $ids);
+                $checkedBlock = $this->block($area, $block, $pointer . '/' . $name . '/' . $index, $complete, $errors, $ids, $before);
 
                 if (null !== $checkedBlock) {
                     $list[] = $checkedBlock;
@@ -217,16 +252,17 @@ final readonly class ContentValidator
             }
         }
 
-        return $checked;
+        return $checked + $orphaned;
     }
 
     /**
      * @param array<string, string> $errors
      * @param array<string, true>   $ids
+     * @param array<string, mixed>  $before
      *
      * @return array<string, mixed>|null
      */
-    private function block(Area $area, mixed $block, string $pointer, bool $complete, array &$errors, array &$ids): ?array
+    private function block(Area $area, mixed $block, string $pointer, bool $complete, array &$errors, array &$ids, array $before): ?array
     {
         if (!self::isMap($block) || [] === $block) {
             $errors[$pointer] = 'must be a block like {"block": "acme/website/Teaser", "fields": {}}.';
@@ -243,8 +279,14 @@ final readonly class ContentValidator
         }
 
         $component = $this->components->block($name);
+        $stored = self::map($before[\is_string($block['id'] ?? null) ? $block['id'] : ''] ?? null);
+        $stored = ($stored['block'] ?? null) === $name ? $stored : [];
 
         if (null === $component) {
+            if (self::same($stored, $block) && $this->claimAll([$block], $pointer, $errors, $ids)) {
+                return $stored;
+            }
+
             $errors[$pointer . '/block'] = \sprintf('there is no block "%s".', $name);
 
             return null;
@@ -268,7 +310,7 @@ final readonly class ContentValidator
         }
 
         $id = $this->id($block['id'] ?? null, $pointer . '/id', $errors, $ids);
-        $body = $this->body($component, $variant, $block, $pointer, $complete, $errors, $ids, self::BLOCK_KEYS);
+        $body = $this->body($component, $variant, $block, $pointer, $complete, $errors, $ids, self::BLOCK_KEYS, $stored, $before);
 
         return ['id' => $id, 'block' => $name, ...(null === $variant ? [] : ['variant' => $variant]), ...$body];
     }
@@ -279,13 +321,21 @@ final readonly class ContentValidator
      *
      * @param array<string, string> $errors
      * @param array<string, true>   $ids
+     * @param array<string, mixed>  $before
      *
      * @return array<string, mixed>|null
      */
-    private function plugin(mixed $block, bool $complete, array &$errors, array &$ids): ?array
+    private function plugin(mixed $block, bool $complete, array &$errors, array &$ids, mixed $stored, array $before): ?array
     {
         $name = self::isMap($block) ? $block['block'] ?? null : null;
         $component = \is_string($name) ? $this->components->block($name) : null;
+        $stored = self::map($stored);
+
+        if (null === $component && \is_array($block) && [] !== $stored && self::same($stored, $block) && $this->claimAll([$block], '/plugin', $errors, $ids)) {
+            return $stored;
+        }
+
+        $stored = ($stored['block'] ?? null) === $name ? $stored : [];
 
         if (!\is_array($block) || !\is_string($name) || null === $component || !$component->plugin) {
             $errors['/plugin'] = 'must be the view of a plugin, e.g. {"block": "acme/news/ArticleList"}.';
@@ -295,7 +345,7 @@ final readonly class ContentValidator
 
         $variant = \is_string($block['variant'] ?? null) ? $block['variant'] : null;
         $id = $this->id($block['id'] ?? null, '/plugin/id', $errors, $ids);
-        $body = $this->body($component, $variant, $block, '/plugin', $complete, $errors, $ids, self::BLOCK_KEYS);
+        $body = $this->body($component, $variant, $block, '/plugin', $complete, $errors, $ids, self::BLOCK_KEYS, $stored, $before);
 
         return ['id' => $id, 'block' => $name, ...(null === $variant ? [] : ['variant' => $variant]), ...$body];
     }
@@ -337,6 +387,127 @@ final readonly class ContentValidator
         $ids[$id] = true;
 
         return $id;
+    }
+
+    /**
+     * Claims the ids of orphaned blocks and of the blocks inside them.
+     * False, with an error, if one is used already.
+     *
+     * @param array<mixed>          $blocks
+     * @param array<string, string> $errors
+     * @param array<string, true>   $ids
+     */
+    private function claimAll(array $blocks, string $pointer, array &$errors, array &$ids): bool
+    {
+        $found = [];
+        self::collect($blocks, $found);
+
+        foreach (array_keys($found) as $id) {
+            if (isset($ids[$id])) {
+                $errors[$pointer] = \sprintf('"%s" is used by another block of this content.', $id);
+
+                return false;
+            }
+        }
+
+        foreach (array_keys($found) as $id) {
+            $ids[$id] = true;
+        }
+
+        return true;
+    }
+
+    /**
+     * The stored blocks by id, at any depth, the view of a plugin too.
+     *
+     * @param array<mixed> $content
+     *
+     * @return array<string, mixed>
+     */
+    private static function index(array $content): array
+    {
+        $found = [];
+        self::collect([$content], $found, true);
+
+        return $found;
+    }
+
+    /**
+     * @param array<mixed>        $blocks
+     * @param array<string, mixed> $found
+     */
+    private static function collect(array $blocks, array &$found, bool $root = false): void
+    {
+        foreach ($blocks as $block) {
+            if (!\is_array($block)) {
+                continue;
+            }
+
+            if (!$root && \is_string($block['id'] ?? null)) {
+                $found[$block['id']] = $block;
+            }
+
+            if (\is_array($block['plugin'] ?? null)) {
+                self::collect([$block['plugin']], $found);
+            }
+
+            foreach (\is_array($block['areas'] ?? null) ? $block['areas'] : [] as $list) {
+                if (\is_array($list)) {
+                    self::collect($list, $found);
+                }
+            }
+
+            $root = false;
+        }
+    }
+
+    /**
+     * Whether the value is the one stored under this name.
+     *
+     * @param array<string, mixed> $stored
+     */
+    private static function unchanged(array $stored, string $name, mixed $value): bool
+    {
+        return \array_key_exists($name, $stored) && self::same($stored[$name], $value);
+    }
+
+    /**
+     * Equal as JSON, whatever the order of the keys of objects.
+     */
+    private static function same(mixed $a, mixed $b): bool
+    {
+        return self::sorted($a) === self::sorted($b);
+    }
+
+    private static function sorted(mixed $value): mixed
+    {
+        if (!\is_array($value)) {
+            return $value;
+        }
+
+        if (!array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(self::sorted(...), $value);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function map(mixed $value): array
+    {
+        if (!\is_array($value)) {
+            return [];
+        }
+
+        $map = [];
+
+        foreach ($value as $key => $item) {
+            $map[(string) $key] = $item;
+        }
+
+        return $map;
     }
 
     /**

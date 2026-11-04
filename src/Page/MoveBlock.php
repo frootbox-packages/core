@@ -71,7 +71,17 @@ final readonly class MoveBlock implements Action, Scoped
 
         $without = $blocks->remove($way);
         [$list, $index] = $without->place($this->parent, $this->area, $this->after);
-        $without->checkAllowed($list, \is_string($block['block'] ?? null) ? $block['block'] : '');
+        $name = \is_string($block['block'] ?? null) ? $block['block'] : '';
+
+        // Without its definition nobody knows which areas take it (decision 0276).
+        if (null === $components->block($name)) {
+            if (\array_slice($way, 0, -1) !== $list) {
+                throw new InvalidInputException('page.move-block', ['/area' => 'A block whose extension is missing only moves within its area.']);
+            }
+        } else {
+            $without->checkAllowed($list, $name);
+        }
+
         $without->insert($list, $index, $block)->save($editor, $this->id, $page, $this->language);
 
         return new BlockChanged($this->id, $this->language, $this->block, $journal->currentEntryId());

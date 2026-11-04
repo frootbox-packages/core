@@ -51,6 +51,7 @@ use Frootbox\Core\Comment\ReplyToComment;
 use Frootbox\Core\Comment\ResolveComment;
 use Frootbox\Core\Component\ListBlockGroups;
 use Frootbox\Core\Component\ListBlocks;
+use Frootbox\Core\Component\ListComponentUsages;
 use Frootbox\Core\Component\ListLayouts;
 use Frootbox\Core\Component\PreviewHandler;
 use Frootbox\Core\Component\Previews;
@@ -443,6 +444,7 @@ final class CoreExtension implements Extension
         $registry->sensitive(StoredSettings::TABLE, 'secret');
         $registry->query(ListJobs::class);
         $registry->query(ListExtensions::class);
+        $registry->query(ListComponentUsages::class);
         $registry->query(ShowQueueStatus::class);
         $registry->action(RetryJob::class);
         $registry->action(DeleteJob::class);

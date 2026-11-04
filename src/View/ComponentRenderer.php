@@ -199,12 +199,34 @@ final readonly class ComponentRenderer
             $rendered = $this->render(ComponentKind::Block, $block, $frame->depth + 1, $frame->assets, $frame->headings->inArea($level, $block->id));
             $rendered = null === $language ? $rendered : self::withLanguage($rendered, $language->code, $direction);
             $component = $marked ? $this->service(Components::class)->get(ComponentKind::Block, $block->name) : null;
+
+            if ($marking && null === $component) {
+                $html .= $this->missing($block, $name);
+
+                continue;
+            }
+
             // Labels for the editors in the language of the backend (decision 0161).
             $component = null === $component ? null : $this->service(Labels::class)->component($component);
             $html .= null === $component ? $rendered : $this->markup->block($rendered, $block, $component, $name);
         }
 
         return $marking && '' === $html ? $this->markup->emptyArea($name) : $html;
+    }
+
+    /**
+     * The placeholder of a block whose extension is gone (decision 0276).
+     */
+    private function missing(Instance $block, string $area): string
+    {
+        $labels = $this->service(Labels::class);
+
+        return $this->markup->missing(
+            $block,
+            $area,
+            $labels->text('Missing block'),
+            $labels->text('Its extension is not installed. Remove the block or install the extension again.'),
+        );
     }
 
     /**
@@ -234,7 +256,13 @@ final readonly class ComponentRenderer
      */
     private function render(ComponentKind $kind, Instance $instance, int $depth, ?AssetList $assets, Headings $headings, bool $plain = false): string
     {
-        $component = $this->service(Components::class)->get($kind, $instance->name);
+        $components = $this->service(Components::class);
+        $component = $components->get($kind, $instance->name);
+
+        // A page whose layout is gone shows the first one editors may choose (decision 0276).
+        if (null === $component && ComponentKind::Layout === $kind) {
+            $component = $components->fallbackLayout(null !== $this->service(Delivery::class)->plugin());
+        }
 
         if (null === $component || $depth > self::MAX_DEPTH) {
             return $this->environment->isDevelopment()

@@ -158,6 +158,24 @@ final readonly class EditMarkup
     }
 
     /**
+     * Holds the place of a block whose extension is gone (decision 0276):
+     * it can be moved and removed, not edited.
+     */
+    public function missing(Instance $block, string $area, string $title, string $text): string
+    {
+        return \sprintf(
+            '<fb-missing%s data-fb-name="%s" data-fb-title="%s" data-fb-area="%s" data-fb-missing><strong>%s</strong> <code>%s</code><br>%s</fb-missing>',
+            null === $block->id ? '' : ' data-fb-block="' . Html::escape($block->id) . '"',
+            Html::escape($block->name),
+            Html::escape($title),
+            Html::escape($area),
+            Html::escape($title),
+            Html::escape($block->name),
+            Html::escape($text),
+        );
+    }
+
+    /**
      * Holds the place of an area without blocks.
      */
     public function emptyArea(string $area): string

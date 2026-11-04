@@ -53,6 +53,20 @@ final readonly class Components
     }
 
     /**
+     * The layout for a page whose layout is gone (decision 0276): the
+     * first one editors may choose, with plugin() for a page that shows
+     * a plugin if there is one.
+     */
+    public function fallbackLayout(bool $plugin = false): ?Component
+    {
+        $offered = array_values(array_filter($this->layouts, fn(Component $layout): bool => $this->offers(ComponentKind::Layout, $layout->name)));
+        $candidates = [] === $offered ? array_values($this->layouts) : $offered;
+        $withPlugin = array_values(array_filter($candidates, static fn(Component $layout): bool => $layout->plugin));
+
+        return ($plugin ? $withPlugin[0] ?? null : null) ?? $candidates[0] ?? null;
+    }
+
+    /**
      * @return array<string, Component>
      */
     public function all(ComponentKind $kind): array

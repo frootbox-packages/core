@@ -445,13 +445,21 @@ final readonly class PageEditor
     private function check(string $id, PageData $data, array $nodes, bool $complete): array
     {
         $errors = $this->checkParent($id, $data->parentId, $nodes);
+        // What is stored keeps its orphaned parts (decision 0276).
+        $stored = $this->reader->draft($id) ?? $this->reader->published($id);
+        $sameLayout = $stored?->layout === $data->layout;
         $layout = $this->components->layout($data->layout);
+        $orphaned = null === $layout && $sameLayout;
+        $layout ??= $orphaned ? $this->components->fallbackLayout(null !== $data->plugin) : null;
         $variant = $data->variant;
 
         if (null === $layout) {
             $errors['/layout'] = \sprintf('There is no layout "%s".', $data->layout);
         } elseif (null !== $variant && !isset($layout->variants[$variant])) {
-            $errors['/variant'] = \sprintf('%s has no variant "%s". Variants: %s.', $layout->name, $variant, implode(', ', array_keys($layout->variants)));
+            if (!$orphaned && !($sameLayout && $stored->variant === $variant)) {
+                $errors['/variant'] = \sprintf('%s has no variant "%s". Variants: %s.', $layout->name, $variant, implode(', ', array_keys($layout->variants)));
+            }
+
             $variant = null;
         }
 
@@ -461,7 +469,7 @@ final readonly class PageEditor
 
         // A space of a plugin has one page, in a layout with plugin() (decision 0232).
         if (null !== $data->plugin) {
-            if (null !== $layout && !$layout->plugin) {
+            if (null !== $layout && !$layout->plugin && !$orphaned) {
                 $errors['/layout'] = 'The layout has no place for the plugin of the page. Choose a layout with one or take the plugin away first.';
             }
 
@@ -502,7 +510,7 @@ final readonly class PageEditor
             $content = $translation->content;
 
             if (null !== $layout) {
-                [$content, $found] = $this->content->check($layout, $variant, $translation->content, $complete);
+                [$content, $found] = $this->content->check($layout, $variant, $translation->content, $complete, $stored?->translations[$language]->content ?? null);
 
                 foreach ($found as $pointer => $message) {
                     $errors[$at . '/content' . ('/' === $pointer ? '' : $pointer)] = $message;
