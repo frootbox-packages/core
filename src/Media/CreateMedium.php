@@ -27,7 +27,7 @@ final readonly class CreateMedium implements Action, Scoped
      * @param list<string> $tags
      */
     public function __construct(
-        #[Description('The token from POST /api/v1/uploads')]
+        #[Description('The token from POST /api/v1/uploads, or from an "upload" step of a seed file')]
         public string $upload,
         #[Description('The folder, none for the top')]
         public ?string $folderId = null,

@@ -26,6 +26,18 @@ use Frootbox\Core\View\Scope;
  *       start: 3
  *       fields:
  *         title: { type: headline }
+ *
+ * The value is a list of entries, each with the values of its fields:
+ *
+ *     [{"title": "First slide"}, {"title": "Second slide"}]
+ *
+ * In the view field('slides') gives the entries to loop over, each with
+ * field(), value() and heading() of its own; visitors get only entries
+ * with a value:
+ *
+ *     {% for slide in field('slides') %}
+ *       <li>{{ slide.heading('title', 1) }}</li>
+ *     {% endfor %}
  */
 #[AsFieldType('list', 'Repeated entries with their own fields')]
 final readonly class ListType implements HasSubfields, ReferencesMedia, Searchable

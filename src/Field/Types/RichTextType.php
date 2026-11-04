@@ -20,8 +20,8 @@ use Twig\Markup;
 /**
  * Formatted text from the editor (Tiptap JSON), output as safe HTML.
  *
- * Headings are stored with their rank: 1 „Überschrift“, 2
- * „Unterüberschrift“, 3 „Kleine Überschrift“ (decision 0129). On a page
+ * Headings are stored with their rank: 1 the heading, 2 the subheading,
+ * 3 the small heading (decision 0129). On a page
  * the core decides their levels; elsewhere rank 1 is an h2. The setting
  * "headings" limits the ranks, 0 allows none.
  */

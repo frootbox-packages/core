@@ -37,6 +37,7 @@ final class ReferenceTest extends NotesTestCase
         self::assertStringNotContainsString('forPackage', $pages['registry.md'], 'Nothing internal.');
         self::assertStringContainsString("| `{{ heading('title') }}` | the field as a heading", $pages['twig.md']);
         self::assertStringContainsString('| `headline` | A single line for a heading |', $pages['field-types.md']);
+        self::assertStringContainsString("## `image`\n\nAn image from the media library:\n\n```\n{\"media\": \"01J…\"", $pages['field-types.md'], 'Each type with the format of its value.');
 
         foreach ($pages as $file => $markdown) {
             self::assertDoesNotMatchRegularExpression('/decisions? \d{4}/', $markdown, $file . ' names no internal decision.');
@@ -49,6 +50,7 @@ final class ReferenceTest extends NotesTestCase
         self::assertSame('Content (e.g. a video).', Reference::withoutDecisions('Content (e.g. a video, decisions 0224 and 0225).'));
         self::assertSame('Routes (see the mounts).', Reference::withoutDecisions('Routes (decision 0110, see the mounts).'));
         self::assertSame('One line. Another.', Reference::summary("/**\n * One line.\n * Another (decision 0001).\n *\n * @param string \$x\n */"));
+        self::assertSame("A list (of entries):\n\n```\nitems: { type: list }\n```\n\n`{{ field('x') }}` gives a `<p>` with it.", Reference::details("/**\n * A list (decision 0001)\n * (of entries):\n *\n *     items: { type: list }\n *\n * {{ field('x') }} gives a <p> with\n * it.\n *\n * @param string \$x\n */"));
     }
 
     public function testWritesTheFolderAndTellsWhenItIsBehind(): void

@@ -22,7 +22,7 @@ use Twig\Markup;
 /**
  * A table (decision 0187):
  *
- *     {"rows": [["Tag", "Öffnungszeit"], ["Montag", "8–18 Uhr"]],
+ *     {"rows": [["Day", "Opening hours"], ["Monday", "8 am to 6 pm"]],
  *      "headerRow": true, "headerColumn": false}
  *
  * A cell is text or a list of inline nodes as in Tiptap: text with the

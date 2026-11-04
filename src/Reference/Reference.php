@@ -130,6 +130,61 @@ final readonly class Reference
         return self::withoutDecisions($text);
     }
 
+    /**
+     * The whole text of a doc comment as Markdown: paragraphs stay,
+     * lines indented by four spaces are code, markup and Twig in the
+     * text become code spans.
+     */
+    public static function details(string|false $comment): string
+    {
+        if (false === $comment) {
+            return '';
+        }
+
+        $blocks = [];
+        $block = [];
+        $code = false;
+
+        foreach (explode("\n", $comment) as $line) {
+            $line = rtrim(preg_replace('#^\s*(/\*\*|\*/|\* ?)#', '', $line) ?? '');
+
+            if (str_starts_with($line, '@')) {
+                break;
+            }
+
+            $isCode = str_starts_with($line, '    ');
+
+            if ('' === $line || $isCode !== $code) {
+                if ([] !== $block) {
+                    $blocks[] = $code ? "```\n" . implode("\n", $block) . "\n```" : self::prose(implode(' ', $block));
+                }
+
+                $block = [];
+                $code = $isCode;
+
+                if ('' === $line) {
+                    continue;
+                }
+            }
+
+            $block[] = $isCode ? substr($line, 4) : trim($line);
+        }
+
+        if ([] !== $block) {
+            $blocks[] = $code ? "```\n" . implode("\n", $block) . "\n```" : self::prose(implode(' ', $block));
+        }
+
+        return implode("\n\n", $blocks);
+    }
+
+    private static function prose(string $text): string
+    {
+        $text = self::withoutDecisions($text);
+        $text = preg_replace_callback('/(?:<[^>]+>|\{\{.*?\}\})(?:\s*(?:<[^>]+>|\{\{.*?\}\}))*/', static fn(array $match): string => '`' . $match[0] . '`', $text) ?? $text;
+
+        return $text;
+    }
+
     public static function withoutDecisions(string $text): string
     {
         $numbers = 'decisions? \d{4}(?:(?:, | and | to |–)\d{4})*';
@@ -373,7 +428,9 @@ final readonly class Reference
         ksort($types);
         $text = "Every field of a block, a website or an object has a type, e.g.\n"
             . "`title: { type: headline }`. Extensions add their own with\n"
-            . "`\$registry->fieldType()` and `#[AsFieldType]`, named after their package.\n\n"
+            . "`\$registry->fieldType()` and `#[AsFieldType]`, named after their package.\n"
+            . "Below each type: the format of its value, as a seed file or an action\n"
+            . "gives it, its settings and what it prints.\n\n"
             . "| Type | Description |\n|---|---|\n";
 
         foreach ($types as $name => $class) {
@@ -382,6 +439,14 @@ final readonly class Reference
             $description = null === $attribute ? '' : $attribute->newInstance()->description;
             $description = '' === $description ? self::summary($reflection->getDocComment()) : self::withoutDecisions($description);
             $text .= '| `' . $name . '` | ' . self::cell($description) . " |\n";
+        }
+
+        foreach ($types as $name => $class) {
+            $details = self::details(new ReflectionClass($class)->getDocComment());
+
+            if ('' !== $details) {
+                $text .= "\n## `" . $name . "`\n\n" . $details . "\n";
+            }
         }
 
         return self::page('Field types', $text);
