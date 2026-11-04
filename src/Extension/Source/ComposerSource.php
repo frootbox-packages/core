@@ -46,6 +46,7 @@ final readonly class ComposerSource implements ExtensionSource
                 array_map(strval(...), array_keys($require)),
                 $this->psr4($package),
                 (false !== $projectDirectory && str_starts_with($path . '/', $projectDirectory . '/')) || self::copiedFromProject($package),
+                self::version($package),
             );
         }
 
@@ -79,6 +80,18 @@ final readonly class ComposerSource implements ExtensionSource
         }
 
         return array_values(array_filter($packages, \is_array(...)));
+    }
+
+    /**
+     * The version for people, e.g. "0.1.0" or "dev-main".
+     *
+     * @param array<mixed> $package
+     */
+    private static function version(array $package): ?string
+    {
+        $version = $package['pretty_version'] ?? $package['version'] ?? null;
+
+        return \is_string($version) ? $version : null;
     }
 
     /**

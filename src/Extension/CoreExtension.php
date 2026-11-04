@@ -442,6 +442,7 @@ final class CoreExtension implements Extension
         $registry->query(ShowSettings::class);
         $registry->sensitive(StoredSettings::TABLE, 'secret');
         $registry->query(ListJobs::class);
+        $registry->query(ListExtensions::class);
         $registry->query(ShowQueueStatus::class);
         $registry->action(RetryJob::class);
         $registry->action(DeleteJob::class);

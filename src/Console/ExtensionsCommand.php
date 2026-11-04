@@ -45,12 +45,13 @@ final class ExtensionsCommand extends Command
             $rows[] = [
                 $package->name,
                 $package->title,
+                $package->version ?? '',
                 $package->isProject ? 'project' : 'package',
                 $this->relative($package->path),
             ];
         }
 
-        $io->table(['Name', 'Title', 'Kind', 'Path'], $rows);
+        $io->table(['Name', 'Title', 'Version', 'Kind', 'Path'], $rows);
 
         return Command::SUCCESS;
     }

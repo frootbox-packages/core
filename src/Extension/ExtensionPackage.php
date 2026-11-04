@@ -24,6 +24,7 @@ final readonly class ExtensionPackage
      * @param list<string>                $requires Names of required packages
      * @param array<string, list<string>> $psr4     Namespace prefix => directories, relative to $path
      * @param array<mixed>|null           $theme    Theme settings, used from M2 on
+     * @param string|null                 $version  As Composer knows it, e.g. "0.1.0" or "dev-main" (decision 0274)
      */
     public function __construct(
         public string $name,
@@ -35,13 +36,14 @@ final readonly class ExtensionPackage
         public array $psr4 = [],
         public bool $isProject = false,
         public ?array $theme = null,
+        public ?string $version = null,
     ) {}
 
     /**
      * @param list<string>                $requires
      * @param array<string, list<string>> $psr4
      */
-    public static function fromManifest(string $name, string $path, array $requires = [], array $psr4 = [], bool $isProject = false): self
+    public static function fromManifest(string $name, string $path, array $requires = [], array $psr4 = [], bool $isProject = false, ?string $version = null): self
     {
         $file = $path . '/' . self::MANIFEST;
 
@@ -77,6 +79,7 @@ final readonly class ExtensionPackage
             $psr4,
             $isProject,
             $theme,
+            null === $version || '' === $version ? null : $version,
         );
     }
 

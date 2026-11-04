@@ -27,8 +27,9 @@ final class FakeComposer
      * @param array<string, string>        $psr4
      * @param string|null                  $directory Relative to the project, default vendor/<name>
      * @param array<string, string>|null    $dist      Where Composer took it from, e.g. ['type' => 'path', 'url' => 'extensions/site']
+     * @param string|null                  $version   pretty_version, e.g. "1.0.0"
      */
-    public function add(string $name, ?array $manifest, array $requires = [], array $psr4 = [], ?string $directory = null, ?array $dist = null): string
+    public function add(string $name, ?array $manifest, array $requires = [], array $psr4 = [], ?string $directory = null, ?array $dist = null, ?string $version = null): string
     {
         $path = $this->project->root . '/' . ($directory ?? 'vendor/' . $name);
 
@@ -47,6 +48,7 @@ final class FakeComposer
             'require' => array_fill_keys($requires, '*'),
             'autoload' => ['psr-4' => $psr4],
             ...(null === $dist ? [] : ['dist' => $dist]),
+            ...(null === $version ? [] : ['pretty_version' => $version]),
         ];
         $this->write();
 
