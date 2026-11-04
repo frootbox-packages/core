@@ -496,16 +496,17 @@ final class Registry
      * The settings of the package: a final readonly class with
      * #[AsSettings] (decision 0221). It can be injected anywhere and has
      * the values from the configuration, the backend or its defaults.
+     * One class per package, and one more per section (decision 0269).
      *
      * @param class-string $class
      */
     public function settings(string $class): void
     {
-        SettingsClasses::attribute($class);
-        $package = $this->package ?? 'frootbox/core';
+        $section = SettingsClasses::attribute($class)->section;
+        $package = ($this->package ?? 'frootbox/core') . (null === $section ? '' : '.' . $section);
 
         if (isset($this->settings[$package]) && $this->settings[$package] !== $class) {
-            throw new DefinitionException(\sprintf('%s already has the settings %s, a package has one settings class.', $package, $this->settings[$package]));
+            throw new DefinitionException(\sprintf('%s already has the settings %s, a package has one settings class per section.', $package, $this->settings[$package]));
         }
 
         if (false !== ($other = array_search($class, $this->settings, true)) && $other !== $package) {

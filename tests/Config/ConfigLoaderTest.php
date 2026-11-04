@@ -58,10 +58,12 @@ final class ConfigLoaderTest extends TestCase
         $this->project = TemporaryProject::create("app: {}\n", "SHOP_KEY=abc\n");
         mkdir($this->project->root . '/config/extensions/acme', 0o777, true);
         file_put_contents($this->project->root . '/config/extensions/acme/shop.yaml', "url: https://shop.example\napiKey: '%env(SHOP_KEY)%'\n");
+        // A section of the settings has a file of its own (decision 0269).
+        file_put_contents($this->project->root . '/config/extensions/acme/shop.mail.yaml', "host: smtp.example\n");
 
         $config = ConfigLoader::load(new ProjectPaths($this->project->root));
 
-        self::assertSame(['acme/shop' => ['url' => 'https://shop.example', 'apiKey' => 'abc']], $config->get('extensions'));
+        self::assertEqualsCanonicalizing(['acme/shop' => ['url' => 'https://shop.example', 'apiKey' => 'abc'], 'acme/shop.mail' => ['host' => 'smtp.example']], $config->get('extensions'));
     }
 
     public function testRejectsUnknownEnvironment(): void

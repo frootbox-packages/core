@@ -64,6 +64,12 @@ final readonly class SettingsClasses
             throw new DefinitionException(\sprintf('%s needs the attribute #[%s].', $class, AsSettings::class));
         }
 
+        $settings = $attribute->newInstance();
+
+        if (null !== $settings->section && 1 !== preg_match('/^[a-z][a-z0-9-]*$/', $settings->section)) {
+            throw new DefinitionException(\sprintf('The section "%s" of the settings %s may only have lowercase letters, digits and dashes.', $settings->section, $class));
+        }
+
         if (!$reflection->isFinal() || !$reflection->isReadOnly()) {
             throw new DefinitionException(\sprintf('The settings %s must be a final readonly class.', $class));
         }
@@ -78,6 +84,6 @@ final readonly class SettingsClasses
             }
         }
 
-        return $attribute->newInstance();
+        return $settings;
     }
 }

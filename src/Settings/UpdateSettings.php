@@ -22,7 +22,7 @@ final readonly class UpdateSettings implements Action
      * @param array<string, mixed> $values
      */
     public function __construct(
-        #[Description('The Composer package of the extension, e.g. "acme/shop"')]
+        #[Description('The Composer package of the extension, e.g. "acme/shop", with a section "acme/shop.mail"')]
         public string $package,
         #[Description('New values by name, see settings.show')]
         public array $values,

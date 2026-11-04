@@ -24,6 +24,11 @@ use Attribute;
  *             public string $apiKey = '',
  *         ) {}
  *     }
+ *
+ * A package with more than one topic gives each further class a section,
+ * e.g. section: "mail": it counts as "acme/shop.mail" in the table, the
+ * actions, the backend and config/extensions/acme/shop.mail.yaml
+ * (decision 0269).
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 final readonly class AsSettings
@@ -31,5 +36,7 @@ final readonly class AsSettings
     public function __construct(
         public string $title,
         public string $description = '',
+        /** Lowercase letters, digits and dashes, e.g. "mail" */
+        public ?string $section = null,
     ) {}
 }

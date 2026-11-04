@@ -19,7 +19,7 @@ use Frootbox\Core\Action\Schema\Description;
 final readonly class ShowSettings implements Query
 {
     public function __construct(
-        #[Description('The Composer package of the extension, e.g. "acme/shop"')]
+        #[Description('The Composer package of the extension, e.g. "acme/shop", with a section "acme/shop.mail"')]
         public string $package,
     ) {}
 

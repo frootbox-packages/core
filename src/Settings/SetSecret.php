@@ -22,7 +22,7 @@ use Frootbox\Core\Action\Schema\Sensitive;
 final readonly class SetSecret implements Action
 {
     public function __construct(
-        #[Description('The Composer package of the extension, e.g. "acme/shop"')]
+        #[Description('The Composer package of the extension, e.g. "acme/shop", with a section "acme/shop.mail"')]
         public string $package,
         public string $name,
         #[Description('The secret, null or empty to remove it')]
