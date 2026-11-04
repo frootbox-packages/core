@@ -127,6 +127,26 @@ final class HeadingsTest extends TestCase
         ], self::outline($html));
     }
 
+    public function testHeadingsThatAskForTheSameLevelGetTheSameLevel(): void
+    {
+        $html = $this->page('acme/outline/Page', ['title' => 'Contact'], [
+            $this->block('Text', ['body' => self::richText([3, 'Opening hours'], [3, 'Phone'])]),
+            $this->block('Text', ['body' => self::richText([2, 'Directions'], [3, 'By bus'])]),
+            $this->block('Text', ['title' => 'Form', 'body' => self::richText([2, 'Privacy'])]),
+        ]);
+
+        self::assertSame([
+            'h1 Contact',
+            'h2 Opening hours',
+            'h2 Phone',
+            'h2 Directions',
+            'h3 By bus',
+            'h2 Form',
+            'h3 Privacy',
+            'h2 Contact',
+        ], self::outline($html));
+    }
+
     public function testAnAreaWithAFixedLevelNeverGetsTheH1(): void
     {
         $html = $this->page('acme/outline/Page', [], [$this->block('Image')], ['aside' => [$this->block('Hero', ['title' => 'Opening hours'])]]);
@@ -163,7 +183,7 @@ final class HeadingsTest extends TestCase
 
         self::assertMatchesRegularExpression('~<h1 class="hero__title" data-fb-field="title" [^>]*data-fb-placeholder="Big words"[^>]*></h1>~', $html, 'The placeholder at the level it would get.');
         self::assertMatchesRegularExpression('~<h1 class="hero__title" data-fb-field="title" [^>]*>Counts</h1>~', $html, 'The empty one does not count.');
-        self::assertStringContainsString('data-fb-headings="3" data-fb-heading-flow="{&quot;wanted&quot;:[2,2,3],&quot;last&quot;:1,&quot;floor&quot;:1,&quot;main&quot;:true}"', $html, 'The editor gives rich text headings the levels of the page.');
+        self::assertStringContainsString('data-fb-headings="3" data-fb-heading-flow="{&quot;wanted&quot;:[2,2,3],&quot;open&quot;:[[1,1]],&quot;floor&quot;:1,&quot;main&quot;:true}"', $html, 'The editor gives rich text headings the levels of the page.');
         self::assertStringContainsString('<h2 data-rank="1">Below</h2>', $html);
     }
 

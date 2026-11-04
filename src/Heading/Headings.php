@@ -58,14 +58,15 @@ final class Headings
 
     /**
      * What an editor needs to give headings in rich text the level the
-     * page gives them: the level each rank wants, the level before, the
-     * floor and whether the page has its h1.
+     * page gives them: the level each rank wants, the open headings before
+     * (what each asked for and got), the floor and whether the page has
+     * its h1.
      *
-     * @return array{wanted: list<int>, last: int, floor: int, main: bool}
+     * @return array{wanted: list<int>, open: list<array{int, int}>, floor: int, main: bool}
      */
     public function flow(): array
     {
-        return ['wanted' => [$this->wanted(1), $this->wanted(2), $this->wanted(3)], 'last' => $this->outline->last(), 'floor' => $this->floor, 'main' => $this->outline->hasMain()];
+        return ['wanted' => [$this->wanted(1), $this->wanted(2), $this->wanted(3)], 'open' => $this->outline->open(), 'floor' => $this->floor, 'main' => $this->outline->hasMain()];
     }
 
     /**
