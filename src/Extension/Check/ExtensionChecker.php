@@ -47,6 +47,16 @@ final readonly class ExtensionChecker
 {
     private const string SQLITE = 'pdo-sqlite:///:memory:';
 
+    private const array ICON_TYPES = ['svg', 'png', 'webp'];
+
+    private const int ICON_BYTES = 100 * 1024;
+
+    private const array SCREENSHOT_TYPES = ['png', 'webp', 'jpg', 'jpeg'];
+
+    private const int SCREENSHOT_BYTES = 1024 * 1024;
+
+    private const int SCREENSHOTS = 8;
+
     private const string THEME = 'A theme brings no actions, queries, tables or migrations. Put them into a module the theme requires.';
 
     private InstalledPackages $packages;
@@ -130,20 +140,28 @@ final readonly class ExtensionChecker
             $errors[] = new CheckFinding('theme', 'migrations/', self::THEME);
         }
 
+        $previews = [];
+
         if (null !== $package) {
-            $contents = $this->boot($package, $installed, $errors, $warnings, $contents);
+            $contents = $this->boot($package, $installed, $errors, $warnings, $contents, $previews);
         }
 
-        return new CheckReport($name, $version, $license, $frootbox, $errors, $warnings, $contents, $dependencies);
+        $description = \is_string($composer['description'] ?? null) ? $composer['description'] : '';
+        $listing = null === $package
+            ? new Listing($name, $description)
+            : self::listing($package, $composer ?? [], $previews, $errors, $warnings);
+
+        return new CheckReport($name, $version, $license, $frootbox, $errors, $warnings, $contents, $dependencies, $listing);
     }
 
     /**
      * Boots without and with the package and compares.
      *
-     * @param list<CheckFinding> $errors
-     * @param list<CheckFinding> $warnings
+     * @param list<CheckFinding>                                            $errors
+     * @param list<CheckFinding>                                            $warnings
+     * @param list<array{component: string, variant: string, file: string}> $previews
      */
-    private function boot(ExtensionPackage $package, ?ExtensionPackage $installed, array &$errors, array &$warnings, CheckContents $contents): CheckContents
+    private function boot(ExtensionPackage $package, ?ExtensionPackage $installed, array &$errors, array &$warnings, CheckContents $contents, array &$previews): CheckContents
     {
         $loader = null;
 
@@ -188,7 +206,7 @@ final readonly class ExtensionChecker
                 return $contents;
             }
 
-            return $this->compare($package, $base, $full, $errors, $warnings, $contents);
+            return $this->compare($package, $base, $full, $errors, $warnings, $contents, $previews);
         } finally {
             $loader?->unregister();
             self::remove($root);
@@ -196,10 +214,11 @@ final readonly class ExtensionChecker
     }
 
     /**
-     * @param list<CheckFinding> $errors
-     * @param list<CheckFinding> $warnings
+     * @param list<CheckFinding>                                            $errors
+     * @param list<CheckFinding>                                            $warnings
+     * @param list<array{component: string, variant: string, file: string}> $previews
      */
-    private function compare(ExtensionPackage $package, Container $base, Container $full, array &$errors, array &$warnings, CheckContents $contents): CheckContents
+    private function compare(ExtensionPackage $package, Container $base, Container $full, array &$errors, array &$warnings, CheckContents $contents, array &$previews): CheckContents
     {
         $name = $package->name;
         $actions = [];
@@ -261,8 +280,19 @@ final readonly class ExtensionChecker
         $blocks = [];
         $layouts = [];
 
+        $root = (string) realpath($package->path);
+
         foreach ($own as $component) {
             ComponentKind::Block === $component->kind ? $blocks[] = $component->name : $layouts[] = $component->name;
+
+            // Only the package's own previews, not those of a theme that overrides it.
+            foreach ($component->previews as $variant => $file) {
+                $real = realpath($file);
+
+                if (false !== $real && str_starts_with($real, $root . '/')) {
+                    $previews[] = ['component' => $component->name, 'variant' => $variant, 'file' => substr($real, \strlen($root) + 1)];
+                }
+            }
         }
 
         return new CheckContents(
@@ -395,6 +425,124 @@ final readonly class ExtensionChecker
 
             return null;
         }
+    }
+
+    /**
+     * What the package says about itself for the directory (decision
+     * 0282), with its files checked.
+     *
+     * @param array<mixed>                                                  $composer
+     * @param list<array{component: string, variant: string, file: string}> $previews
+     * @param list<CheckFinding>                                            $errors
+     * @param list<CheckFinding>                                            $warnings
+     */
+    private static function listing(ExtensionPackage $package, array $composer, array $previews, array &$errors, array &$warnings): Listing
+    {
+        $root = (string) realpath($package->path);
+        $icon = $package->icon;
+
+        if (null === $icon) {
+            $warnings[] = new CheckFinding('listing', ExtensionPackage::MANIFEST, 'There is no "icon" for the directory, e.g. "icon: icon.svg" (SVG, PNG or WebP, square, up to 100 KB).');
+        } elseif (!self::file($root, $icon, self::ICON_TYPES, self::ICON_BYTES, 'icon', $errors)) {
+            $icon = null;
+        } elseif (null !== ($size = self::size($root . '/' . $icon)) && $size[0] !== $size[1]) {
+            $errors[] = new CheckFinding('listing', $icon, \sprintf('The icon is %d × %d pixels, it must be square.', $size[0], $size[1]));
+        }
+
+        $screenshots = [];
+
+        if (\count($package->screenshots) > self::SCREENSHOTS) {
+            $errors[] = new CheckFinding('listing', ExtensionPackage::MANIFEST, \sprintf('There are %d screenshots, at most %d are allowed.', \count($package->screenshots), self::SCREENSHOTS));
+        }
+
+        foreach (\array_slice($package->screenshots, 0, self::SCREENSHOTS) as $screenshot) {
+            if (self::file($root, $screenshot['file'], self::SCREENSHOT_TYPES, self::SCREENSHOT_BYTES, 'screenshot', $errors)) {
+                $screenshots[] = $screenshot;
+            }
+        }
+
+        $homepage = \is_string($composer['homepage'] ?? null) ? $composer['homepage'] : null;
+
+        if (null !== $homepage && 1 !== preg_match('#^https?://#', $homepage)) {
+            $errors[] = new CheckFinding('listing', 'composer.json', \sprintf('"homepage" must be an address with http:// or https://, not "%s".', $homepage));
+            $homepage = null;
+        }
+
+        $support = [];
+
+        foreach (\is_array($composer['support'] ?? null) ? $composer['support'] : [] as $kind => $value) {
+            if (\is_string($value) && '' !== $value) {
+                $support[(string) $kind] = $value;
+            }
+        }
+
+        $authors = [];
+
+        foreach (\is_array($composer['authors'] ?? null) ? $composer['authors'] : [] as $author) {
+            if (\is_array($author) && \is_string($author['name'] ?? null)) {
+                $authors[] = [
+                    'name' => $author['name'],
+                    'email' => \is_string($author['email'] ?? null) ? $author['email'] : null,
+                    'homepage' => \is_string($author['homepage'] ?? null) ? $author['homepage'] : null,
+                ];
+            }
+        }
+
+        $keywords = array_values(array_filter(\is_array($composer['keywords'] ?? null) ? $composer['keywords'] : [], \is_string(...)));
+        $readme = is_file($root . '/README.md') ? (string) file_get_contents($root . '/README.md') : null;
+        $description = '' !== $package->description ? $package->description : (\is_string($composer['description'] ?? null) ? $composer['description'] : '');
+
+        return new Listing($package->title, $description, $readme, $keywords, $homepage, $support, $authors, $icon, $screenshots, $previews, null !== $package->theme);
+    }
+
+    /**
+     * Whether a file of the listing is in the package, of a known type and
+     * small enough.
+     *
+     * @param list<string>       $types extensions
+     * @param list<CheckFinding> $errors
+     */
+    private static function file(string $root, string $relative, array $types, int $bytes, string $what, array &$errors): bool
+    {
+        $real = realpath($root . '/' . $relative);
+
+        if (false === $real || !is_file($real)) {
+            $errors[] = new CheckFinding('listing', $relative, \sprintf('The %s does not exist.', $what));
+
+            return false;
+        }
+
+        if (!str_starts_with($real, $root . '/')) {
+            $errors[] = new CheckFinding('listing', $relative, \sprintf('The %s must be inside the package.', $what));
+
+            return false;
+        }
+
+        if (!\in_array(strtolower(pathinfo($real, \PATHINFO_EXTENSION)), $types, true)) {
+            $errors[] = new CheckFinding('listing', $relative, \sprintf('The %s must be %s.', $what, implode(', ', $types)));
+
+            return false;
+        }
+
+        if (filesize($real) > $bytes) {
+            $errors[] = new CheckFinding('listing', $relative, \sprintf('The %s has %d KB, at most %d KB are allowed.', $what, (int) ceil((int) filesize($real) / 1024), intdiv($bytes, 1024)));
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Width and height of a raster image, null for SVG.
+     *
+     * @return array{int, int}|null
+     */
+    private static function size(string $file): ?array
+    {
+        $size = 'svg' === strtolower(pathinfo($file, \PATHINFO_EXTENSION)) ? false : getimagesize($file);
+
+        return false === $size ? null : [$size[0], $size[1]];
     }
 
     /**

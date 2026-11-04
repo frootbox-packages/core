@@ -31,6 +31,7 @@ final readonly class CheckReport
         public array $warnings,
         public CheckContents $contents,
         public array $dependencies,
+        public Listing $listing = new Listing('', ''),
     ) {}
 
     /**
@@ -56,6 +57,7 @@ final readonly class CheckReport
             'warnings' => $this->warnings,
             'contents' => $this->contents->toArray(),
             'dependencies' => $this->dependencies,
+            'listing' => $this->listing->toArray(),
         ];
     }
 }

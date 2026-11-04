@@ -18,13 +18,15 @@ final readonly class ExtensionPackage
 {
     public const string MANIFEST = 'frootbox.yaml';
 
-    private const array KEYS = ['title', 'description', 'extension', 'theme'];
+    private const array KEYS = ['title', 'description', 'extension', 'theme', 'icon', 'screenshots'];
 
     /**
      * @param list<string>                $requires Names of required packages
      * @param array<string, list<string>> $psr4     Namespace prefix => directories, relative to $path
      * @param array<mixed>|null           $theme    Theme settings, used from M2 on
      * @param string|null                 $version  As Composer knows it, e.g. "0.1.0" or "dev-main" (decision 0274)
+     * @param string|null                 $icon     For the directory, relative to $path (decision 0282)
+     * @param list<array{file: string, caption: string}> $screenshots For the directory, files relative to $path
      */
     public function __construct(
         public string $name,
@@ -37,6 +39,8 @@ final readonly class ExtensionPackage
         public bool $isProject = false,
         public ?array $theme = null,
         public ?string $version = null,
+        public ?string $icon = null,
+        public array $screenshots = [],
     ) {}
 
     /**
@@ -80,7 +84,33 @@ final readonly class ExtensionPackage
             $isProject,
             $theme,
             null === $version || '' === $version ? null : $version,
+            self::string($manifest, 'icon', $name),
+            self::screenshots($manifest['screenshots'] ?? [], $name),
         );
+    }
+
+    /**
+     * @return list<array{file: string, caption: string}>
+     */
+    private static function screenshots(mixed $value, string $name): array
+    {
+        if (!\is_array($value) || !array_is_list($value)) {
+            throw new ExtensionException(\sprintf('"screenshots" in %s of %s must be a list, e.g. "- { file: screenshots/list.webp, caption: The list }".', self::MANIFEST, $name));
+        }
+
+        $screenshots = [];
+
+        foreach ($value as $item) {
+            $item = \is_string($item) ? ['file' => $item] : $item;
+
+            if (!\is_array($item) || !\is_string($item['file'] ?? null) || !\is_string($item['caption'] ?? '')) {
+                throw new ExtensionException(\sprintf('Each of "screenshots" in %s of %s needs "file" and may have "caption", both text.', self::MANIFEST, $name));
+            }
+
+            $screenshots[] = ['file' => $item['file'], 'caption' => $item['caption'] ?? ''];
+        }
+
+        return $screenshots;
     }
 
     /**

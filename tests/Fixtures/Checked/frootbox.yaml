@@ -1,2 +1,5 @@
 title: Checked
 extension: Frootbox\Core\Tests\Fixtures\Checked\CheckedExtension
+icon: icon.svg
+screenshots:
+  - { file: screenshots/list.png, caption: The list of items }

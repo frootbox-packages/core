@@ -11,5 +11,19 @@
             "Frootbox\\Core\\Tests\\Fixtures\\Checked\\": "src/",
             "Frootbox\\Core\\Tests\\Fixtures\\Checked\\Migrations\\": "migrations/"
         }
-    }
+    },
+    "keywords": [
+        "items",
+        "archive"
+    ],
+    "homepage": "https://example.org/checked",
+    "support": {
+        "issues": "https://example.org/checked/issues"
+    },
+    "authors": [
+        {
+            "name": "Acme",
+            "email": "dev@example.org"
+        }
+    ]
 }

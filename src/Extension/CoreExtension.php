@@ -70,6 +70,7 @@ use Frootbox\Core\Console\BlocksCheckCommand;
 use Frootbox\Core\Console\BlocksCommand;
 use Frootbox\Core\Console\CacheClearCommand;
 use Frootbox\Core\Console\CallCommand;
+use Frootbox\Core\Console\ExtensionCatalogCommand;
 use Frootbox\Core\Console\ExtensionCheckCommand;
 use Frootbox\Core\Console\ExtensionsCommand;
 use Frootbox\Core\Console\MakeExtensionCommand;
@@ -278,6 +279,7 @@ final class CoreExtension implements Extension
         $registry->command(BlocksCommand::class);
         $registry->command(BlocksCheckCommand::class);
         $registry->command(ExtensionCheckCommand::class);
+        $registry->command(ExtensionCatalogCommand::class);
         $registry->command(CacheClearCommand::class);
         $registry->command(ScheduleRunCommand::class);
         $registry->command(QueueRunCommand::class);

@@ -141,6 +141,27 @@ final class ExtensionLoaderTest extends TestCase
         $this->discover();
     }
 
+    public function testReadsIconAndScreenshotsForTheDirectory(): void
+    {
+        $this->composer->add('vendor/news', ['icon' => 'icon.svg', 'screenshots' => ['list.png', ['file' => 'edit.png', 'caption' => 'Editing']]]);
+
+        $package = $this->discover()->get('vendor/news');
+
+        self::assertNotNull($package);
+        self::assertSame('icon.svg', $package->icon);
+        self::assertSame([['file' => 'list.png', 'caption' => ''], ['file' => 'edit.png', 'caption' => 'Editing']], $package->screenshots);
+    }
+
+    public function testRejectsAScreenshotWithoutFile(): void
+    {
+        $this->composer->add('vendor/news', ['screenshots' => [['caption' => 'No file']]]);
+
+        $this->expectException(ExtensionException::class);
+        $this->expectExceptionMessage('needs "file"');
+
+        $this->discover();
+    }
+
     public function testBootRunsCoreFirstAndThenTheExtensions(): void
     {
         $this->composer->add('vendor/news', ['extension' => NewsExtension::class]);

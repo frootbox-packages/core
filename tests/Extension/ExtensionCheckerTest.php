@@ -122,10 +122,44 @@ final class ExtensionCheckerTest extends TestCase
 
     public function testACleanPackageIsFine(): void
     {
-        $folder = $this->package(['name' => 'acme/clean', 'license' => 'MIT', 'require' => ['frootbox/core' => '^0.1']], "title: Clean\n");
+        $folder = $this->package(['name' => 'acme/clean', 'license' => 'MIT', 'require' => ['frootbox/core' => '^0.1']], "title: Clean\nicon: icon.svg\n");
+        copy(self::FIXTURE . '/icon.svg', $folder . '/icon.svg');
         $report = $this->checker()->folder($folder);
 
         self::assertTrue($report->ok(strict: true), implode("\n", array_map(strval(...), [...$report->errors, ...$report->warnings])));
+    }
+
+    public function testReadsWhatThePackageSaysForTheDirectory(): void
+    {
+        $listing = $this->checker()->folder(self::FIXTURE)->listing;
+
+        self::assertSame('Checked', $listing->title);
+        self::assertSame('A package for the tests of extension:check, with mistakes on purpose.', $listing->description, 'From composer.json without one in the manifest.');
+        self::assertStringStartsWith('# Checked', (string) $listing->readme);
+        self::assertSame(['items', 'archive'], $listing->keywords);
+        self::assertSame('https://example.org/checked', $listing->homepage);
+        self::assertSame(['issues' => 'https://example.org/checked/issues'], $listing->support);
+        self::assertSame([['name' => 'Acme', 'email' => 'dev@example.org', 'homepage' => null]], $listing->authors);
+        self::assertSame('icon.svg', $listing->icon);
+        self::assertSame([['file' => 'screenshots/list.png', 'caption' => 'The list of items']], $listing->screenshots);
+        self::assertSame(['icon.svg', 'screenshots/list.png'], $listing->files());
+    }
+
+    public function testChecksTheFilesForTheDirectory(): void
+    {
+        $folder = $this->package(['name' => 'acme/pictures', 'license' => 'MIT', 'require' => ['frootbox/core' => '^0.1']], "icon: icon.png\nscreenshots:\n  - ../outside.png\n  - missing.webp\n  - notes.txt\n");
+        copy(self::FIXTURE . '/screenshots/list.png', $folder . '/icon.png');
+        copy(self::FIXTURE . '/screenshots/list.png', \dirname($folder) . '/outside.png');
+        file_put_contents($folder . '/notes.txt', 'Not an image');
+        $report = $this->checker()->folder($folder);
+        $messages = array_map(strval(...), $report->errors);
+
+        self::assertSame(['listing', 'listing', 'listing', 'listing'], self::rules($report->errors));
+        self::assertContains('icon.png: The icon is 8 × 5 pixels, it must be square. [listing]', $messages);
+        self::assertContains('../outside.png: The screenshot must be inside the package. [listing]', $messages);
+        self::assertContains('missing.webp: The screenshot does not exist. [listing]', $messages);
+        self::assertContains('notes.txt: The screenshot must be png, webp, jpg, jpeg. [listing]', $messages);
+        self::assertSame([], $report->listing->screenshots);
     }
 
     public function testCommandPrintsJsonAndFailsOnErrors(): void
@@ -140,6 +174,8 @@ final class ExtensionCheckerTest extends TestCase
         self::assertIsArray($json['packages'][0]);
         self::assertSame('acme/checked', $json['packages'][0]['name']);
         self::assertSame([['rule' => 'naming', 'where' => 'checked_log', 'message' => 'The table name must start with "acme_checked_", e.g. "acme_checked_items".']], $json['packages'][0]['errors']);
+        self::assertIsArray($json['packages'][0]['listing']);
+        self::assertSame('icon.svg', $json['packages'][0]['listing']['icon']);
     }
 
     public function testStrictTurnsHintsIntoErrors(): void
