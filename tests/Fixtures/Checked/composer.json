@@ -1,0 +1,15 @@
+{
+    "name": "acme/checked",
+    "description": "A package for the tests of extension:check, with mistakes on purpose.",
+    "license": "MIT",
+    "require": {
+        "frootbox/core": "^0.1",
+        "acme/not-installed": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Frootbox\\Core\\Tests\\Fixtures\\Checked\\": "src/",
+            "Frootbox\\Core\\Tests\\Fixtures\\Checked\\Migrations\\": "migrations/"
+        }
+    }
+}

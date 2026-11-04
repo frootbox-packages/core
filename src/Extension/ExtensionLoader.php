@@ -80,6 +80,23 @@ final class ExtensionLoader
     }
 
     /**
+     * The packages in load order, e.g. for a check that boots another set
+     * than the installed one (decision 0278).
+     *
+     * @param list<ExtensionPackage> $packages
+     */
+    public static function arrange(array $packages, string $fingerprint = ''): Extensions
+    {
+        $byName = [];
+
+        foreach ($packages as $package) {
+            $byName[$package->name] = $package;
+        }
+
+        return new Extensions(self::sort($byName), $fingerprint);
+    }
+
+    /**
      * Dependencies first. Among packages that are ready at the same time,
      * other packages come before project extensions, then by name.
      *
