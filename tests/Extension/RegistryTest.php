@@ -17,6 +17,7 @@ use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Routing\Router;
 use Frootbox\Core\Tests\Fixtures\Error\SilentErrorPage;
 use Frootbox\Core\Tests\Fixtures\Error\StatusErrorPage;
+use Frootbox\Core\Tests\Fixtures\Extensions\ImportNewsCommand;
 use Frootbox\Core\Tests\Support\TextHandler;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -65,6 +66,24 @@ final class RegistryTest extends TestCase
 
         self::assertSame([$first, $second], $registry->items(stdClass::class));
         self::assertSame([], $registry->items(Registry::class));
+    }
+
+    public function testRemembersWhichPackageAddedAnItemOrCommand(): void
+    {
+        $registry = new Registry();
+        $core = new stdClass();
+        $registry->add(stdClass::class, $core);
+        $item = new stdClass();
+        $registry->forPackage('acme/news', static function () use ($registry, $item): void {
+            $registry->add(stdClass::class, $item);
+            $registry->command(ImportNewsCommand::class);
+        });
+
+        self::assertNull($registry->origin($core));
+        self::assertSame('acme/news', $registry->origin($item));
+        self::assertNull($registry->origin(new stdClass()), 'Unknown items have no origin.');
+        self::assertSame(['news:import'], $registry->commandsOf('acme/news'));
+        self::assertSame([], $registry->commandsOf(null));
     }
 
     public function testResolvesImportsAndAssetsWithinThePackage(): void

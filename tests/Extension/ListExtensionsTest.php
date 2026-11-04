@@ -64,6 +64,8 @@ final class ListExtensionsTest extends NotesTestCase
         self::assertSame('1.2.0', $notes->version);
         self::assertTrue($notes->settings);
         self::assertTrue($notes->migrations);
+        self::assertSame(['acme/notes/note.send'], $notes->jobs);
+        self::assertSame(['acme/notes/note'], $notes->searchSources);
         self::assertFalse($byName['acme/shop']->settings);
         self::assertFalse($byName['acme/shop']->migrations);
     }

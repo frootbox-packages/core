@@ -17,6 +17,7 @@ use Frootbox\Core\Component\Component;
 use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Frootbox;
+use Frootbox\Core\Search\SearchSources;
 use Frootbox\Core\Settings\SettingsClasses;
 use Frootbox\Core\Theme\ThemeChain;
 
@@ -27,7 +28,7 @@ use Frootbox\Core\Theme\ThemeChain;
  *
  * @implements Query<ExtensionList>
  */
-#[AsQuery('system.extension-list', 'Lists the installed extensions with version, theme, and the blocks, layouts, actions, queries and field types they bring, and the official modules that are not installed')]
+#[AsQuery('system.extension-list', 'Lists the installed extensions with version, theme, and the blocks, layouts, actions, queries, field types, jobs, search sources and commands they bring, and the official modules that are not installed')]
 final readonly class ListExtensions implements Query
 {
     public function handle(Extensions $extensions, Registry $registry, Catalog $catalog, Components $components, SettingsClasses $settings, ThemeChain $themes): ExtensionList
@@ -37,6 +38,8 @@ final readonly class ListExtensions implements Query
         $descriptors = $catalog->all();
         $fieldTypes = array_keys($registry->fieldTypes());
         $settingKeys = array_keys($settings->all());
+        $jobs = array_keys($registry->jobClasses()->all());
+        $sources = array_map(SearchSources::nameOf(...), $registry->searchSources());
 
         $summaries = array_map(
             static fn(ExtensionPackage $package): ExtensionSummary => new ExtensionSummary(
@@ -54,6 +57,9 @@ final readonly class ListExtensions implements Query
                 self::sorted(array_filter($fieldTypes, static fn(string $name): bool => ActionName::package($name) === $package->name)),
                 array_any($settingKeys, static fn(string $key): bool => $key === $package->name || str_starts_with($key, $package->name . '.')),
                 is_dir($package->path . '/migrations'),
+                self::owned($jobs, $package->name),
+                self::owned($sources, $package->name),
+                $registry->commandsOf($package->name),
             ),
             $packages,
         );
@@ -90,6 +96,18 @@ final readonly class ListExtensions implements Query
         }
 
         return self::sorted($names);
+    }
+
+    /**
+     * The names that start with the package, sorted.
+     *
+     * @param list<string> $names
+     *
+     * @return list<string>
+     */
+    private static function owned(array $names, string $package): array
+    {
+        return self::sorted(array_filter($names, static fn(string $name): bool => ActionName::package($name) === $package));
     }
 
     /**

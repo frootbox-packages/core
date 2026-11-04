@@ -24,6 +24,9 @@ final readonly class ExtensionSummary
      * @param list<string> $fieldTypes e.g. "acme/shop/price"
      * @param bool         $settings   settings in the backend or in config/extensions/
      * @param bool         $migrations own tables or columns
+     * @param list<string> $jobs       e.g. "frootbox/webhooks/delivery.send" (decision 0280)
+     * @param list<string> $searchSources e.g. "frootbox/news/article"
+     * @param list<string> $commands   of the console, e.g. "acme/shop:import"
      */
     public function __construct(
         public string $name,
@@ -40,5 +43,8 @@ final readonly class ExtensionSummary
         public array $fieldTypes,
         public bool $settings,
         public bool $migrations,
+        public array $jobs = [],
+        public array $searchSources = [],
+        public array $commands = [],
     ) {}
 }

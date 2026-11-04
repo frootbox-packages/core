@@ -119,6 +119,12 @@ final class Registry
     /** @var array<class-string, list<object>> */
     private array $items = [];
 
+    /** @var \WeakMap<object, string|null> item => package that added it (decision 0280) */
+    private \WeakMap $origins;
+
+    /** @var array<string, string|null> command name => package */
+    private array $commandPackages = [];
+
     /** @var array<string, BlockGroup> */
     private array $blockGroups = [];
 
@@ -128,6 +134,7 @@ final class Registry
         $this->catalog = new Catalog();
         $this->sensitive = new SensitiveColumns();
         $this->jobs = new JobClasses();
+        $this->origins = new \WeakMap();
     }
 
     /**
@@ -203,6 +210,7 @@ final class Registry
         }
 
         $this->commands[$name] = $class;
+        $this->commandPackages[$name] = $this->package;
     }
 
     /**
@@ -268,6 +276,16 @@ final class Registry
         }
 
         $this->items[$type][] = $item;
+        $this->origins[$item] = $this->package;
+    }
+
+    /**
+     * The package that added an item with add(), null for the core and
+     * for an item it does not know (decision 0280).
+     */
+    public function origin(object $item): ?string
+    {
+        return $this->origins[$item] ?? null;
     }
 
     /**
@@ -589,6 +607,20 @@ final class Registry
     public function commands(): array
     {
         return $this->commands;
+    }
+
+    /**
+     * The names of the commands a package registered, null for those of
+     * the core (decision 0280), sorted.
+     *
+     * @return list<string>
+     */
+    public function commandsOf(?string $package): array
+    {
+        $names = array_map(strval(...), array_keys(array_filter($this->commandPackages, static fn(?string $owner): bool => $owner === $package)));
+        sort($names);
+
+        return $names;
     }
 
     public function migrationSources(): MigrationSources
