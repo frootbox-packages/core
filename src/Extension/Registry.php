@@ -527,6 +527,12 @@ final class Registry
         $this->jobs->add($class, $this->package);
     }
 
+    /**
+     * The migrations of a package. Its folder migrations/ is found by
+     * convention, so an extension does not call this.
+     *
+     * @internal Called by the ExtensionLoader.
+     */
     public function migrations(string $namespace, string $directory): void
     {
         $this->migrations->add($namespace, $directory);
@@ -534,6 +540,8 @@ final class Registry
 
     /**
      * Adds the routes, those of a mount below its configured path.
+     *
+     * @internal Called when the container is built.
      */
     public function applyRoutes(Router $router, ?Config $config = null): void
     {
@@ -565,6 +573,9 @@ final class Registry
         return $this->assets[$area] ?? [];
     }
 
+    /**
+     * @internal Called when the container is built.
+     */
     public function applyListeners(ListenerProvider $provider): void
     {
         foreach ($this->listeners as [$event, $listener, $priority]) {

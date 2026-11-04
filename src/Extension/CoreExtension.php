@@ -182,6 +182,7 @@ use Frootbox\Core\Queue\DeleteJob;
 use Frootbox\Core\Queue\ListJobs;
 use Frootbox\Core\Queue\RetryJob;
 use Frootbox\Core\Queue\ShowQueueStatus;
+use Frootbox\Core\Reference\ReferenceCommand;
 use Frootbox\Core\Schedule\ScheduleRan;
 use Frootbox\Core\Search\Search;
 use Frootbox\Core\Search\SearchRebuildCommand;
@@ -258,6 +259,7 @@ final class CoreExtension implements Extension
         $registry->route(['GET', 'POST'], ApiHandler::PREFIX . '/' . ApiHandler::NAME, ApiHandler::class, 'api');
 
         $registry->command(AboutCommand::class);
+        $registry->command(ReferenceCommand::class);
         $registry->command(AssetsPublishCommand::class);
         $registry->command(InstallCommand::class);
         $registry->command(MigrateCommand::class);
