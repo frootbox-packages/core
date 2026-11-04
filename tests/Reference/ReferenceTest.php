@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Tests\Reference;
 
+use Frootbox\Core\Component\DefinitionReader;
 use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Reference\BlockSchema;
 use Frootbox\Core\Reference\Reference;
 use Frootbox\Core\Reference\ReferenceCommand;
 use Frootbox\Core\Tests\Support\NotesTestCase;
@@ -21,13 +23,14 @@ use Symfony\Component\Console\Tester\CommandTester;
  */
 #[CoversClass(Reference::class)]
 #[CoversClass(ReferenceCommand::class)]
+#[CoversClass(BlockSchema::class)]
 final class ReferenceTest extends NotesTestCase
 {
     public function testDescribesTheActionsCommandsAndExtensionPointsOfTheInstallation(): void
     {
         $pages = new Reference($this->get(Registry::class), $this->container)->pages();
 
-        self::assertSame(['README.md', 'actions.md', 'console.md', 'registry.md', 'twig.md', 'field-types.md', 'events.md'], array_keys($pages));
+        self::assertSame(['README.md', 'actions.md', 'console.md', 'registry.md', 'twig.md', 'field-types.md', 'block-schema.md', 'events.md'], array_keys($pages));
         self::assertStringStartsWith(Reference::MARKER, $pages['actions.md']);
         self::assertStringContainsString("### `mail.test`\n\nSends a short test mail", $pages['actions.md']);
         self::assertStringContainsString('| `to` | string or null (email), optional | The recipient', $pages['actions.md']);
@@ -39,11 +42,27 @@ final class ReferenceTest extends NotesTestCase
         self::assertStringContainsString('| `headline` | A single line for a heading |', $pages['field-types.md']);
         self::assertStringContainsString("## `image`\n\nAn image from the media library:\n\n```\n{\"media\": \"01J…\"", $pages['field-types.md'], 'Each type with the format of its value.');
 
+        self::assertStringContainsString('| `widget` | `true` or `false` | ✓ | ✓ |  | ', $pages['block-schema.md'], 'Each key with its value and where it may stand.');
+        self::assertStringContainsString('| `level` | whole number, 1 to 6 | The heading level', $pages['block-schema.md']);
+        self::assertStringContainsString('Types: `choice`, `boolean`, `number`, `text`.', $pages['block-schema.md']);
+        self::assertStringContainsString('| `teaser` | Teasers |', $pages['block-schema.md']);
+
         self::assertStringContainsString("## `ScheduleRan`\n\n`Frootbox\\Core\\Schedule\\ScheduleRan`", $pages['events.md']);
         self::assertStringContainsString('| `$now` | `DateTimeImmutable` |', $pages['events.md']);
 
         foreach ($pages as $file => $markdown) {
             self::assertDoesNotMatchRegularExpression('/decisions? \d{4}/', $markdown, $file . ' names no internal decision.');
+        }
+    }
+
+    public function testDescribesEveryKeyOfTheBlockSchema(): void
+    {
+        $text = BlockSchema::text();
+
+        foreach (DefinitionReader::schema() as $part => $keys) {
+            foreach (array_keys($keys) as $key) {
+                self::assertStringContainsString('| `' . $key . '` | ', $text, \sprintf('%s.%s is described.', $part, $key));
+            }
         }
     }
 

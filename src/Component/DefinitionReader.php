@@ -80,6 +80,14 @@ final readonly class DefinitionReader
         'placeholder' => ['type' => 'string'],
     ];
 
+    /** Keys of a field below "object" in addition (decisions 0240, 0250). */
+    private const array OBJECT_FIELD = [
+        // A text can hold one value for all languages and the other way round.
+        'translatable' => ['type' => 'boolean'],
+        // Labels by language.
+        'labels' => ['type' => 'object', 'additionalProperties' => ['type' => 'string', 'maxLength' => 200]],
+    ];
+
     private const array AREA = [
         'label' => ['type' => 'string'],
         'description' => ['type' => 'string'],
@@ -88,6 +96,33 @@ final readonly class DefinitionReader
         'max' => ['type' => 'integer', 'minimum' => 1],
         'level' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 6],
     ];
+
+    /**
+     * The meta schema by part, for the reference: each key with its JSON
+     * schema. "field" holds the keys of every field, "fields" for types
+     * with entries such as list, and those only below "object".
+     *
+     * @internal
+     *
+     * @return array<string, array<string, array<string, mixed>>>
+     */
+    public static function schema(): array
+    {
+        $example = [];
+
+        foreach (self::EXAMPLE as $key) {
+            $example[$key] = 'variant' === $key ? ['type' => 'string'] : self::ANY_MAP;
+        }
+
+        return [
+            'top' => self::TOP,
+            'option' => self::OPTION,
+            'field' => [...self::FIELD, 'fields' => self::ANY_MAP, ...self::OBJECT_FIELD],
+            'area' => self::AREA,
+            'object' => self::OBJECT,
+            'example' => $example,
+        ];
+    }
 
     public function __construct(
         private FieldTypes $types,
@@ -274,8 +309,7 @@ final readonly class DefinitionReader
             }
 
             $nested = $type instanceof HasSubfields;
-            // Below "object" a text can hold one value for all languages and the other way round (decision 0240), and labels are given by language (decision 0250).
-            $allowed = [...self::FIELD, ...$type->settings(), ...($nested ? ['fields' => self::ANY_MAP] : []), ...($object && 'object.fields' === $path ? ['translatable' => ['type' => 'boolean'], 'labels' => ['type' => 'object', 'additionalProperties' => ['type' => 'string', 'maxLength' => 200]]] : [])];
+            $allowed = [...self::FIELD, ...$type->settings(), ...($nested ? ['fields' => self::ANY_MAP] : []), ...($object && 'object.fields' === $path ? self::OBJECT_FIELD : [])];
 
             if (!$this->check($definition, $allowed, ['type'], $where, $at, $errors)) {
                 continue;

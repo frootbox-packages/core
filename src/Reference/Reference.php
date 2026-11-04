@@ -55,6 +55,7 @@ final readonly class Reference
             'registry.md' => $this->extensionPoints(),
             'twig.md' => $this->twig(),
             'field-types.md' => $this->fieldTypes(),
+            'block-schema.md' => self::page('Block schema', BlockSchema::text()),
             'events.md' => self::events(),
         ];
     }
@@ -218,6 +219,8 @@ final readonly class Reference
             - [Twig functions](twig.md) for blocks, layouts and partials.
             - [Field types](field-types.md) for the fields of blocks, the
               website and objects.
+            - [Block schema](block-schema.md): the keys of `block.yaml` and
+              of the header of a view, for blocks and layouts.
             - [Events](events.md) an extension can listen to.
             MD);
     }
