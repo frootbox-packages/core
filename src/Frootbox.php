@@ -19,7 +19,7 @@ final class Frootbox
      * The version of this code: the next release with "-dev" on main, the
      * release itself in a tag. All packages share it (decision 0271).
      */
-    public const string VERSION = '0.1.0';
+    public const string VERSION = '0.1.1-dev';
 
     public const string MINIMUM_PHP_VERSION = '8.5.0';
 
