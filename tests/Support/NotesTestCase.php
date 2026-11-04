@@ -23,6 +23,7 @@ use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\Migrator;
 use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Page\Pages;
 use Frootbox\Core\Page\PageTranslations;
 use Frootbox\Core\ProjectPaths;
@@ -63,6 +64,7 @@ abstract class NotesTestCase extends TestCase
             $registry->settings(NotesSettings::class);
             $registry->job(SendNote::class);
         });
+        $this->register($registry);
 
         $config = new Config($this->environment(), ['database' => ['url' => TestDatabase::url()], ...$this->config()], ['APP_SECRET' => self::SECRET, ...$this->env()]);
         $this->container = ContainerFactory::create($config, new ProjectPaths($this->project->root), $extensions, $registry);
@@ -83,6 +85,11 @@ abstract class NotesTestCase extends TestCase
     {
         return [];
     }
+
+    /**
+     * More for the registry, e.g. a kind of store for a test.
+     */
+    protected function register(Registry $registry): void {}
 
     /**
      * Extensions besides the notes, e.g. with blocks and layouts.

@@ -209,6 +209,10 @@ use Frootbox\Core\Site\ShowSite;
 use Frootbox\Core\Site\UnprotectSite;
 use Frootbox\Core\Site\UpdateSite;
 use Frootbox\Core\Site\UpdateSiteField;
+use Frootbox\Core\Storage\StorageCache;
+use Frootbox\Core\Storage\StorageCheckCommand;
+use Frootbox\Core\Storage\StoragePullCommand;
+use Frootbox\Core\Storage\StoragePushCommand;
 use Frootbox\Core\Tag\ChooseTags;
 use Frootbox\Core\Tag\CreateTag;
 use Frootbox\Core\Tag\DeleteTag;
@@ -273,6 +277,10 @@ final class CoreExtension implements Extension
         $registry->command(SeedCommand::class);
         $registry->command(MediaPruneCommand::class);
         $registry->command(MediaUsagesCommand::class);
+        $registry->listen(ScheduleRan::class, StorageCache::class);
+        $registry->command(StorageCheckCommand::class);
+        $registry->command(StoragePushCommand::class);
+        $registry->command(StoragePullCommand::class);
 
         foreach ([HeadlineType::class, TextType::class, RichTextType::class, LinkType::class, ListType::class, ImageType::class, VideoType::class, IconType::class, FileType::class, TableType::class, BooleanType::class, NumberType::class, DateType::class, ChoiceType::class] as $fieldType) {
             $registry->fieldType($fieldType);

@@ -9,23 +9,91 @@ declare(strict_types=1);
 namespace Frootbox\Core\Media;
 
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Storage\FileStore;
+use Frootbox\Core\Storage\FileStores;
+use Frootbox\Core\Storage\StorageException;
+use Psr\Http\Message\StreamInterface;
 
 /**
- * Where the files of media lie (decision 0075): originals in
- * storage/media/, generated sizes in public/media/<id>/. The first
- * original of a medium is named by its id, each replacing one by the id
- * and a random part (decision 0147).
+ * Where the files of media lie (decisions 0075, 0268): originals below
+ * media/ in the store for data, generated sizes and copies below
+ * media/<id>/ in the public store. Both are folders (storage/, public/)
+ * or buckets. The first original of a medium is named by its id, each
+ * replacing one by the id and a random part (decision 0147), so an
+ * original never changes and a copy on disk stays right.
+ *
+ * A public store in a bucket has its own address. Once a file is there,
+ * a mark below var/storage/marks/ says so, and the address of the bucket
+ * goes into the page.
  */
 final readonly class MediaFiles
 {
-    public function __construct(private ProjectPaths $paths) {}
+    private const string FOLDER = 'media/';
+
+    /** Not below var/cache/, so cache:clear after a deployment keeps them. */
+    public const string MARKS = 'storage/marks/';
+
+    /** A new mark, so pages in the cache get the addresses of the bucket (see StorageCache). */
+    public const string NEW_MARKS = 'storage/marks/.new';
+
+    public function __construct(
+        private FileStores $stores,
+        private ProjectPaths $paths,
+    ) {}
 
     /**
+     * A file on disk with the original, fetched from a bucket if needed.
+     * The path does not exist if there is no such original.
+     *
      * @param string $name The id for the first file of a medium, see Medium::original()
      */
     public function original(string $name): string
     {
-        return $this->paths->storage('media/' . $name);
+        return $this->storage()->localPath(self::FOLDER . $name);
+    }
+
+    /**
+     * Where to write a new original on disk; keep() stores it.
+     */
+    public function target(string $name): string
+    {
+        return $this->storage()->stage(self::FOLDER . $name);
+    }
+
+    /**
+     * Stores an original written to target().
+     *
+     * @param bool $keepLocal False for large files nobody resizes, e.g. videos
+     */
+    public function keep(string $name, string $type, bool $keepLocal = true): void
+    {
+        $this->storage()->commit(self::FOLDER . $name, $type, $keepLocal);
+    }
+
+    /**
+     * Removes an original that never got a medium, e.g. a file that
+     * turned out to be no video.
+     */
+    public function drop(string $name): void
+    {
+        try {
+            $this->storage()->delete(self::FOLDER . $name);
+        } catch (StorageException) {
+            // media:prune takes it later.
+        }
+    }
+
+    public function size(string $name): ?int
+    {
+        return $this->storage()->info(self::FOLDER . $name)?->size;
+    }
+
+    /**
+     * Bytes of an original as they are read, for a response with Range.
+     */
+    public function stream(string $name, int $start, int $length): StreamInterface
+    {
+        return $this->storage()->readRange(self::FOLDER . $name, $start, $length);
     }
 
     /**
@@ -42,60 +110,102 @@ final readonly class MediaFiles
      */
     public function release(string $name): void
     {
-        $file = $this->original($name);
-
-        if (is_file($file)) {
-            @touch($file);
+        try {
+            $this->storage()->touch(self::FOLDER . $name);
+        } catch (StorageException) {
+            // At worst it goes a little earlier.
         }
     }
 
     /**
+     * The file on disk of a generated file in the folder public/media/;
+     * with a bucket only a copy, if any.
+     *
      * @param string $path Below /media/, e.g. "01J…/1/kaffee-640x0-….webp"
      */
     public function public(string $path): string
     {
-        return $this->paths->public('media/' . ltrim($path, '/'));
+        return $this->stores->public()->localPath(self::FOLDER . ltrim($path, '/'));
     }
 
     /**
-     * Writes a generated file so the web server finds it next time.
+     * The address of a generated file in a public bucket, null if the
+     * public store is the folder or the file is not known to be there.
+     *
+     * @param bool $check Ask the bucket if there is no mark, e.g. after var/cache/ was emptied
      */
-    public function writePublic(string $path, string $contents): void
+    public function publicUrl(string $path, bool $check = false): ?string
     {
-        $file = $this->public($path);
-        $folder = \dirname($file);
+        $path = ltrim($path, '/');
+        $store = $this->stores->public();
+        $url = $store->url(self::FOLDER . $path);
 
-        if (!is_dir($folder) && !@mkdir($folder, 0o775, true) && !is_dir($folder)) {
-            return;
+        if (null === $url) {
+            return null;
         }
 
-        $temporary = $file . '.' . bin2hex(random_bytes(4));
-
-        if (false !== @file_put_contents($temporary, $contents)) {
-            @rename($temporary, $file);
+        if (is_file($this->mark($path))) {
+            return $url;
         }
+
+        try {
+            if ($check && $store->exists(self::FOLDER . $path)) {
+                $this->markPublic($path);
+
+                return $url;
+            }
+        } catch (StorageException) {
+            return null;
+        }
+
+        return null;
     }
 
     /**
-     * Copies a file, e.g. of a video, so the web server finds it next
-     * time (decision 0177).
+     * Writes a generated file so the web server or the bucket delivers it
+     * from then on.
+     *
+     * @return string|null The address in the bucket, null for the folder
      */
-    public function copyPublic(string $source, string $path): void
+    public function writePublic(string $path, string $contents, string $type): ?string
     {
-        $file = $this->public($path);
-        $folder = \dirname($file);
+        $path = ltrim($path, '/');
 
-        if (is_file($file) || (!is_dir($folder) && !@mkdir($folder, 0o775, true) && !is_dir($folder))) {
-            return;
+        try {
+            $this->stores->public()->write(self::FOLDER . $path, $contents, $type);
+        } catch (StorageException) {
+            return null;
         }
 
-        $temporary = $file . '.' . bin2hex(random_bytes(4));
+        return $this->markPublic($path);
+    }
 
-        if (@copy($source, $temporary)) {
-            @rename($temporary, $file);
-        } else {
-            @unlink($temporary);
+    /**
+     * Copies an original, e.g. of a video, so the web server or the bucket
+     * delivers it from then on (decision 0177).
+     *
+     * @return string|null The address in the bucket, null for the folder or if it failed
+     */
+    public function copyPublic(string $name, string $path, string $type): ?string
+    {
+        $path = ltrim($path, '/');
+        $known = $this->publicUrl($path);
+
+        if (null !== $known) {
+            return $known;
         }
+
+        $public = $this->stores->public();
+
+        try {
+            if (!$public->exists(self::FOLDER . $path)) {
+                $public->copyFrom($this->storage(), self::FOLDER . $name, self::FOLDER . $path, $type);
+            }
+        } catch (StorageException) {
+            return null;
+        }
+
+        return $this->markPublic($path);
     }
 
     /**
@@ -103,7 +213,13 @@ final readonly class MediaFiles
      */
     public function removePublic(string $id): void
     {
-        self::removeTree($this->public($id));
+        try {
+            $this->stores->public()->deletePrefix(self::FOLDER . $id . '/');
+        } catch (StorageException) {
+            // Without a mark they are not used; media:prune does not see them, a new version has new addresses.
+        }
+
+        self::removeTree($this->paths->var(self::MARKS . $id));
     }
 
     /**
@@ -120,25 +236,57 @@ final readonly class MediaFiles
     {
         $now ??= time();
         $removed = 0;
+        $store = $this->storage();
 
-        $files = glob($this->paths->storage('media/*'));
+        foreach ($store->list(self::FOLDER) as $file) {
+            $name = substr($file->path, \strlen(self::FOLDER));
 
-        foreach (false === $files ? [] : $files as $file) {
-            $name = basename($file);
-
-            if (is_file($file) && filemtime($file) < $now - $age && !$used($name)) {
-                @unlink($file);
-                $id = explode('-', $name, 2)[0];
-
-                if (!$exists($id)) {
-                    $this->removePublic($id);
-                }
-
-                ++$removed;
+            // Only originals lie directly in media/.
+            if (str_contains($name, '/') || $file->modified >= $now - $age || $used($name)) {
+                continue;
             }
+
+            $store->delete($file->path);
+            $id = explode('-', $name, 2)[0];
+
+            if (!$exists($id)) {
+                $this->removePublic($id);
+            }
+
+            ++$removed;
         }
 
         return $removed;
+    }
+
+    private function storage(): FileStore
+    {
+        return $this->stores->storage();
+    }
+
+    private function mark(string $path): string
+    {
+        return $this->paths->var(self::MARKS . $path);
+    }
+
+    /**
+     * @return string|null The address in the bucket
+     */
+    private function markPublic(string $path): ?string
+    {
+        $url = $this->stores->public()->url(self::FOLDER . $path);
+
+        if (null !== $url) {
+            $mark = $this->mark($path);
+            $folder = \dirname($mark);
+
+            if (!is_file($mark) && (is_dir($folder) || @mkdir($folder, 0o775, true) || is_dir($folder))) {
+                @touch($mark);
+                @touch($this->paths->var(self::NEW_MARKS));
+            }
+        }
+
+        return $url;
     }
 
     private static function removeTree(string $path): void

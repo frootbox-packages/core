@@ -82,11 +82,15 @@ final readonly class MediaEditor
         // Read before the metadata go with preparing the original.
         $copyright = self::cleanCopyright($copyright ?? Images::copyright($path));
         $ai ??= Images::aiOrigin($path);
-        $facts = $this->prepare($path, $this->files->original($id), null, $this->uploads->name($upload));
+        $facts = $this->prepare($path, $this->files->target($id), null, $this->uploads->name($upload));
 
         if ($facts instanceof Message) {
+            $this->files->drop($id);
+
             throw new InvalidInputException($action, ['/upload' => $facts]);
         }
+
+        $this->files->keep($id, $facts['type'], self::keepLocal($facts['type']));
 
         $medium = $this->media->insert([
             'id' => $id,
@@ -227,13 +231,15 @@ final readonly class MediaEditor
         // A new file made with AI says so; one without takes no label away (decision 0251).
         $ai = Images::aiOrigin($path);
         $ai = AiOrigin::None === $ai ? null : $ai;
-        $facts = $this->prepare($path, $this->files->original($name), $medium->kind(), $this->uploads->name($upload));
+        $facts = $this->prepare($path, $this->files->target($name), $medium->kind(), $this->uploads->name($upload));
 
         if ($facts instanceof Message) {
-            @unlink($this->files->original($name));
+            $this->files->drop($name);
 
             throw new InvalidInputException($action, ['/upload' => $facts]);
         }
+
+        $this->files->keep($name, $facts['type'], self::keepLocal($facts['type']));
 
         $file = ['name' => $name, 'fileName' => $this->uploads->name($upload), ...$facts, 'hash' => $hash];
         $this->uploads->remove($upload);
@@ -295,10 +301,10 @@ final readonly class MediaEditor
         }
 
         $name = MediaFiles::newName($id);
-        $facts = $this->videos->prepare($path, $this->files->original($name));
+        $facts = $this->videos->prepare($path, $this->files->target($name));
 
         if ($facts instanceof Message) {
-            @unlink($this->files->original($name));
+            $this->files->drop($name);
 
             throw new InvalidInputException($action, ['/upload' => $facts]);
         }
@@ -307,10 +313,12 @@ final readonly class MediaEditor
         $taken = [$family($seen->type, $seen->codec), ...array_map(static fn(MediaSource $source): string => $family($source->type, $source->codec), $sources)];
 
         if (\in_array($family($facts['type'], $facts['codec']), $taken, true)) {
-            @unlink($this->files->original($name));
+            $this->files->drop($name);
 
             throw new InvalidInputException($action, ['/upload' => new Message('The video has a file in {format} already. Delete that one first to replace it.', ['format' => self::format($facts['type'], $facts['codec'])])]);
         }
+
+        $this->files->keep($name, $facts['type'], keepLocal: false);
 
         $this->sources->insert([
             'mediaId' => $id,
@@ -770,6 +778,16 @@ final readonly class MediaEditor
         [$width, $height] = Svg::size($clean);
 
         return ['type' => Svg::TYPE, 'codec' => '', 'width' => $width, 'height' => $height, 'size' => \strlen($clean)];
+    }
+
+    /**
+     * Whether the copy of a new original may stay on disk: an image gets
+     * its sizes generated next, a video or document is only copied
+     * (decision 0268).
+     */
+    private static function keepLocal(string $type): bool
+    {
+        return str_starts_with($type, 'image/');
     }
 
     /**

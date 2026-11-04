@@ -12,7 +12,6 @@ use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Auth\Gate;
 use Frootbox\Core\Http\Exception\HttpException;
-use Frootbox\Core\Http\FileRangeStream;
 use Frootbox\Core\Preview\PreviewAccess;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -23,8 +22,9 @@ use Psr\Http\Server\RequestHandlerInterface;
  * Generates a size of an image on its first request (decision 0126) and
  * delivers the files of videos (decision 0177) and documents (decision
  * 0179) with Range. A
- * public medium is written to public/media/, so the web server delivers it
- * from then on. A medium that is not public yet, and the version of a
+ * public medium is written to the public store, so the web server or the
+ * bucket delivers it from then on (decision 0268); an address of the
+ * installation for a file in the bucket is sent there. A medium that is not public yet, and the version of a
  * draft (decision 0147), are only shown to those who may see the media
  * library, and never written.
  */
@@ -96,6 +96,14 @@ final readonly class MediaHandler implements RequestHandlerInterface
             throw HttpException::notFound($path);
         }
 
+        $public = $id . '/' . $version . '/' . $file;
+        $bucket = $private ? null : $this->files->publicUrl($public, check: true);
+
+        // In a public bucket already: the page had an old address (decision 0268).
+        if (null !== $bucket) {
+            return $this->redirect($bucket);
+        }
+
         $original = $this->files->original($medium->original());
 
         if (!is_file($original)) {
@@ -105,7 +113,7 @@ final readonly class MediaHandler implements RequestHandlerInterface
         $contents = $this->images->render($original, $width, $height, $medium->focusX, $medium->focusY, $extension);
 
         if (!$private) {
-            $this->files->writePublic($id . '/' . $version . '/' . $file, $contents);
+            $this->files->writePublic($public, $contents, self::TYPES[$extension]);
         }
 
         $response = $this->responses->createResponse()
@@ -176,17 +184,21 @@ final readonly class MediaHandler implements RequestHandlerInterface
         }
 
         $type = $source->type ?? $medium->type;
-        $original = $this->files->original($source->file ?? $medium->original());
+        $original = $source->file ?? $medium->original();
+        $size = $this->files->size($original);
 
-        if ((Videos::TYPES[$type] ?? null) !== $match['extension'] || !is_file($original)) {
+        if ((Videos::TYPES[$type] ?? null) !== $match['extension'] || null === $size) {
             throw HttpException::notFound($path);
         }
 
-        if (!$private) {
-            $this->files->copyPublic($original, $id . '/' . $version . '/' . $file);
+        $bucket = $private ? null : $this->files->copyPublic($original, $id . '/' . $version . '/' . $file, $type);
+
+        // The bucket answers Range itself (decision 0268).
+        if (null !== $bucket) {
+            return $this->redirect($bucket);
         }
 
-        return $this->ranged($request, $original, $type, $private);
+        return $this->ranged($request, $original, $size, $type, $private);
     }
 
     /**
@@ -199,23 +211,25 @@ final readonly class MediaHandler implements RequestHandlerInterface
     {
         $path = $request->getUri()->getPath();
         [$medium, $private] = $this->find($request, $id, $version) ?? throw HttpException::notFound($path);
-        $original = $this->files->original($medium->original());
 
         if (
             !($medium->isDocument() || $medium->isVector())
             || MediaUrls::fileExtension($medium->type) !== $match['extension']
             || !$this->urls->isValidVideo($id, $version, $match['name'], 'main', $match['extension'], $match['signature'])
-            || !is_file($original)
         ) {
             throw HttpException::notFound($path);
         }
 
-        if (!$private) {
-            $this->files->copyPublic($original, $id . '/' . $version . '/' . $file);
+        $size = $this->files->size($medium->original()) ?? throw HttpException::notFound($path);
+        // Text without a charset would be read in the encoding of the browser.
+        $type = str_starts_with($medium->type, 'text/') ? $medium->type . '; charset=utf-8' : $medium->type;
+        $bucket = $private ? null : $this->files->copyPublic($medium->original(), $id . '/' . $version . '/' . $file, $type);
+
+        if (null !== $bucket) {
+            return $this->redirect($bucket);
         }
 
-        // Text without a charset would be read in the encoding of the browser.
-        $response = $this->ranged($request, $original, str_starts_with($medium->type, 'text/') ? $medium->type . '; charset=utf-8' : $medium->type, $private);
+        $response = $this->ranged($request, $medium->original(), $size, $type, $private);
 
         // Opened on its own, nothing in an SVG may run or load (decision 0182).
         return $medium->isVector() ? $response->withHeader('Content-Security-Policy', self::SVG_POLICY) : $response;
@@ -224,9 +238,8 @@ final readonly class MediaHandler implements RequestHandlerInterface
     /**
      * The file or the one range of it the request asks for.
      */
-    private function ranged(ServerRequestInterface $request, string $file, string $type, bool $private): ResponseInterface
+    private function ranged(ServerRequestInterface $request, string $original, int $size, string $type, bool $private): ResponseInterface
     {
-        $size = (int) filesize($file);
         $start = 0;
         $end = $size - 1;
         $status = 200;
@@ -256,6 +269,17 @@ final readonly class MediaHandler implements RequestHandlerInterface
         return $response
             ->withStatus($status)
             ->withHeader('Content-Length', (string) max(0, $end - $start + 1))
-            ->withBody(new FileRangeStream($file, $start, max(0, $end - $start + 1)));
+            ->withBody($this->files->stream($original, $start, max(0, $end - $start + 1)));
+    }
+
+    /**
+     * To the file in a public bucket. Not for ever: the installation may
+     * move its files back into the folder.
+     */
+    private function redirect(string $url): ResponseInterface
+    {
+        return $this->responses->createResponse(302)
+            ->withHeader('Location', $url)
+            ->withHeader('Cache-Control', 'public, max-age=86400');
     }
 }

@@ -22,6 +22,10 @@ use LogicException;
  * The signature is a shortened HMAC with APP_SECRET, so only sizes the
  * website itself asks for can be generated. Widths follow a fixed ladder,
  * a height of 0 keeps the ratio of the original.
+ *
+ * A file that is in a public bucket already gets the address there
+ * (decision 0268); the address of the installation would only send the
+ * browser on.
  */
 final readonly class MediaUrls
 {
@@ -42,6 +46,7 @@ final readonly class MediaUrls
         private Config $config,
         private Images $images,
         private Languages $languages,
+        private MediaFiles $files,
     ) {}
 
     /**
@@ -51,7 +56,7 @@ final readonly class MediaUrls
     {
         $name = self::name($medium->fileName, $this->languages->default()->code);
 
-        return \sprintf(
+        return $this->deliver(\sprintf(
             '%s%s/%d/%s-%dx%d-%s.%s',
             self::PREFIX,
             $medium->id,
@@ -61,7 +66,7 @@ final readonly class MediaUrls
             $height,
             $this->signature($medium->id, $medium->version, $name, $width, $height, $extension),
             $extension,
-        );
+        ));
     }
 
     /**
@@ -75,7 +80,7 @@ final readonly class MediaUrls
         $key = null === $source ? 'main' : strtolower($source->id);
         $extension = Videos::TYPES[$source->type ?? $medium->type] ?? 'mp4';
 
-        return \sprintf(
+        return $this->deliver(\sprintf(
             '%s%s/%d/%s-%s-%s.%s',
             self::PREFIX,
             $medium->id,
@@ -84,7 +89,7 @@ final readonly class MediaUrls
             $key,
             $this->signature($medium->id, $medium->version, $name . '-' . $key, 0, 0, $extension),
             $extension,
-        );
+        ));
     }
 
     /**
@@ -98,7 +103,7 @@ final readonly class MediaUrls
         $name = self::name($medium->fileName, $this->languages->default()->code);
         $extension = self::fileExtension($medium->type) ?? 'bin';
 
-        return \sprintf(
+        return $this->deliver(\sprintf(
             '%s%s/%d/%s-main-%s.%s',
             self::PREFIX,
             $medium->id,
@@ -106,7 +111,7 @@ final readonly class MediaUrls
             $name,
             $this->signature($medium->id, $medium->version, $name . '-main', 0, 0, $extension),
             $extension,
-        );
+        ));
     }
 
     /**
@@ -190,6 +195,19 @@ final readonly class MediaUrls
         $slug = trim($slug, '-');
 
         return '' === $slug ? 'image' : $slug;
+    }
+
+    /**
+     * Whether an address leads to another host, e.g. a public bucket.
+     */
+    public static function isAbsolute(string $url): bool
+    {
+        return 1 === preg_match('~^https?://~i', $url);
+    }
+
+    private function deliver(string $path): string
+    {
+        return $this->files->publicUrl(substr($path, \strlen(self::PREFIX))) ?? $path;
     }
 
     private function signature(string $id, int $version, string $name, int $width, int $height, string $extension): string
