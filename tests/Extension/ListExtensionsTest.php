@@ -17,6 +17,8 @@ use Frootbox\Core\Extension\ExtensionPackage;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Extension\ExtensionSummary;
 use Frootbox\Core\Extension\ListExtensions;
+use Frootbox\Core\Extension\OfficialModule;
+use Frootbox\Core\Extension\OfficialModules;
 use Frootbox\Core\Extension\Source\ComposerSource;
 use Frootbox\Core\Frootbox;
 use Frootbox\Core\Tests\Support\FakeComposer;
@@ -64,6 +66,18 @@ final class ListExtensionsTest extends NotesTestCase
         self::assertTrue($notes->migrations);
         self::assertFalse($byName['acme/shop']->settings);
         self::assertFalse($byName['acme/shop']->migrations);
+    }
+
+    public function testNamesTheOfficialModulesThatAreNotInstalled(): void
+    {
+        $list = $this->runner()->ask(new ListExtensions());
+        $names = array_map(static fn(OfficialModule $module): string => $module->name, $list->available);
+
+        self::assertSame(array_map(static fn(OfficialModule $module): string => $module->name, OfficialModules::load()), $names, 'None of them is installed here.');
+        self::assertContains('frootbox/news', $names);
+        self::assertNotContains('frootbox/backend', $names, 'Only modules.');
+        $news = array_values(array_filter($list->available, static fn(OfficialModule $module): bool => 'frootbox/news' === $module->name));
+        self::assertSame('composer require frootbox/news', $news[0]->command);
     }
 
     public function testOnlySuperusersSeeIt(): void

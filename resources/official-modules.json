@@ -1,0 +1,67 @@
+[
+    {
+        "name": "frootbox/captcha-recaptcha",
+        "title": "reCAPTCHA",
+        "description": "reCAPTCHA of Google for the forms, v2 with a box or v3 with a score, loaded only after consent"
+    },
+    {
+        "name": "frootbox/collections",
+        "title": "Collections",
+        "description": "Collections of entries of the same kind such as references, projects or show homes, with drafts, image, categories and tags, cards filtered by category and tag with an address for each entry, and some entries as teasers"
+    },
+    {
+        "name": "frootbox/events",
+        "title": "Events",
+        "description": "Events with time, place, drafts and categories, a list of upcoming and past events with an address for each, the next events as teasers and a calendar file"
+    },
+    {
+        "name": "frootbox/forms",
+        "title": "Forms",
+        "description": "Forms built from field types, entries by mail and in the backend, spam protection with captchas of your choice and a spam folder"
+    },
+    {
+        "name": "frootbox/google-fonts",
+        "title": "Google Fonts",
+        "description": "Search the catalog of Google Fonts and import fonts once, so visitors load them from the own domain"
+    },
+    {
+        "name": "frootbox/jobs",
+        "title": "Jobs",
+        "description": "Jobs with kind, start, salary, workplace and drafts, a list filtered by category, kind and location with an address for each job, the application through a form and the newest jobs as teasers"
+    },
+    {
+        "name": "frootbox/news",
+        "title": "News",
+        "description": "Articles with drafts and categories, a list with an address for each article, the newest articles as teasers and an RSS feed"
+    },
+    {
+        "name": "frootbox/people",
+        "title": "People and locations",
+        "description": "The team, contact persons and locations with address, opening hours and a map, each with drafts"
+    },
+    {
+        "name": "frootbox/search",
+        "title": "Site search",
+        "description": "Visitors find published pages, articles, events and more on the website"
+    },
+    {
+        "name": "frootbox/seo",
+        "title": "SEO",
+        "description": "Sitemap, robots.txt, Open Graph, structured data and a check of every page"
+    },
+    {
+        "name": "frootbox/statistics",
+        "title": "Statistics",
+        "description": "Visits and page views without cookies or personal data, the most visited pages, where visitors come from and their devices"
+    },
+    {
+        "name": "frootbox/storage-s3",
+        "title": "S3 storage",
+        "description": "Keep media and files from forms in an S3-compatible bucket and deliver public media from there"
+    },
+    {
+        "name": "frootbox/webhooks",
+        "title": "Webhooks",
+        "description": "Tell other services about changes, signed after Standard Webhooks and sent in the background"
+    }
+]

@@ -21,12 +21,13 @@ use Frootbox\Core\Settings\SettingsClasses;
 use Frootbox\Core\Theme\ThemeChain;
 
 /**
- * The installed extensions, read only (decision 0274). Installing and
- * removing stay with Composer until the package service.
+ * The installed extensions, read only (decision 0274), and the official
+ * modules that are not (decision 0279). Installing and removing stay
+ * with Composer until the package service.
  *
  * @implements Query<ExtensionList>
  */
-#[AsQuery('system.extension-list', 'Lists the installed extensions with version, theme, and the blocks, layouts, actions, queries and field types they bring')]
+#[AsQuery('system.extension-list', 'Lists the installed extensions with version, theme, and the blocks, layouts, actions, queries and field types they bring, and the official modules that are not installed')]
 final readonly class ListExtensions implements Query
 {
     public function handle(Extensions $extensions, Registry $registry, Catalog $catalog, Components $components, SettingsClasses $settings, ThemeChain $themes): ExtensionList
@@ -57,7 +58,9 @@ final readonly class ListExtensions implements Query
             $packages,
         );
 
-        return new ExtensionList(Frootbox::version(), $summaries);
+        $available = array_values(array_filter(OfficialModules::load(), static fn(OfficialModule $module): bool => null === $extensions->get($module->name)));
+
+        return new ExtensionList(Frootbox::version(), $summaries, $available);
     }
 
     /**
