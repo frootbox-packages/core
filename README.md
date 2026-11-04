@@ -12,7 +12,7 @@ same extension points as anyone's.
 ## Installation
 
 Start a new website from the skeleton, which brings the core, the
-backend, the base theme and the official modules:
+backend, the base theme, forms and SEO (more modules with `composer require`):
 
 ```bash
 composer create-project frootbox/skeleton my-website
