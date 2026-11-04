@@ -8,11 +8,14 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Reference;
 
+use Frootbox\Core\Action\ActionExecuted;
 use Frootbox\Core\Action\Descriptor;
 use Frootbox\Core\Console\CommandInfo;
 use Frootbox\Core\Extension\Mount;
 use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\Field\AsFieldType;
+use Frootbox\Core\Schedule\ScheduleRan;
+use Frootbox\Core\View\BuildingHead;
 use Frootbox\Core\View\ViewExtension;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
@@ -32,6 +35,9 @@ final readonly class Reference
 {
     public const string MARKER = '<!-- Written by bin/frootbox reference:build from the code. Do not edit. -->';
 
+    /** The events the core dispatches; a test keeps the list complete. */
+    public const array EVENTS = [ActionExecuted::class, BuildingHead::class, ScheduleRan::class];
+
     public function __construct(
         private Registry $registry,
         private ContainerInterface $container,
@@ -49,6 +55,7 @@ final readonly class Reference
             'registry.md' => $this->extensionPoints(),
             'twig.md' => $this->twig(),
             'field-types.md' => $this->fieldTypes(),
+            'events.md' => self::events(),
         ];
     }
 
@@ -211,6 +218,7 @@ final readonly class Reference
             - [Twig functions](twig.md) for blocks, layouts and partials.
             - [Field types](field-types.md) for the fields of blocks, the
               website and objects.
+            - [Events](events.md) an extension can listen to.
             MD);
     }
 
@@ -450,6 +458,31 @@ final readonly class Reference
         }
 
         return self::page('Field types', $text);
+    }
+
+    private static function events(): string
+    {
+        $text = "Events of the core that an extension can listen to:\n\n"
+            . "```php\n\$registry->listen(ScheduleRan::class, PruneOldEntries::class);\n```\n\n"
+            . "The listener is a class with `__invoke()` that takes the event; it is\n"
+            . "loaded only when the event fires. Listeners change data only through\n"
+            . "actions.\n";
+
+        foreach (self::EVENTS as $class) {
+            $reflection = new ReflectionClass($class);
+            $text .= "\n## `" . $reflection->getShortName() . "`\n\n`" . $class . "`\n\n" . self::details($reflection->getDocComment()) . "\n";
+            $constructor = $reflection->getConstructor();
+
+            if (null !== $constructor && [] !== $constructor->getParameters()) {
+                $text .= "\n| Property | Type |\n|---|---|\n";
+
+                foreach ($constructor->getParameters() as $parameter) {
+                    $text .= '| `$' . $parameter->getName() . '` | `' . self::cell((string) $parameter->getType()) . "` |\n";
+                }
+            }
+        }
+
+        return self::page('Events', $text);
     }
 
     private static function package(string $name): string

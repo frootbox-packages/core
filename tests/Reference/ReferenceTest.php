@@ -27,7 +27,7 @@ final class ReferenceTest extends NotesTestCase
     {
         $pages = new Reference($this->get(Registry::class), $this->container)->pages();
 
-        self::assertSame(['README.md', 'actions.md', 'console.md', 'registry.md', 'twig.md', 'field-types.md'], array_keys($pages));
+        self::assertSame(['README.md', 'actions.md', 'console.md', 'registry.md', 'twig.md', 'field-types.md', 'events.md'], array_keys($pages));
         self::assertStringStartsWith(Reference::MARKER, $pages['actions.md']);
         self::assertStringContainsString("### `mail.test`\n\nSends a short test mail", $pages['actions.md']);
         self::assertStringContainsString('| `to` | string or null (email), optional | The recipient', $pages['actions.md']);
@@ -39,9 +39,38 @@ final class ReferenceTest extends NotesTestCase
         self::assertStringContainsString('| `headline` | A single line for a heading |', $pages['field-types.md']);
         self::assertStringContainsString("## `image`\n\nAn image from the media library:\n\n```\n{\"media\": \"01J…\"", $pages['field-types.md'], 'Each type with the format of its value.');
 
+        self::assertStringContainsString("## `ScheduleRan`\n\n`Frootbox\\Core\\Schedule\\ScheduleRan`", $pages['events.md']);
+        self::assertStringContainsString('| `$now` | `DateTimeImmutable` |', $pages['events.md']);
+
         foreach ($pages as $file => $markdown) {
             self::assertDoesNotMatchRegularExpression('/decisions? \d{4}/', $markdown, $file . ' names no internal decision.');
         }
+    }
+
+    public function testListsEveryEventTheCoreDispatches(): void
+    {
+        $dispatched = [];
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(\dirname(__DIR__, 2) . '/src', \FilesystemIterator::SKIP_DOTS));
+
+        foreach ($files as $file) {
+            if (!$file instanceof \SplFileInfo || 'php' !== $file->getExtension()) {
+                continue;
+            }
+
+            $code = (string) file_get_contents($file->getPathname());
+
+            // dispatch(new X(…)) or $event = new X(…) before dispatch($event).
+            if (str_contains($code, '->events->dispatch(')) {
+                preg_match_all('/->dispatch\(new (\w+)\(/', $code, $direct);
+                preg_match_all('/\$event = new (\w+)\(/', $code, $prepared);
+                $dispatched = [...$dispatched, ...$direct[1], ...$prepared[1]];
+            }
+        }
+
+        $listed = array_map(static fn(string $class): string => substr($class, (int) strrpos($class, '\\') + 1), Reference::EVENTS);
+        sort($dispatched);
+
+        self::assertSame($listed, $dispatched, 'Each event the core dispatches is in Reference::EVENTS.');
     }
 
     public function testLeavesOutTheNumbersOfTheInternalDecisions(): void
