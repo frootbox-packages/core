@@ -9,7 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Mail;
 
 /**
- * How mails leave the server, chosen by MAILER_DSN (decision 0222).
+ * How mails leave the server, chosen by MAILER_DSN or the settings (decisions 0222, 0269).
  */
 interface Transport
 {

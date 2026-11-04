@@ -11,8 +11,11 @@ namespace Frootbox\Core\Tests\Settings;
 use Frootbox\Core\Action\DefinitionException;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Undo\UndoAction;
+use Frootbox\Core\Consent\ConsentSettings;
 use Frootbox\Core\Extension\Registry;
+use Frootbox\Core\Mail\MailSettings;
 use Frootbox\Core\Security\Secrets;
+use Frootbox\Core\Settings\AsSettings;
 use Frootbox\Core\Settings\ListSettings;
 use Frootbox\Core\Settings\SetSecret;
 use Frootbox\Core\Settings\Settings;
@@ -57,7 +60,7 @@ final class SettingsTest extends NotesTestCase
         self::assertSame('ratio', $details->fields[2]->title, 'Without #[Title] the name is the title.');
         self::assertTrue($details->fields[5]->secret);
         self::assertFalse($details->fields[5]->set);
-        self::assertSame(['acme/notes', 'frootbox/core'], array_map(static fn(object $settings): string => $settings->package, $this->runner()->ask(new ListSettings())), 'The core has settings about consent (decision 0264).');
+        self::assertSame(['acme/notes', 'frootbox/core', 'frootbox/core.mail'], array_map(static fn(object $settings): string => $settings->package, $this->runner()->ask(new ListSettings())), 'The core has settings about consent (decision 0264) and mail (decision 0269).');
     }
 
     public function testChangesValuesAndResetsThemToTheDefault(): void
@@ -148,6 +151,27 @@ final class SettingsTest extends NotesTestCase
         $this->expectExceptionMessage('needs the attribute');
 
         new Registry()->settings(Note::class);
+    }
+
+    public function testAPackageHasOneSettingsClassPerSection(): void
+    {
+        $registry = new Registry();
+        $registry->settings(ConsentSettings::class);
+        $registry->settings(MailSettings::class);
+
+        self::assertSame(['frootbox/core' => ConsentSettings::class, 'frootbox/core.mail' => MailSettings::class], $registry->settingsClasses()->all());
+
+        try {
+            $registry->settings(NotesSettings::class);
+            self::fail('The core has its class without a section.');
+        } catch (DefinitionException $error) {
+            self::assertStringContainsString('one settings class per section', $error->getMessage());
+        }
+
+        $this->expectException(DefinitionException::class);
+        $this->expectExceptionMessage('may only have lowercase letters');
+        $settings = new #[AsSettings('Mail', section: 'Mail')] readonly class {};
+        $registry->settings($settings::class);
     }
 
     private function settings(): Settings

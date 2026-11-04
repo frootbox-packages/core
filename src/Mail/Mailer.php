@@ -9,22 +9,29 @@ declare(strict_types=1);
 namespace Frootbox\Core\Mail;
 
 use Frootbox\Core\Config\Config;
+use Frootbox\Core\Settings\Settings;
 use Psr\Log\LoggerInterface;
 
 /**
- * Sends mails (decision 0222). Modules put them in the queue with the
- * job SendMail instead of sending during a request. The transport comes
- * from MAILER_DSN: native://default (PHP's mail(), the default live),
- * log://default (the default in development), null://default or
- * memory://default for tests.
+ * Sends mails (decisions 0222, 0269). Modules put them in the queue with
+ * the job SendMail instead of sending during a request. The transport:
+ *
+ * 1. MAILER_DSN: smtp:// or smtps:// (symfony/mailer), native://default
+ *    (PHP's mail()), log://default, null://default or memory://default
+ *    for tests.
+ * 2. Live, the SMTP server of the settings "frootbox/core.mail".
+ * 3. native://default live, log://default in development.
  */
 final class Mailer
 {
+    private const array SCHEMES = ['smtp', 'smtps', 'native', 'log', 'null', 'memory'];
+
     private ?Transport $transport = null;
 
     public function __construct(
         private readonly Config $config,
         private readonly LoggerInterface $logger,
+        private readonly Settings $settings,
     ) {}
 
     /**
@@ -45,14 +52,15 @@ final class Mailer
     }
 
     /**
-     * The sender: mail.from in config/app.yaml, else noreply@ and the host of app.url.
+     * The sender: mail.from in config/app.yaml, else the one of the
+     * settings, else noreply@ and the host of app.url.
      */
     public function from(): string
     {
-        $from = $this->config->get('mail.from');
-
-        if (\is_string($from) && null !== self::address($from)) {
-            return $from;
+        foreach ([$this->config->get('mail.from'), $this->mailSettings()->from] as $from) {
+            if (\is_string($from) && null !== self::address($from)) {
+                return trim($from);
+            }
         }
 
         $url = $this->config->get('app.url');
@@ -61,22 +69,80 @@ final class Mailer
         return 'noreply@' . (\is_string($host) && '' !== $host ? $host : 'localhost');
     }
 
+    /**
+     * How mails leave the server, without a password.
+     */
+    public function status(): MailStatus
+    {
+        $dsn = $this->config->env('MAILER_DSN');
+        $settings = $this->mailSettings();
+        $host = trim($settings->host);
+
+        if (null !== $dsn) {
+            $scheme = self::scheme($dsn);
+            $server = parse_url($dsn, \PHP_URL_HOST);
+            $port = parse_url($dsn, \PHP_URL_PORT);
+            $smtp = \in_array($scheme, ['smtp', 'smtps'], true);
+
+            return new MailStatus(
+                transport: $smtp ? 'smtp' : $scheme,
+                source: MailStatus::ENVIRONMENT,
+                from: $this->from(),
+                host: $smtp && \is_string($server) ? $server : null,
+                port: $smtp && \is_int($port) ? $port : null,
+                settingsIgnored: '' !== $host,
+            );
+        }
+
+        if ('' !== $host && !$this->config->environment->isDevelopment()) {
+            return new MailStatus('smtp', MailStatus::SETTINGS, $this->from(), $host, $settings->port);
+        }
+
+        return new MailStatus(
+            transport: $this->config->environment->isDevelopment() ? 'log' : 'native',
+            source: MailStatus::STANDARD,
+            from: $this->from(),
+            settingsIgnored: '' !== $host,
+        );
+    }
+
+    /**
+     * @throws MailException
+     */
     public function transport(): Transport
     {
         if (null !== $this->transport) {
             return $this->transport;
         }
 
-        $dsn = $this->config->env('MAILER_DSN') ?? ($this->config->environment->isDevelopment() ? 'log://default' : 'native://default');
-        $scheme = strtolower((string) parse_url($dsn, \PHP_URL_SCHEME));
+        $dsn = $this->config->env('MAILER_DSN');
+        $status = $this->status();
 
-        return $this->transport = match ($scheme) {
+        if (MailStatus::SETTINGS === $status->source) {
+            return $this->transport = SmtpTransport::fromSettings($this->mailSettings());
+        }
+
+        if (null !== $dsn && !\in_array(self::scheme($dsn), self::SCHEMES, true)) {
+            throw new MailException(\sprintf('MAILER_DSN "%s://…" is not supported. Use smtp://, smtps://, native://default, log://default or null://default.', self::scheme($dsn)));
+        }
+
+        return $this->transport = match ($status->transport) {
+            'smtp' => SmtpTransport::fromDsn((string) $dsn),
             'native' => new NativeTransport(),
             'log' => new LogTransport($this->logger),
             'null' => new MemoryTransport(keep: false),
-            'memory' => new MemoryTransport(),
-            default => throw new MailException(\sprintf('MAILER_DSN "%s" is not supported. Use native://default, log://default or null://default.', $scheme)),
+            default => new MemoryTransport(),
         };
+    }
+
+    private function mailSettings(): MailSettings
+    {
+        return $this->settings->get(MailSettings::class);
+    }
+
+    private static function scheme(string $dsn): string
+    {
+        return strtolower((string) parse_url($dsn, \PHP_URL_SCHEME));
     }
 
     /**

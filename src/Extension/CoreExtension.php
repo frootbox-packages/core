@@ -103,7 +103,10 @@ use Frootbox\Core\Heading\ShowOutline;
 use Frootbox\Core\Help\ListHelp;
 use Frootbox\Core\Help\ShowHelp;
 use Frootbox\Core\Install\InstallCommand;
+use Frootbox\Core\Mail\MailSettings;
 use Frootbox\Core\Mail\SendMail;
+use Frootbox\Core\Mail\SendTestMail;
+use Frootbox\Core\Mail\ShowMailStatus;
 use Frootbox\Core\Media\AddMediaSource;
 use Frootbox\Core\Media\CreateMediaFolder;
 use Frootbox\Core\Media\CreateMedium;
@@ -434,6 +437,10 @@ final class CoreExtension implements Extension
         $registry->action(DeleteJob::class);
         // Mails leave through the queue (decision 0222).
         $registry->job(SendMail::class);
+        // SMTP access and a test mail (decision 0269).
+        $registry->settings(MailSettings::class);
+        $registry->query(ShowMailStatus::class);
+        $registry->action(SendTestMail::class);
 
         // Backups of the database (decision 0183).
         $registry->command(BackupCreateCommand::class);
