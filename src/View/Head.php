@@ -23,7 +23,7 @@ final class Head
     /** One line for search engines, written as meta description (decision 0223) */
     public string $description = '';
 
-    /** The title of the page or object alone, without the name of the website */
+    /** The title of the page or object alone for sharing, without the name of the website unless the page has its own title for search engines (decision 0266) */
     public ?string $name = null;
 
     /** The name of the website */

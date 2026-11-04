@@ -29,10 +29,13 @@ use Frootbox\Database\EntityNotFoundException;
  */
 final readonly class PageEditor
 {
-    private const array TRANSLATION_KEYS = ['title', 'slug', 'description', 'content'];
+    private const array TRANSLATION_KEYS = ['title', 'slug', 'description', 'seoTitle', 'content'];
 
     /** Longer is cut by search engines anyway (decision 0223). */
     public const int DESCRIPTION_MAX = 300;
+
+    /** About 60 characters fit in search results, more is room to spare (decision 0266). */
+    public const int SEO_TITLE_MAX = 120;
 
     public function __construct(
         private PageReader $reader,
@@ -126,6 +129,7 @@ final readonly class PageEditor
             $slug = \array_key_exists('slug', $value) ? $value['slug'] ?? '' : $old->slug ?? '';
             $content = \array_key_exists('content', $value) ? $value['content'] ?? [] : $old->content ?? [];
             $description = \array_key_exists('description', $value) ? $value['description'] ?? '' : $old->description ?? '';
+            $seoTitle = \array_key_exists('seoTitle', $value) ? $value['seoTitle'] ?? '' : $old->seoTitle ?? '';
 
             if (!\is_string($title)) {
                 $errors[$at . '/title'] = null === $title ? 'is required.' : 'must be a string.';
@@ -150,14 +154,25 @@ final readonly class PageEditor
                 $errors[$at . '/description'] = 'must be a string.';
             }
 
-            if (\is_string($title) && \is_string($slug) && \is_array($content) && \is_string($description)) {
+            if (\is_string($seoTitle)) {
+                // One line, it is the whole title in search results (decision 0266).
+                $seoTitle = trim((string) preg_replace('/\s+/u', ' ', $seoTitle));
+
+                if (mb_strlen($seoTitle) > self::SEO_TITLE_MAX) {
+                    $errors[$at . '/seoTitle'] = \sprintf('must be at most %d characters.', self::SEO_TITLE_MAX);
+                }
+            } else {
+                $errors[$at . '/seoTitle'] = 'must be a string.';
+            }
+
+            if (\is_string($title) && \is_string($slug) && \is_array($content) && \is_string($description) && \is_string($seoTitle)) {
                 $map = [];
 
                 foreach ($content as $key => $item) {
                     $map[(string) $key] = $item;
                 }
 
-                $current[$language] = new TranslationData($title, $slug, $map, $description);
+                $current[$language] = new TranslationData($title, $slug, $map, $description, $seoTitle);
             }
         }
 
@@ -494,7 +509,7 @@ final readonly class PageEditor
                 }
             }
 
-            $translations[$language] = new TranslationData($title, $slug, $content, $translation->description);
+            $translations[$language] = new TranslationData($title, $slug, $content, $translation->description, $translation->seoTitle);
         }
 
         return [new PageData($data->parentId, $data->position, $data->layout, $data->variant, $translations, $data->excludeFromSearchEngines, $data->excludeFromSiteSearch, $data->plugin), $errors];
@@ -605,7 +620,7 @@ final readonly class PageEditor
         $existing = $this->translations->of($id);
 
         foreach ($data->translations as $language => $translation) {
-            $row = ['title' => $translation->title, 'slug' => $translation->slug, 'description' => $translation->description, 'content' => $translation->content];
+            $row = ['title' => $translation->title, 'slug' => $translation->slug, 'description' => $translation->description, 'seoTitle' => $translation->seoTitle, 'content' => $translation->content];
 
             if (isset($existing[$language])) {
                 $this->translations->update($existing[$language]->id, $row);

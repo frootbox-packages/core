@@ -243,16 +243,18 @@ final readonly class PageHandler implements RequestHandlerInterface
 
         $site = $this->config->string('app.name', 'Frootbox');
         $base = $this->service(SiteUrl::class)->base($request);
+        // A title of its own for search engines is for the page alone, not for its objects (decision 0266).
+        $start = $page->isStart() && null === $page->subpage;
         $head = new Head(
             $page->language,
-            $page->isStart() && null === $page->subpage ? $site : $title . ' – ' . $site,
+            null === $page->subpage ? $page->translation->searchTitle($site, $start) : TranslationData::defaultTitle($title, $site, false),
             // A fallback points search engines to the original.
             $urls->absolute($shown, $page->isFallback() ? $page->contentLanguage : $page->language, $base),
             $languages->get($page->language)->direction->value,
         );
-        $head->name = $title;
+        $head->name = null === $page->subpage && '' !== $page->translation->seoTitle ? $page->translation->seoTitle : $title;
         $head->site = $site;
-        $head->start = $page->isStart() && null === $page->subpage;
+        $head->start = $start;
         $head->description = null === $page->subpage ? $page->translation->description : $page->subpage->description;
         $head->image = null === $page->subpage ? self::firstImage($page->translation->content) : $page->subpage->image;
 

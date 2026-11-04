@@ -60,7 +60,8 @@ final readonly class PageData
             }
 
             $description = $translation['description'] ?? '';
-            $translations[(string) $language] = new TranslationData($translation['title'], $translation['slug'], $content, \is_string($description) ? $description : '');
+            $seoTitle = $translation['seoTitle'] ?? '';
+            $translations[(string) $language] = new TranslationData($translation['title'], $translation['slug'], $content, \is_string($description) ? $description : '', \is_string($seoTitle) ? $seoTitle : '');
         }
 
         $parentId = $data['parentId'] ?? null;
@@ -86,7 +87,7 @@ final readonly class PageData
                 $content[(string) $key] = $value;
             }
 
-            $data[$translation->language] = new TranslationData($translation->title, $translation->slug, $content, $translation->description);
+            $data[$translation->language] = new TranslationData($translation->title, $translation->slug, $content, $translation->description, $translation->seoTitle);
         }
 
         $plugin = null === $page->pluginType ? null : new PluginPlace($page->pluginType, $page->pluginSpace ?? Space::DEFAULT, $page->pluginDetails, $page->pluginCategories);
@@ -95,14 +96,14 @@ final readonly class PageData
     }
 
     /**
-     * @return array{parentId: string|null, position: string, layout: string, variant: string|null, excludeFromSearchEngines: string, excludeFromSiteSearch: string, plugin?: array{type: string, space: string, details: bool}, translations: array<string, array{title: string, slug: string, description: string, content: array<string, mixed>}>}
+     * @return array{parentId: string|null, position: string, layout: string, variant: string|null, excludeFromSearchEngines: string, excludeFromSiteSearch: string, plugin?: array{type: string, space: string, details: bool}, translations: array<string, array{title: string, slug: string, description: string, seoTitle: string, content: array<string, mixed>}>}
      */
     public function toArray(): array
     {
         $translations = [];
 
         foreach ($this->translations as $language => $translation) {
-            $translations[$language] = ['title' => $translation->title, 'slug' => $translation->slug, 'description' => $translation->description, 'content' => $translation->content];
+            $translations[$language] = ['title' => $translation->title, 'slug' => $translation->slug, 'description' => $translation->description, 'seoTitle' => $translation->seoTitle, 'content' => $translation->content];
         }
 
         return [

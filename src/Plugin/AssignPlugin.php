@@ -110,7 +110,7 @@ final readonly class AssignPlugin implements Action, Scoped
                 $content['plugin'] = ['block' => $block];
             }
 
-            $translations[$language] = new TranslationData($translation->title, $translation->slug, $content, $translation->description);
+            $translations[$language] = $translation->withContent($content);
         }
 
         return $translations;

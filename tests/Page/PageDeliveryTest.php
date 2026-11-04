@@ -140,6 +140,34 @@ final class PageDeliveryTest extends NotesTestCase
         }
     }
 
+    public function testATitleForSearchEnginesReplacesTheWholeTitle(): void
+    {
+        $start = $this->createPage(null, 'Start');
+        $about = $this->createPage($start->id, 'Über uns');
+        $this->runner()->run(new UpdatePage($about->id, ['de' => ['seoTitle' => "  Die Rösterei\n in Münster | Testsite "]]));
+        $this->runner()->run(new UpdatePage($start->id, ['de' => ['seoTitle' => 'Kaffee aus Münster']]));
+
+        self::assertSame('Die Rösterei in Münster | Testsite', $this->runner()->ask(new ShowPage($about->id))->draft?->translations['de']->seoTitle, 'One line in the draft.');
+
+        $this->runner()->run(new PublishPages([$start->id, $about->id]));
+        self::assertStringContainsString('<title>Die Rösterei in Münster | Testsite</title>', (string) $this->request('/ueber-uns')->getBody(), 'Without the name of the website added.');
+        self::assertStringContainsString('<title>Kaffee aus Münster</title>', (string) $this->request('/')->getBody(), 'Also on the start page.');
+
+        $this->runner()->run(new UpdatePage($about->id, ['de' => ['title' => 'Wir']]));
+        self::assertSame('Die Rösterei in Münster | Testsite', $this->runner()->ask(new ShowPage($about->id))->draft?->translations['de']->seoTitle, 'Left out, it stays.');
+
+        $this->runner()->run(new UpdatePage($about->id, ['de' => ['seoTitle' => '']]));
+        $this->runner()->run(new PublishPages([$about->id]));
+        self::assertStringContainsString('<title>Wir – Testsite</title>', (string) $this->request('/ueber-uns')->getBody(), 'Empty is the title with the name of the website.');
+
+        try {
+            $this->runner()->run(new UpdatePage($about->id, ['de' => ['seoTitle' => str_repeat('a', PageEditor::SEO_TITLE_MAX + 1)]]));
+            self::fail('Too long is refused.');
+        } catch (InvalidInputException $error) {
+            self::assertArrayHasKey('/translations/de/seoTitle', $error->errors);
+        }
+    }
+
     public function testReservesPathsBelowTheStartPage(): void
     {
         $start = $this->createPage(null, 'Start');

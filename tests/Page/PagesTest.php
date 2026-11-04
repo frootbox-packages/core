@@ -413,7 +413,7 @@ final class PagesTest extends NotesTestCase
 
         $this->assertInvalid(['/translations' => 'must be an object by language code, e.g. {"de": {"title": "Start"}}.'], fn() => $this->runner()->call('page.update', ['id' => $result->id, 'translations' => [['title' => 'x']]]));
         $this->assertInvalid([
-            '/translations/de' => 'Unknown keys: name. Allowed: title, slug, description, content.',
+            '/translations/de' => 'Unknown keys: name. Allowed: title, slug, description, seoTitle, content.',
             '/translations/en/title' => 'is required.',
             '/translations/en/content' => 'must be an object with "options", "fields" and "areas".',
         ], fn() => $this->runner()->call('page.update', ['id' => $result->id, 'translations' => ['de' => ['name' => 'x'], 'en' => ['content' => 'x']]]));

@@ -12,8 +12,8 @@ use DateTimeImmutable;
 use Frootbox\Database\Entity;
 
 /**
- * The published title, slug, content and description of a page in one
- * language.
+ * The published title, slug, content, description and title for search
+ * engines of a page in one language.
  */
 final readonly class PageTranslation extends Entity
 {
@@ -30,5 +30,6 @@ final readonly class PageTranslation extends Entity
         public DateTimeImmutable $createdAt,
         public ?DateTimeImmutable $updatedAt,
         public string $description = '',
+        public string $seoTitle = '',
     ) {}
 }
