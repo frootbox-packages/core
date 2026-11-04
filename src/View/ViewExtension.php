@@ -14,6 +14,7 @@ use Frootbox\Core\Consent\ExternalServices;
 use Frootbox\Core\I18n\Translator;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Media\Credits;
 use Frootbox\Core\Navigation\MenuItem;
 use Frootbox\Core\Navigation\Menus;
 use Frootbox\Core\ObjectField\ObjectOutput;
@@ -111,6 +112,7 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('site_attributes', $this->siteAttributes(...)),
             new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
             new TwigFunction('breadcrumb', fn(): array => $this->service(Menus::class)->breadcrumb()),
+            new TwigFunction('image_credits', fn(): array => $this->service(Credits::class)->list($this->service(Delivery::class)->contentLanguage()->code, $this->service(Delivery::class)->language()->code)),
             // The object of a plugin shown below its base page, e.g. an article; layouts leave out their heading then (decision 0220).
             new TwigFunction('subpage', fn(): ?Subpage => $this->service(Delivery::class)->subpage()),
             new TwigFunction('t', $this->text(...)),

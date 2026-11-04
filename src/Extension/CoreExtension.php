@@ -106,6 +106,7 @@ use Frootbox\Core\Media\DeleteMediaFolder;
 use Frootbox\Core\Media\DeleteMediaSource;
 use Frootbox\Core\Media\DeleteMedium;
 use Frootbox\Core\Media\DiscardMedium;
+use Frootbox\Core\Media\ListCredits;
 use Frootbox\Core\Media\ListMedia;
 use Frootbox\Core\Media\ListMediaFolders;
 use Frootbox\Core\Media\ListMediumUsages;
@@ -366,7 +367,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([ListMedia::class, ShowMedium::class, ListMediumUsages::class, ListMediaFolders::class] as $query) {
+        foreach ([ListMedia::class, ShowMedium::class, ListMediumUsages::class, ListMediaFolders::class, ListCredits::class] as $query) {
             $registry->query($query);
         }
 
