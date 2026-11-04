@@ -20,6 +20,12 @@ final class FrootboxTest extends TestCase
         self::assertMatchesRegularExpression('/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/', Frootbox::VERSION);
     }
 
+    public function testTheInstalledVersionFallsBackForABranch(): void
+    {
+        // The monorepo itself is installed as dev-main, which says nothing.
+        self::assertSame(Frootbox::VERSION, Frootbox::version());
+    }
+
     public function testRunningPhpMeetsMinimumVersion(): void
     {
         self::assertTrue(version_compare(PHP_VERSION, Frootbox::MINIMUM_PHP_VERSION, '>='));

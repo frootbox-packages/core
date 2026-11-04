@@ -78,7 +78,7 @@ final class InstallCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $env = $this->serverEnvironment ?? getenv();
         $installer = new Installer($this->paths);
-        $io->title('Frootbox ' . Frootbox::VERSION);
+        $io->title('Frootbox ' . Frootbox::version());
 
         try {
             if (!$installer->isConfigured($env)) {

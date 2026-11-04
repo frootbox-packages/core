@@ -44,7 +44,7 @@ final class AboutCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $rows = [
-            ['Frootbox', Frootbox::VERSION],
+            ['Frootbox', Frootbox::version()],
             ['PHP', \PHP_VERSION],
             ['Environment', $this->config->environment->value],
             ['Project root', $this->paths->root],

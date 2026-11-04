@@ -109,7 +109,7 @@ final readonly class Application
         $paths = new ProjectPaths($projectRoot);
 
         if ('install' === $input->getFirstArgument()) {
-            $console = new ConsoleApplication('Frootbox', Frootbox::VERSION);
+            $console = new ConsoleApplication('Frootbox', Frootbox::version());
             $console->setAutoExit(false);
             $console->addCommand(new InstallCommand($paths, $serverEnvironment, $sources));
 

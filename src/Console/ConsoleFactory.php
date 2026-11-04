@@ -44,7 +44,7 @@ final class ConsoleFactory
 
     public static function create(ContainerInterface $container, Registry $registry): ConsoleApplication
     {
-        $console = new ConsoleApplication('Frootbox', Frootbox::VERSION);
+        $console = new ConsoleApplication('Frootbox', Frootbox::version());
 
         foreach ($registry->commands() as $class) {
             $console->addCommand(self::lazy($class, static fn(): Command => self::fromContainer($container, $class)));
