@@ -68,7 +68,7 @@ final class ApplicationTest extends TestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertStringContainsString('Testsite', (string) $response->getBody());
-        self::assertStringContainsString('Entwicklung', (string) $response->getBody());
+        self::assertStringContainsString('development', (string) $response->getBody());
     }
 
     public function testUnknownPathIs404(): void

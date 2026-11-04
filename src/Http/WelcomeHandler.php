@@ -17,7 +17,8 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
- * Temporary start page until pages and themes exist (M2).
+ * The start page of a new website until it has a published one: says
+ * that Frootbox runs and how to go on.
  */
 final readonly class WelcomeHandler implements RequestHandlerInterface
 {
@@ -31,12 +32,13 @@ final readonly class WelcomeHandler implements RequestHandlerInterface
     {
         $name = htmlspecialchars($this->config->string('app.name', 'Frootbox'), \ENT_QUOTES);
         $version = htmlspecialchars(Frootbox::VERSION, \ENT_QUOTES);
-        $environment = $this->config->environment->isDevelopment() ? 'Entwicklung' : 'Live';
+        $environment = $this->config->environment->isDevelopment() ? 'development' : 'live';
+        $backend = htmlspecialchars($this->config->string('backend.path', '/cms'), \ENT_QUOTES);
         $php = htmlspecialchars(\PHP_VERSION, \ENT_QUOTES);
 
         $html = <<<HTML
             <!doctype html>
-            <html lang="de">
+            <html lang="en">
             <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -50,9 +52,10 @@ final readonly class WelcomeHandler implements RequestHandlerInterface
             </head>
             <body>
             <h1>{$name}</h1>
-            <p>Frootbox {$version} läuft.</p>
+            <p>Frootbox {$version} is running. The website has no published page yet.</p>
+            <p>Sign in at <a href="{$backend}">{$backend}</a> to create the first page, or add pages from a file with <code>php bin/frootbox seed</code>.</p>
             <dl>
-            <dt>Umgebung</dt><dd>{$environment}</dd>
+            <dt>Environment</dt><dd>{$environment}</dd>
             <dt>PHP</dt><dd>{$php}</dd>
             </dl>
             </body>

@@ -98,7 +98,7 @@ final class PageDeliveryTest extends NotesTestCase
     {
         $this->createPage(null, 'Start');
 
-        self::assertStringContainsString('läuft', (string) $this->request('/')->getBody(), 'A draft start page is not delivered.');
+        self::assertStringContainsString('has no published page yet', (string) $this->request('/')->getBody(), 'A draft start page is not delivered.');
         $this->assertStatus(404, '/irgendwas');
     }
 
