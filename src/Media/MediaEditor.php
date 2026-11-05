@@ -45,6 +45,7 @@ final readonly class MediaEditor
         private Videos $videos,
         private MediaSources $sources,
         private Documents $documents,
+        private ObjectMedia $objects,
     ) {}
 
     /**
@@ -686,7 +687,8 @@ final readonly class MediaEditor
             }
         }
 
-        return \count($places);
+        // Objects of modules are asked, not indexed (decision 0287).
+        return \count($places) + $this->objects->published($id);
     }
 
     /**

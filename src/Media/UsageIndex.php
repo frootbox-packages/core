@@ -35,6 +35,7 @@ final readonly class UsageIndex
         private Revisions $revisions,
         private SiteFields $site,
         private ThemeChain $themes,
+        private ObjectMedia $objects,
     ) {}
 
     /**
@@ -144,13 +145,17 @@ final readonly class UsageIndex
     }
 
     /**
-     * Ids of all media used somewhere, in a draft or published.
+     * Ids of all media used somewhere, in a draft or published, also by
+     * objects of modules.
      *
      * @return list<string>
      */
     public function used(): array
     {
-        return array_values(array_unique($this->usages->fetch()->map(static fn(MediaUsage $usage): string => $usage->mediaId)));
+        $ids = $this->usages->fetch()->map(static fn(MediaUsage $usage): string => $usage->mediaId);
+
+        // Also those in objects of modules (decision 0287).
+        return array_values(array_unique([...$ids, ...$this->objects->used()]));
     }
 
     /**

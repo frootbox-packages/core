@@ -38,7 +38,7 @@ final readonly class ListMediumUsages implements Query, Scoped
     /**
      * @return list<MediumUsage>
      */
-    public function handle(Media $media, MediaUsages $usages, PageReader $pages): array
+    public function handle(Media $media, MediaUsages $usages, PageReader $pages, ObjectMedia $objects): array
     {
         $media->getById($this->id);
         $places = [];
@@ -62,6 +62,7 @@ final readonly class ListMediumUsages implements Query, Scoped
             $found[] = new MediumUsage($place['type'], $place['id'], $place['language'], $title, $place['draft'], $place['published']);
         }
 
-        return $found;
+        // Objects of modules are asked, not indexed (decision 0287).
+        return [...$found, ...$objects->usages($this->id)];
     }
 }

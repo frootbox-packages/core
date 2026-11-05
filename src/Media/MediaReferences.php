@@ -13,6 +13,7 @@ use Frootbox\Core\Component\Components;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Page\PageData;
+use Frootbox\Core\Theme\Icons;
 
 /**
  * Finds the media a page uses: in the fields of its layout and of all
@@ -21,6 +22,9 @@ use Frootbox\Core\Page\PageData;
  */
 final readonly class MediaReferences
 {
+    /** A ULID as media have it */
+    private const string ID = '/^[0-9A-HJKMNP-TV-Z]{26}$/';
+
     public function __construct(
         private Components $components,
         private FieldTypes $types,
@@ -71,6 +75,41 @@ final readonly class MediaReferences
         }
 
         return $ids;
+    }
+
+    /**
+     * The media in any stored value without knowing its fields, e.g. an
+     * object of a module (decision 0287): keys "media" and "poster" with
+     * an id (images, files, videos) and symbols "media:<id>", at any depth.
+     * Rather too many than too few.
+     *
+     * @return list<string>
+     */
+    public static function inValue(mixed $value): array
+    {
+        $ids = [];
+
+        if (\is_string($value)) {
+            $id = Icons::mediumId($value);
+
+            return null === $id ? [] : [$id];
+        }
+
+        if (!\is_array($value)) {
+            return [];
+        }
+
+        foreach ($value as $key => $item) {
+            if (('media' === $key || 'poster' === $key) && \is_string($item) && 1 === preg_match(self::ID, $item)) {
+                $ids[] = $item;
+
+                continue;
+            }
+
+            array_push($ids, ...self::inValue($item));
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**

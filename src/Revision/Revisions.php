@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Revision;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\ArrayParameterType;
 use Frootbox\Database\Repository;
 use Frootbox\Database\Values;
 
@@ -64,6 +65,38 @@ final class Revisions extends Repository
         }
 
         return $drafts;
+    }
+
+    /**
+     * Drafts and published versions of all types but the given ones,
+     * optionally only those whose data contain a text, e.g. the id of a
+     * medium (decision 0287). The text is matched as it is, with no
+     * wildcards of its own.
+     *
+     * @param list<string> $exceptTypes
+     *
+     * @return list<Revision>
+     */
+    public function current(array $exceptTypes = [], ?string $containing = null): array
+    {
+        $quote = $this->connection->quoteSingleIdentifier(...);
+        $query = $this->connection->createQueryBuilder()
+            ->select('*')
+            ->from($quote(self::TABLE))
+            ->where($quote('status') . ' IN (:statuses)')
+            ->setParameter('statuses', [RevisionStatus::Draft->value, RevisionStatus::Published->value], ArrayParameterType::STRING)
+            ->orderBy($quote('id'));
+
+        if ([] !== $exceptTypes) {
+            $query->andWhere($quote('type') . ' NOT IN (:types)')->setParameter('types', $exceptTypes, ArrayParameterType::STRING);
+        }
+
+        if (null !== $containing) {
+            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $containing);
+            $query->andWhere($quote('data') . " LIKE :containing ESCAPE '!'")->setParameter('containing', '%' . $escaped . '%');
+        }
+
+        return array_map($this->hydrate(...), $query->executeQuery()->fetchAllAssociative());
     }
 
     /**

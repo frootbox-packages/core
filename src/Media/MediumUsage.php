@@ -23,5 +23,7 @@ final readonly class MediumUsage
         public string $title,
         public bool $draft,
         public bool $published,
+        /** For objects of modules the kind for editors, e.g. "News" (decision 0287) */
+        public string $kind = '',
     ) {}
 }
