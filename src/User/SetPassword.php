@@ -39,6 +39,11 @@ final readonly class SetPassword implements Action
     public function handle(Users $users, Passwords $passwords, AccessTokens $tokens, CurrentUser $current, Hierarchy $hierarchy): void
     {
         $hierarchy->assertMayManageUser($this->id);
+
+        if (UserKind::Service === $users->getById($this->id)->kind) {
+            throw UserException::serviceAccount('has no password');
+        }
+
         $users->update($this->id, ['password' => $passwords->hash($this->password)]);
         $tokens->revokeAll($this->id, $current->is($this->id) ? $current->tokenId() : null);
     }

@@ -40,7 +40,7 @@ final readonly class UserSource implements SearchSource
             $user = ctype_digit($id) ? $this->users->fetchById((int) $id) : null;
 
             if (null !== $user) {
-                yield new SearchEntry($id, $user->name, $user->email, 'user.list');
+                yield new SearchEntry($id, $user->name, $user->email ?? '', 'user.list');
             }
         }
     }

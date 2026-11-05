@@ -236,6 +236,7 @@ use Frootbox\Core\Url\SyncUrls;
 use Frootbox\Core\Url\UpdateRedirect;
 use Frootbox\Core\User\AssignRole;
 use Frootbox\Core\User\CreateRole;
+use Frootbox\Core\User\CreateServiceToken;
 use Frootbox\Core\User\CreateUser;
 use Frootbox\Core\User\DeleteRole;
 use Frootbox\Core\User\DeleteUser;
@@ -309,7 +310,7 @@ final class CoreExtension implements Extension
 
         $registry->action(UndoAction::class);
 
-        foreach ([CreateUser::class, UpdateUser::class, SetPassword::class, DeleteUser::class, AssignRole::class, RemoveRole::class, SetRoles::class, CreateRole::class, UpdateRole::class, DeleteRole::class] as $action) {
+        foreach ([CreateUser::class, UpdateUser::class, SetPassword::class, CreateServiceToken::class, DeleteUser::class, AssignRole::class, RemoveRole::class, SetRoles::class, CreateRole::class, UpdateRole::class, DeleteRole::class] as $action) {
             $registry->action($action);
         }
 

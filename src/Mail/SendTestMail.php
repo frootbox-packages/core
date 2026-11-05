@@ -38,6 +38,10 @@ final readonly class SendTestMail implements Action
     public function handle(Mailer $mailer, CurrentUser $current, Users $users, Config $config, Translator $translator): MailStatus
     {
         $to = null === $this->to || '' === trim($this->to) ? $users->getById($current->id())->email : trim($this->to);
+
+        if (null === $to) {
+            throw new InvalidInputException('mail.test', ['/to' => 'is required, the own account has no email.']);
+        }
         $status = $mailer->status();
         $site = $config->string('app.name', 'Frootbox');
         $url = $config->get('app.url');

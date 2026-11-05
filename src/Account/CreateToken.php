@@ -18,6 +18,9 @@ use Frootbox\Core\Auth\AccessTokens;
 use Frootbox\Core\Auth\CurrentUser;
 use Frootbox\Core\Auth\IssuedToken;
 use Frootbox\Core\Auth\TokenType;
+use Frootbox\Core\User\UserException;
+use Frootbox\Core\User\UserKind;
+use Frootbox\Core\User\Users;
 
 /**
  * Creates an API token for the own account. It acts with the user's
@@ -37,8 +40,13 @@ final readonly class CreateToken implements Action
         public ?int $days = null,
     ) {}
 
-    public function handle(AccessTokens $tokens, CurrentUser $current): IssuedToken
+    public function handle(AccessTokens $tokens, CurrentUser $current, Users $users): IssuedToken
     {
+        // Otherwise a stolen token could make more of itself (decision 0285).
+        if (UserKind::Service === $users->getById($current->id())->kind) {
+            throw UserException::serviceAccount('own tokens');
+        }
+
         $expires = null === $this->days ? null : new DateTimeImmutable()->modify(\sprintf('+%d days', $this->days));
 
         return $tokens->issue($current->id(), TokenType::Api, $this->name, $expires);

@@ -22,7 +22,7 @@ use Frootbox\Core\Auth\Passwords;
 /**
  * @implements Action<UserProfile>
  */
-#[AsAction('user.create', 'Creates a user who signs in with email and password')]
+#[AsAction('user.create', 'Creates a user who signs in with email and password, or a service account that only uses API tokens')]
 final readonly class CreateUser implements Action
 {
     /**
@@ -31,7 +31,8 @@ final readonly class CreateUser implements Action
     public function __construct(
         #[Email]
         #[Length(max: 255)]
-        public string $email,
+        #[Description('Required for a person, none for a service account')]
+        public ?string $email,
         #[Length(min: 1, max: 255)]
         public string $name,
         #[Sensitive]
@@ -42,16 +43,30 @@ final readonly class CreateUser implements Action
         #[Description('Role names, e.g. ["editor"]')]
         public array $roles = [],
         public bool $active = true,
+        #[Description('"service" for a service account: no email, no password, tokens only from user.create-token')]
+        public UserKind $kind = UserKind::Person,
     ) {}
 
     public function handle(Users $users, RoleAssignments $assignments, Passwords $passwords, Runner $runner): UserProfile
     {
-        if (null !== $users->findByEmail($this->email)) {
+        if (UserKind::Service === $this->kind) {
+            $errors = array_filter([
+                '/email' => null === $this->email ? null : 'must be empty for a service account.',
+                '/password' => null === $this->password ? null : 'must be empty for a service account.',
+            ]);
+
+            if ([] !== $errors) {
+                throw new InvalidInputException('user.create', $errors);
+            }
+        } elseif (null === $this->email || '' === trim($this->email)) {
+            throw new InvalidInputException('user.create', ['/email' => 'is required.']);
+        } elseif (null !== $users->findByEmail($this->email)) {
             throw new InvalidInputException('user.create', ['/email' => 'is already in use.']);
         }
 
         $user = $users->insert([
-            'email' => Users::normalizeEmail($this->email),
+            'email' => null === $this->email ? null : Users::normalizeEmail($this->email),
+            'kind' => $this->kind,
             'name' => $this->name,
             'password' => null === $this->password ? null : $passwords->hash($this->password),
             'active' => $this->active,
