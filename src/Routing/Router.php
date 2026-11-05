@@ -156,12 +156,23 @@ final class Router
      */
     public function reservedSegments(): array
     {
+        return array_values(array_filter($this->routeSegments(), static fn(string $segment): bool => !\in_array($segment[0], ['.', '_'], true)));
+    }
+
+    /**
+     * The first path segments of all routes, also those no slug can take
+     * such as ".well-known" and "_consent" (decision 0286).
+     *
+     * @return list<string>
+     */
+    public function routeSegments(): array
+    {
         $segments = [];
 
         foreach ($this->routes as $route) {
             $first = self::variants($route->path)[0][0] ?? null;
 
-            if (\is_string($first) && 1 === preg_match('~^/([a-z0-9]+(?:-[a-z0-9]+)*)(?:/|$)~', $first, $match)) {
+            if (\is_string($first) && 1 === preg_match('~^/([._]?[a-z0-9]+(?:-[a-z0-9]+)*)(?:/|$)~', $first, $match)) {
                 $segments[$match[1]] = true;
             }
         }

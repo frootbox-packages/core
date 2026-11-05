@@ -107,6 +107,16 @@ use Frootbox\Core\Field\Types\VideoType;
 use Frootbox\Core\Heading\ShowOutline;
 use Frootbox\Core\Help\ListHelp;
 use Frootbox\Core\Help\ShowHelp;
+use Frootbox\Core\Hub\CompleteHub;
+use Frootbox\Core\Hub\ConnectHub;
+use Frootbox\Core\Hub\DisconnectHub;
+use Frootbox\Core\Hub\HubCallbackHandler;
+use Frootbox\Core\Hub\HubConnectCommand;
+use Frootbox\Core\Hub\HubConnections;
+use Frootbox\Core\Hub\HubDisconnectCommand;
+use Frootbox\Core\Hub\ShowHub;
+use Frootbox\Core\Hub\SwitchHub;
+use Frootbox\Core\Hub\UpdateHubKeys;
 use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Mail\MailSettings;
 use Frootbox\Core\Mail\SendMail;
@@ -463,6 +473,18 @@ final class CoreExtension implements Extension
         $registry->settings(MailSettings::class);
         $registry->query(ShowMailStatus::class);
         $registry->action(SendTestMail::class);
+
+        // The connection to the hub, frootbox.de (decision 0284).
+        $registry->post(HubCallbackHandler::ROUTE, HubCallbackHandler::class, 'hub.callback');
+        $registry->action(ConnectHub::class);
+        $registry->action(CompleteHub::class);
+        $registry->action(SwitchHub::class);
+        $registry->action(DisconnectHub::class);
+        $registry->action(UpdateHubKeys::class);
+        $registry->query(ShowHub::class);
+        $registry->command(HubConnectCommand::class);
+        $registry->command(HubDisconnectCommand::class);
+        $registry->sensitive(HubConnections::TABLE, 'secret_key');
 
         // Backups of the database (decision 0183).
         $registry->command(BackupCreateCommand::class);

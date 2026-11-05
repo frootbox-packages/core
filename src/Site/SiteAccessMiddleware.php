@@ -186,7 +186,7 @@ final readonly class SiteAccessMiddleware implements MiddlewareInterface
     {
         $first = explode('/', ltrim($path, '/'), 2)[0];
 
-        return '' !== $first && \in_array($first, $this->router->reservedSegments(), true);
+        return '' !== $first && \in_array($first, $this->router->routeSegments(), true);
     }
 
     /**
