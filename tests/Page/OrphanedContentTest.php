@@ -66,7 +66,7 @@ final class OrphanedContentTest extends NotesTestCase
         $main = $this->main($this->get(PageReader::class)->published($id));
         $ids = array_map(static fn(array $block): string => \is_string($block['id'] ?? null) ? $block['id'] : '', $main);
         self::assertSame(['teaser01', 'orphan01'], array_values(array_intersect($ids, ['teaser01', 'orphan01'])), 'The orphan moved.');
-        self::assertContains(self::ORPHAN, $main, 'It stays as it was.');
+        self::assertContainsEquals(self::ORPHAN, $main, 'It stays as it was (MySQL sorts the keys of JSON).');
     }
 
     public function testAnOrphanCanBeRemovedButNotChangedOrAddedAgain(): void
@@ -92,7 +92,7 @@ final class OrphanedContentTest extends NotesTestCase
 
         $content = $this->get(PageReader::class)->published($id)?->translations['de']->content;
         self::assertSame(['wide' => true], $content['options'] ?? null);
-        self::assertSame(['heading' => 'Start', 'kicker' => 'Old'], $content['fields'] ?? null);
+        self::assertEquals(['heading' => 'Start', 'kicker' => 'Old'], $content['fields'] ?? null, 'MySQL sorts the keys of JSON.');
         self::assertEquals([$stale], $this->main($this->get(PageReader::class)->published($id)));
 
         $this->assertInvalid(
