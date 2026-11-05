@@ -215,6 +215,7 @@ use Frootbox\Core\Site\ShowSite;
 use Frootbox\Core\Site\UnprotectSite;
 use Frootbox\Core\Site\UpdateSite;
 use Frootbox\Core\Site\UpdateSiteField;
+use Frootbox\Core\Status\ShowStatus;
 use Frootbox\Core\Storage\StorageCache;
 use Frootbox\Core\Storage\StorageCheckCommand;
 use Frootbox\Core\Storage\StoragePullCommand;
@@ -453,6 +454,7 @@ final class CoreExtension implements Extension
         $registry->query(ListExtensions::class);
         $registry->query(ListComponentUsages::class);
         $registry->query(ShowQueueStatus::class);
+        $registry->query(ShowStatus::class);
         $registry->action(RetryJob::class);
         $registry->action(DeleteJob::class);
         // Mails leave through the queue (decision 0222).

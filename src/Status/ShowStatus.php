@@ -1,0 +1,111 @@
+<?php
+
+/*
+ * SPDX-License-Identifier: MIT
+ */
+
+declare(strict_types=1);
+
+namespace Frootbox\Core\Status;
+
+use DateTimeImmutable;
+use DateTimeInterface;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
+use Doctrine\DBAL\Platforms\MariaDBPlatform;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
+use Frootbox\Core\Action\AsQuery;
+use Frootbox\Core\Action\Query;
+use Frootbox\Core\Backup\BackupManager;
+use Frootbox\Core\Comment\CommentEditor;
+use Frootbox\Core\Extension\ExtensionPackage;
+use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Frootbox;
+use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Queue\QueueOverview;
+use Frootbox\Core\Revision\Revisions;
+use Frootbox\Core\Revision\RevisionStatus;
+use Throwable;
+
+/**
+ * The technical status of the website for monitoring and frootbox.de
+ * (decision 0284). Its own permission, not system.*, so a service account
+ * may read it and nothing else. Reads only, writes nothing, and every
+ * value is quick to get, because it is asked for every few minutes.
+ *
+ * @implements Query<SiteStatus>
+ */
+#[AsQuery('status.show', 'Returns the technical status of the website: versions, cron, queue, backup, disk space, drafts and last change, without personal data or contents')]
+final readonly class ShowStatus implements Query
+{
+    public function handle(
+        Extensions $extensions,
+        Connection $connection,
+        QueueOverview $queue,
+        BackupManager $backups,
+        Revisions $revisions,
+        CommentEditor $comments,
+        ProjectPaths $paths,
+    ): SiteStatus {
+        $now = new DateTimeImmutable();
+        $packages = $extensions->packages;
+        usort($packages, static fn(ExtensionPackage $a, ExtensionPackage $b): int => strcmp($a->name, $b->name));
+        $queueStatus = $queue->status();
+        $latest = $backups->available() ? $backups->latest() : null;
+
+        return new SiteStatus(
+            system: ['name' => 'frootbox', 'version' => Frootbox::version()],
+            php: ['version' => \PHP_VERSION],
+            database: self::database($connection),
+            extensions: array_map(static fn(ExtensionPackage $package): array => ['name' => $package->name, 'version' => $package->version], $packages),
+            cron: ['lastRun' => self::time($queueStatus->cronLastRun)],
+            queue: ['due' => $queueStatus->due, 'failed' => $queueStatus->failed],
+            backup: $backups->available() ? [
+                'last' => self::time($latest?->createdAt),
+                'ageHours' => null === $latest ? null : intdiv(max(0, $now->getTimestamp() - $latest->createdAt->getTimestamp()), 3600),
+            ] : null,
+            storage: self::disk($paths->storage()),
+            drafts: $revisions->count(['status' => RevisionStatus::Draft]),
+            comments: $comments->count(null),
+            lastEdit: self::time($revisions->lastChange()),
+        );
+    }
+
+    /**
+     * @return array{kind: string, version: string|null}|null
+     */
+    private static function database(Connection $connection): ?array
+    {
+        try {
+            $platform = $connection->getDatabasePlatform();
+            $version = $connection->getServerVersion();
+        } catch (Throwable) {
+            return null;
+        }
+
+        $kind = match (true) {
+            $platform instanceof SQLitePlatform => 'sqlite',
+            $platform instanceof MariaDBPlatform => 'mariadb',
+            $platform instanceof AbstractMySQLPlatform => 'mysql',
+            default => strtolower(new \ReflectionClass($platform)->getShortName()),
+        };
+
+        return ['kind' => $kind, 'version' => '' === $version ? null : $version];
+    }
+
+    /**
+     * @return array{free: int|null, total: int|null}
+     */
+    private static function disk(string $folder): array
+    {
+        $free = is_dir($folder) ? @disk_free_space($folder) : false;
+        $total = is_dir($folder) ? @disk_total_space($folder) : false;
+
+        return ['free' => false === $free ? null : (int) $free, 'total' => false === $total ? null : (int) $total];
+    }
+
+    private static function time(?DateTimeImmutable $time): ?string
+    {
+        return $time?->format(DateTimeInterface::ATOM);
+    }
+}

@@ -113,6 +113,22 @@ final class Revisions extends Repository
         return is_numeric($version) ? (int) $version : 0;
     }
 
+    /**
+     * When content was last saved or published, of any type (decision 0284).
+     */
+    public function lastChange(): ?DateTimeImmutable
+    {
+        $quote = $this->connection->quoteSingleIdentifier(...);
+        $time = $this->connection->fetchOne(\sprintf(
+            'SELECT MAX(COALESCE(%s, %s)) FROM %s',
+            $quote('updated_at'),
+            $quote('created_at'),
+            $quote(self::TABLE),
+        ));
+
+        return \is_string($time) && '' !== $time ? new DateTimeImmutable($time) : null;
+    }
+
     protected function table(): string
     {
         return self::TABLE;
