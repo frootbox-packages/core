@@ -278,7 +278,7 @@ final class HubTest extends NotesTestCase
         self::assertSame('address', $this->hint(['url' => null]));
         self::assertSame('local', $this->hint(['url' => 'http://bohnenglueck.fb.localhost']));
         self::assertNull($this->hint(['url' => 'http://bohnenglueck.fb.localhost'], ['url' => 'http://hub.localhost:8400']), 'A local hub takes local websites, for development.');
-        self::assertSame('hub-url', $this->hint(hub: ['url' => 'http://account.hub.example.org']), 'Only a local hub goes without HTTPS.');
+        self::assertSame('hub-url', $this->hint(hub: ['url' => 'http://hub.example.org']), 'Only a local hub goes without HTTPS.');
 
         foreach (['http://localhost:8000', 'http://127.0.0.1', 'https://192.168.1.20', 'https://[::1]', 'https://intranet', 'https://shop.test', 'http://site.fb.localhost'] as $local) {
             self::assertTrue(HubAddress::isLocal($local), $local);

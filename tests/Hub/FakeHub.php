@@ -19,7 +19,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  */
 final class FakeHub
 {
-    public const string URL = 'https://account.hub.example.org';
+    public const string URL = 'https://hub.example.org';
 
     /** @var array{secret: string, public: string} */
     public array $keys;

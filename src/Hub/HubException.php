@@ -46,7 +46,7 @@ final class HubException extends ActionException
 
     public static function badHubUrl(string $url): self
     {
-        $error = new self(new Message('"hub.url" in config/app.yaml must be an address like https://account.frootbox.de, not "{url}".', ['url' => $url]));
+        $error = new self(new Message('"hub.url" in config/app.yaml must be an address like https://hub.frootbox.de, not "{url}".', ['url' => $url]));
         $error->reason = 'hub-url';
 
         return $error;

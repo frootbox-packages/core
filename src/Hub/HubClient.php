@@ -24,7 +24,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final readonly class HubClient
 {
     /** The hub unless "hub.url" in config/app.yaml says otherwise. */
-    public const string DEFAULT_URL = 'https://account.frootbox.de';
+    public const string DEFAULT_URL = 'https://hub.frootbox.de';
 
     /** The purpose of the secret key for Secrets. */
     public const string PURPOSE = 'hub.secret-key';
