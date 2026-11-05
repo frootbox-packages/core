@@ -18,11 +18,21 @@ use ReflectionClass;
  */
 final class Descriptor
 {
+    /** Areas of actions a person confirms before an AI runs them (decision 0289). */
+    public const array CONFIRMED_AREAS = ['account', 'user', 'role', 'settings', 'extension', 'system', 'preview'];
+
+    /** Last parts of names that a person confirms, e.g. "page.publish". */
+    public const array CONFIRMED_VERBS = ['publish', 'unpublish', 'schedule', 'delete', 'prune'];
+
     /** @var array<string, mixed>|null */
     private ?array $schema = null;
 
     /**
      * @param class-string $class
+     * @param bool         $confirm Whether a person confirms the action before an AI or
+     *                              MCP client runs it: publishing, deleting, everything
+     *                              about users, roles, settings and extensions, and what
+     *                              cannot be undone. Changes to drafts need no confirmation.
      */
     private function __construct(
         public readonly Kind $kind,
@@ -35,6 +45,7 @@ final class Descriptor
         public readonly string $class,
         public readonly bool $preview = false,
         public readonly bool $transactional = true,
+        public readonly bool $confirm = false,
     ) {}
 
     /**
@@ -88,7 +99,23 @@ final class Descriptor
             $class,
             $info->preview,
             !$info instanceof AsAction || $info->transactional,
+            $info instanceof AsAction && ($info->confirm ?? self::needsConfirmation($info)),
         );
+    }
+
+    /**
+     * The derived rule for $confirm (decision 0289). An action can set it
+     * itself with #[AsAction(confirm: …)].
+     */
+    private static function needsConfirmation(AsAction $info): bool
+    {
+        $parts = explode('.', ActionName::local($info->name));
+        $verb = $parts[array_key_last($parts)];
+
+        return !$info->undoable
+            || \in_array($parts[0], self::CONFIRMED_AREAS, true)
+            || \in_array($verb, self::CONFIRMED_VERBS, true)
+            || str_ends_with($verb, '-delete');
     }
 
     public function isAction(): bool

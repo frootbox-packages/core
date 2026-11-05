@@ -122,6 +122,7 @@ use Frootbox\Core\Mail\MailSettings;
 use Frootbox\Core\Mail\SendMail;
 use Frootbox\Core\Mail\SendTestMail;
 use Frootbox\Core\Mail\ShowMailStatus;
+use Frootbox\Core\Mcp\McpHandler;
 use Frootbox\Core\Media\AddMediaSource;
 use Frootbox\Core\Media\CreateMediaFolder;
 use Frootbox\Core\Media\CreateMedium;
@@ -273,6 +274,7 @@ final class CoreExtension implements Extension
         // The static routes have to come before the placeholder.
         $registry->get(ApiHandler::PREFIX . '/openapi.json', OpenApiHandler::class, 'api.openapi');
         $registry->post(UploadHandler::PATH, UploadHandler::class, 'api.uploads');
+        $registry->post(McpHandler::PATH, McpHandler::class, 'api.mcp');
         $registry->route(['GET', 'POST'], ApiHandler::PREFIX . '/' . ApiHandler::NAME, ApiHandler::class, 'api');
 
         $registry->command(AboutCommand::class);
