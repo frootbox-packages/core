@@ -36,6 +36,12 @@ final class FakeHub
     /** @var array{url: string, token: string}|null What the hub reads the status with */
     public ?array $status = null;
 
+    /** @var array<string, mixed> The answer to a request for the prices of the AI (decision 0297) */
+    public array $prices = ['models' => []];
+
+    /** Another secret key to sign the prices with, e.g. to test a forged answer. */
+    public ?string $pricesSecret = null;
+
     public function __construct()
     {
         $this->keys = StandardWebhooks::keyPair();
@@ -117,6 +123,12 @@ final class FakeHub
             $this->status = self::status($body['status'] ?? null);
 
             return self::json(['connection' => 'con_0123456789', 'organization' => 'Herr und Frau Pixel']);
+        }
+
+        if (str_ends_with($path, '/prices')) {
+            $json = json_encode(['provider' => $body['provider'] ?? null, ...$this->prices], \JSON_THROW_ON_ERROR);
+
+            return new MockResponse($json, ['response_headers' => ['Content-Type' => 'application/json', ...$this->sign($json, $this->pricesSecret)]]);
         }
 
         if ('PATCH' === $method) {

@@ -44,6 +44,16 @@ final readonly class UsageLog
     }
 
     /**
+     * When the AI was last used, null if never.
+     */
+    public function lastUse(): ?DateTimeImmutable
+    {
+        $last = $this->connection->fetchOne('SELECT MAX(created_at) FROM ' . self::TABLE);
+
+        return \is_string($last) && '' !== $last ? new DateTimeImmutable($last) : null;
+    }
+
+    /**
      * The costs from the start of a month to the start of the next one, in
      * millionths of a dollar.
      */

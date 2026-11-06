@@ -25,5 +25,9 @@ final readonly class AiStatus
         public ?string $provider,
         /** The title of the chosen model */
         public ?string $model,
+        /** Where its prices come from: config, hub or module (decision 0297) */
+        public ?string $prices = null,
+        /** Since when the list of the hub counts, as ISO 8601 */
+        public ?string $pricesSince = null,
     ) {}
 }

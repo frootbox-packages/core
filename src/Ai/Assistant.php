@@ -39,6 +39,7 @@ final readonly class Assistant
         private Bookkeeping $bookkeeping,
         private Journal $journal,
         private CurrentContext $context,
+        private PriceList $prices,
     ) {}
 
     /**
@@ -85,7 +86,7 @@ final readonly class Assistant
         $context = $this->context->get();
         $write = function () use ($client, $provider, $feature, $response, $context): void {
             foreach ($response->usage as $usage) {
-                $this->log->record($context, $provider->name, $feature, $usage, self::prices($client, $usage->model)->cost($usage));
+                $this->log->record($context, $provider->name, $feature, $usage, $this->prices->of($provider->name, $client, $usage->model)->prices->cost($usage));
             }
         };
 
@@ -93,20 +94,5 @@ final readonly class Assistant
         $this->journal->isRecording() ? $this->bookkeeping->afterwards($write) : $write();
 
         return $response;
-    }
-
-    /**
-     * The prices of a model; one the provider does not list, e.g. after a
-     * fallback, counts with those of the chosen model.
-     */
-    public static function prices(ProviderClient $client, string $model): Prices
-    {
-        foreach ($client->models() as $known) {
-            if ($known->id === $model) {
-                return $known->prices;
-            }
-        }
-
-        return $client->model()->prices;
     }
 }

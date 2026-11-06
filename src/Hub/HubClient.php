@@ -95,6 +95,30 @@ final readonly class HubClient
     }
 
     /**
+     * Like send(), for an answer the hub signs with its key, e.g. the
+     * prices of the AI (decision 0297): one without a valid signature of
+     * a key from the connection is no answer.
+     *
+     * @param array<string, mixed> $body
+     *
+     * @return array<mixed>
+     */
+    public function fetchSigned(HubConnection $connection, string $path, array $body = []): array
+    {
+        $secret = $this->secretKey($connection);
+        $json = json_encode((object) $body, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
+        $headers = StandardWebhooks::headers($secret, 'msg_' . Ulid::generate(), $json);
+        $answer = $this->exchange('POST', $connection->hubUrl . $path, ['Content-Type' => 'application/json', ...$headers], $json);
+        $data = self::decode($answer);
+
+        if ([] === $connection->hubKeys || !StandardWebhooks::verify($connection->hubKeys, $answer['headers'], $answer['content'])) {
+            throw HubException::badAnswer('signature');
+        }
+
+        return $data;
+    }
+
+    /**
      * The secret key "whsk_…" of the website.
      */
     public function secretKey(HubConnection $connection): string
@@ -114,17 +138,40 @@ final readonly class HubClient
      */
     private function request(string $method, string $url, array $headers = [], ?string $body = null): array
     {
+        return self::decode($this->exchange($method, $url, $headers, $body));
+    }
+
+    /**
+     * @param array<string, string> $headers
+     *
+     * @return array{status: int, content: string, headers: array<string, string>}
+     */
+    private function exchange(string $method, string $url, array $headers, ?string $body): array
+    {
         $options = ['headers' => ['Accept' => 'application/json', ...$headers], ...null === $body ? [] : ['body' => $body]];
 
         try {
             $response = $this->client->request($method, $url, $options);
-            $status = $response->getStatusCode();
-            $content = $response->getContent(false);
+
+            return [
+                'status' => $response->getStatusCode(),
+                'content' => $response->getContent(false),
+                'headers' => array_map(static fn(array $values): string => implode(', ', $values), $response->getHeaders(false)),
+            ];
         } catch (ExceptionInterface $error) {
             throw HubException::unreachable($url, $error);
         }
+    }
 
-        $data = '' === $content ? [] : json_decode($content, true);
+    /**
+     * @param array{status: int, content: string, headers: array<string, string>} $answer
+     *
+     * @return array<mixed>
+     */
+    private static function decode(array $answer): array
+    {
+        $status = $answer['status'];
+        $data = '' === $answer['content'] ? [] : json_decode($answer['content'], true);
 
         if ($status >= 400) {
             $detail = \is_array($data) && \is_string($data['detail'] ?? null) ? $data['detail'] : (\is_array($data) && \is_string($data['title'] ?? null) ? $data['title'] : 'no reason given');

@@ -20,6 +20,7 @@ use Frootbox\Core\Account\UpdateLanguage;
 use Frootbox\Core\Action\ActionExecuted;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Ai\AiSettings;
+use Frootbox\Core\Ai\PricesOnSchedule;
 use Frootbox\Core\Ai\ShowAiStatus;
 use Frootbox\Core\Ai\ShowAiUsage;
 use Frootbox\Core\Ai\TestAi;
@@ -486,6 +487,7 @@ final class CoreExtension implements Extension
         $registry->query(ShowAiStatus::class);
         $registry->query(ShowAiUsage::class);
         $registry->action(TestAi::class);
+        $registry->listen(ScheduleRan::class, PricesOnSchedule::class);
 
         // The connection to the hub, frootbox.de (decision 0284).
         $registry->post(HubCallbackHandler::ROUTE, HubCallbackHandler::class, 'hub.callback');

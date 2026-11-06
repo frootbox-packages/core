@@ -25,7 +25,7 @@ final readonly class TestAi implements Action
 {
     public const string FEATURE = 'test';
 
-    public function handle(Assistant $assistant, Providers $providers, Config $config, Translator $translator): TestResult
+    public function handle(Assistant $assistant, Providers $providers, PriceList $prices, Config $config, Translator $translator): TestResult
     {
         $started = hrtime(true);
 
@@ -44,7 +44,7 @@ final readonly class TestAi implements Action
         $provider = $providers->active();
         \assert(null !== $provider);
         $client = $providers->client($provider);
-        $cost = array_sum(array_map(static fn(Usage $usage): int => Assistant::prices($client, $usage->model)->cost($usage), $response->usage));
+        $cost = array_sum(array_map(static fn(Usage $usage): int => $prices->of($provider->name, $client, $usage->model)->prices->cost($usage), $response->usage));
 
         return new TestResult(
             $provider->title,
