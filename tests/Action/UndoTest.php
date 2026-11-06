@@ -216,7 +216,7 @@ final class UndoTest extends NotesTestCase
         $this->runner()->run(new UndoAction($this->lastEntry()->id), Context::guest());
     }
 
-    public function testPruningForgetsOldChanges(): void
+    public function testPruningShortensOldChangesAndForgetsOldEntries(): void
     {
         $this->runner()->run(new CreateNote('Hello'));
         $entry = $this->lastEntry();
@@ -224,8 +224,9 @@ final class UndoTest extends NotesTestCase
         $tomorrow = new DateTimeImmutable('+1 day');
         $deleted = $this->log()->prune($tomorrow, new DateTimeImmutable('-1 year'));
 
-        self::assertSame(['changes' => 1, 'entries' => 0], $deleted);
+        self::assertSame(['shortened' => 1, 'entries' => 0], $deleted);
         self::assertFalse($this->log()->find($entry->id)?->undoable);
+        self::assertSame(['shortened' => 0, 'entries' => 0], $this->log()->prune($tomorrow, new DateTimeImmutable('-1 year')), 'Shortened once.');
 
         $this->log()->prune($tomorrow, $tomorrow);
         self::assertNull($this->log()->find($entry->id));

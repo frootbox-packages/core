@@ -18,6 +18,8 @@ use Frootbox\Core\Account\SignIn;
 use Frootbox\Core\Account\SignOut;
 use Frootbox\Core\Account\UpdateLanguage;
 use Frootbox\Core\Action\ActionExecuted;
+use Frootbox\Core\Action\ListActionLog;
+use Frootbox\Core\Action\PruneOnSchedule;
 use Frootbox\Core\Action\Undo\UndoAction;
 use Frootbox\Core\Ai\AiSettings;
 use Frootbox\Core\Ai\PricesOnSchedule;
@@ -181,6 +183,7 @@ use Frootbox\Core\Page\RemoveListEntry;
 use Frootbox\Core\Page\RestorePage;
 use Frootbox\Core\Page\SchedulePage;
 use Frootbox\Core\Page\ShowPage;
+use Frootbox\Core\Page\ShowPageHistory;
 use Frootbox\Core\Page\ShowPageTree;
 use Frootbox\Core\Page\SuggestSlug;
 use Frootbox\Core\Page\UnlockPage;
@@ -331,6 +334,7 @@ final class CoreExtension implements Extension
         $registry->listen(ScheduleRan::class, Proofs::class);
 
         $registry->action(UndoAction::class);
+        $registry->query(ListActionLog::class);
 
         foreach ([CreateUser::class, UpdateUser::class, SetPassword::class, CreateServiceToken::class, DeleteUser::class, AssignRole::class, RemoveRole::class, SetRoles::class, CreateRole::class, UpdateRole::class, DeleteRole::class] as $action) {
             $registry->action($action);
@@ -349,7 +353,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([ShowPageTree::class, ShowPage::class, ShowOutline::class, ListPageVersions::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class, ListBlockGroups::class, ListIcons::class] as $query) {
+        foreach ([ShowPageTree::class, ShowPage::class, ShowOutline::class, ListPageVersions::class, ShowPageHistory::class, SuggestSlug::class, ListLayouts::class, ListBlocks::class, ListBlockGroups::class, ListIcons::class] as $query) {
             $registry->query($query);
         }
 
@@ -521,6 +525,7 @@ final class CoreExtension implements Extension
         $registry->action(RunMigrations::class);
         $registry->action(ClearCaches::class);
         $registry->listen(ScheduleRan::class, BackupsOnSchedule::class);
+        $registry->listen(ScheduleRan::class, PruneOnSchedule::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListLanguages::class);

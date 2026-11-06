@@ -10,6 +10,7 @@ namespace Frootbox\Core\Console;
 
 use DateTimeImmutable;
 use Frootbox\Core\Action\ActionLog;
+use Frootbox\Core\Action\PruneOnSchedule;
 use Frootbox\Core\Config\Config;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -18,10 +19,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Forgets old changes and log entries (config actions.undo_days, default
- * 30, and actions.log_days, default 365).
+ * Shortens old changes and deletes old log entries (config
+ * actions.undo_days, default 30, and actions.log_days, default 365,
+ * decision 0174).
  */
-#[AsCommand(name: 'actions:prune', description: 'Deletes old undo data and old log entries')]
+#[AsCommand(name: 'actions:prune', description: 'Shortens old undo data and deletes old log entries')]
 final class PruneActionLogCommand extends Command
 {
     public function __construct(
@@ -33,18 +35,14 @@ final class PruneActionLogCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $undoDays = $this->config->int('actions.undo_days', 30);
-        $logDays = $this->config->int('actions.log_days', 365);
-        $now = new DateTimeImmutable();
-
-        $deleted = $this->log->prune($now->modify(\sprintf('-%d days', $undoDays)), $now->modify(\sprintf('-%d days', $logDays)));
+        $pruned = PruneOnSchedule::prune($this->log, $this->config, new DateTimeImmutable());
 
         new SymfonyStyle($input, $output)->success(\sprintf(
-            'Deleted %d changes older than %d days and %d log entries older than %d days.',
-            $deleted['changes'],
-            $undoDays,
-            $deleted['entries'],
-            $logDays,
+            'Shortened %d changes older than %d days, they can no longer be undone, and deleted %d log entries older than %d days.',
+            $pruned['shortened'],
+            $pruned['undoDays'],
+            $pruned['entries'],
+            $pruned['logDays'],
         ));
 
         return Command::SUCCESS;

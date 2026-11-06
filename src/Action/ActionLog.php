@@ -11,6 +11,8 @@ namespace Frootbox\Core\Action;
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\InvalidFieldNameException;
+use Frootbox\Core\Auth\Actor;
 use Frootbox\Database\EntityMapper;
 use Frootbox\Database\Values;
 use LogicException;
@@ -28,6 +30,15 @@ final readonly class ActionLog
     public const string ENTRIES = 'action_log';
 
     public const string CHANGES = 'action_changes';
+
+    /** The entry each migration leaves (decision 0174). */
+    public const string MIGRATE = 'system.migrate';
+
+    /** Changes shortened by prune() at a time. */
+    private const int BATCH = 500;
+
+    /** Columns added later: an update writes without them until it has migrated. */
+    private const array LATER = ['token_id', 'device'];
 
     public function __construct(
         private Connection $connection,
@@ -76,6 +87,44 @@ final readonly class ActionLog
             'error' => $error::class . ': ' . $error->getMessage(),
             'duration_ms' => $durationMs,
         ]);
+    }
+
+    /**
+     * An entry of the system itself, e.g. for a migration that ran or
+     * failed, with the rows it changed. Only the first columns of the log
+     * are used, since it may run before the later ones exist.
+     *
+     * @param array<string, mixed>                                                                                   $input
+     * @param list<array{table: string, id: int|string, before: array<string, mixed>, after: array<string, mixed>}> $changes
+     */
+    public function system(string $action, Channel $channel, array $input, ?int $parentId, int $durationMs, array $changes = [], ?Throwable $error = null): int
+    {
+        $id = $this->insert(self::ENTRIES, [
+            'parent_id' => $parentId,
+            'action' => $action,
+            'channel' => $channel,
+            'actor_type' => Actor::system()->type,
+            'actor_id' => null,
+            'actor_name' => Actor::system()->name,
+            'input' => $input,
+            'status' => null === $error ? EntryStatus::Succeeded : EntryStatus::Failed,
+            'error' => null === $error ? null : $error::class . ': ' . $error->getMessage(),
+            'duration_ms' => $durationMs,
+            'created_at' => new DateTimeImmutable(),
+        ]);
+
+        foreach ($changes as $change) {
+            $this->insert(self::CHANGES, [
+                'entry_id' => $id,
+                'kind' => ChangeKind::Update,
+                'target' => $change['table'],
+                'row_id' => (string) $change['id'],
+                'old_values' => $change['before'],
+                'new_values' => $change['after'],
+            ]);
+        }
+
+        return $id;
     }
 
     /**
@@ -208,34 +257,75 @@ final readonly class ActionLog
     }
 
     /**
-     * Forgets old changes (the actions can no longer be undone) and old
-     * log entries.
+     * Shortens old changes, so the actions can no longer be undone, and
+     * deletes old log entries with their changes (decision 0174). Of an
+     * update only what changed stays (RowDiff), of a delete the whole row,
+     * since it is the lost content, of an insert only table and id.
      *
-     * @return array{changes: int, entries: int} number of deleted rows
+     * @return array{shortened: int, entries: int} number of shortened changes and deleted entries
      */
     public function prune(DateTimeImmutable $changesBefore, DateTimeImmutable $entriesBefore): array
     {
-        $changesBefore = max($changesBefore, $entriesBefore);
-
         return $this->journal->trusted(function () use ($changesBefore, $entriesBefore): array {
             $entries = $this->quote(self::ENTRIES);
             $createdAt = $this->quote('created_at');
+            $before = $entriesBefore->format(Values::DATE_FORMAT);
 
-            $changes = $this->connection->executeStatement(
+            $this->connection->executeStatement(
                 \sprintf('DELETE FROM %s WHERE %s IN (SELECT %s FROM %s WHERE %s < ?)', $this->quote(self::CHANGES), $this->quote('entry_id'), $this->quote('id'), $entries, $createdAt),
-                [$changesBefore->format(Values::DATE_FORMAT)],
+                [$before],
             );
+            $deleted = $this->connection->executeStatement(\sprintf('DELETE FROM %s WHERE %s < ?', $entries, $createdAt), [$before]);
+
             $this->connection->executeStatement(
                 \sprintf('UPDATE %s SET %s = 0 WHERE %s = 1 AND %s < ?', $entries, $this->quote('undoable'), $this->quote('undoable'), $createdAt),
                 [$changesBefore->format(Values::DATE_FORMAT)],
             );
-            $deleted = $this->connection->executeStatement(
-                \sprintf('DELETE FROM %s WHERE %s < ?', $entries, $createdAt),
-                [$entriesBefore->format(Values::DATE_FORMAT)],
-            );
 
-            return ['changes' => (int) $changes, 'entries' => (int) $deleted];
+            return ['shortened' => $this->shorten($changesBefore), 'entries' => (int) $deleted];
         });
+    }
+
+    private function shorten(DateTimeImmutable $before): int
+    {
+        $changes = $this->quote(self::CHANGES);
+        $shortened = 0;
+        $after = 0;
+
+        do {
+            try {
+                $rows = $this->connection->fetchAllAssociative(
+                    $this->connection->getDatabasePlatform()->modifyLimitQuery(\sprintf(
+                        'SELECT c.* FROM %1$s c INNER JOIN %2$s e ON e.%3$s = c.%4$s WHERE c.%5$s = 0 AND c.%3$s > ? AND e.%6$s < ? ORDER BY c.%3$s',
+                        $changes,
+                        $this->quote(self::ENTRIES),
+                        $this->quote('id'),
+                        $this->quote('entry_id'),
+                        $this->quote('shortened'),
+                        $this->quote('created_at'),
+                    ), self::BATCH),
+                    [$after, $before->format(Values::DATE_FORMAT)],
+                );
+            } catch (InvalidFieldNameException) {
+                // Updated, not yet migrated: shortened after the migration.
+                return 0;
+            }
+
+            foreach ($rows as $row) {
+                $change = EntityMapper::hydrate(Change::class, $row);
+                $after = $change->id;
+                $values = match ($change->kind) {
+                    ChangeKind::Update => array_combine(['old_values', 'new_values'], RowDiff::of($change->oldValues ?? [], $change->newValues ?? [])),
+                    ChangeKind::Insert => ['new_values' => null],
+                    ChangeKind::Delete, ChangeKind::Action => [],
+                };
+
+                $this->connection->update($changes, $this->quoteKeys(Values::row($values + ['shortened' => true])), [$this->quote('id') => $change->id]);
+                ++$shortened;
+            }
+        } while (self::BATCH === \count($rows));
+
+        return $shortened;
     }
 
     /**
@@ -252,6 +342,8 @@ final readonly class ActionLog
             'actor_type' => $context->actor->type,
             'actor_id' => $context->actor->id,
             'actor_name' => $context->actor->name,
+            'token_id' => $context->tokenId,
+            'device' => $context->device,
             'input' => $input,
             'created_at' => new DateTimeImmutable(),
         ];
@@ -263,7 +355,18 @@ final readonly class ActionLog
     private function insert(string $table, array $values): int
     {
         return $this->journal->trusted(function () use ($table, $values): int {
-            $this->connection->insert($this->quote($table), $this->quoteKeys(Values::row($values)));
+            try {
+                $this->connection->insert($this->quote($table), $this->quoteKeys(Values::row($values)));
+            } catch (InvalidFieldNameException $error) {
+                // Updated, not yet migrated: the log keeps working without the later columns.
+                $without = array_diff_key($values, array_flip(self::LATER));
+
+                if (self::ENTRIES !== $table || $without === $values) {
+                    throw $error;
+                }
+
+                $this->connection->insert($this->quote($table), $this->quoteKeys(Values::row($without)));
+            }
 
             return (int) $this->connection->lastInsertId();
         });

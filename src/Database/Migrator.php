@@ -13,16 +13,21 @@ use Doctrine\Migrations\DependencyFactory;
 use Doctrine\Migrations\Metadata\AvailableMigration;
 use Doctrine\Migrations\Metadata\MigrationPlanList;
 use Doctrine\Migrations\MigratorConfiguration;
+use Doctrine\Migrations\Version\Direction;
 use Doctrine\Migrations\Version\Version;
+use Frootbox\Database\Migration;
+use Throwable;
 
 /**
  * Brings the database up to date, e.g. after an installation or an update.
+ * Every migration leaves an entry in the log of actions (decision 0174).
  */
 final readonly class Migrator
 {
     public function __construct(
         private Connection $connection,
         private MigrationSources $sources,
+        private MigrationJournal $journal,
     ) {}
 
     /**
@@ -51,18 +56,31 @@ final readonly class Migrator
     public function migrate(): array
     {
         $factory = $this->factory();
-        $plan = $this->plan($factory);
-
-        if (0 === \count($plan)) {
-            return [];
-        }
-
-        $factory->getMigrator()->migrate($plan, new MigratorConfiguration());
-
         $versions = [];
 
-        foreach ($plan->getItems() as $item) {
-            $versions[] = (string) $item->getVersion();
+        // One at a time, so each gets its own entry with what it changed.
+        foreach ($this->plan($factory)->getItems() as $item) {
+            $version = (string) $item->getVersion();
+            $migration = new PendingMigration($version, $this->sources->packageOf($version), $item->getMigration()->getDescription());
+            $changes = [];
+            $started = hrtime(true);
+
+            Migration::recordWith(static function (string $table, int|string $id, array $before, array $after) use (&$changes): void {
+                $changes[] = ['table' => $table, 'id' => $id, 'before' => $before, 'after' => $after];
+            });
+
+            try {
+                $factory->getMigrator()->migrate(new MigrationPlanList([$item], Direction::UP), new MigratorConfiguration());
+            } catch (Throwable $error) {
+                $this->journal->failed($migration, $error, self::since($started));
+
+                throw $error;
+            } finally {
+                Migration::recordWith(null);
+            }
+
+            $this->journal->migrated($migration, $changes, self::since($started));
+            $versions[] = $version;
         }
 
         return $versions;
@@ -86,6 +104,11 @@ final readonly class Migrator
         $factory->getMetadataStorage()->ensureInitialized();
 
         return $factory;
+    }
+
+    private static function since(int|float $started): int
+    {
+        return (int) round((hrtime(true) - $started) / 1_000_000);
     }
 
     private function plan(DependencyFactory $factory): MigrationPlanList

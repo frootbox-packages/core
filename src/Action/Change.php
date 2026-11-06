@@ -13,7 +13,9 @@ use Frootbox\Database\Entity;
 /**
  * A row an action changed, with its state before and after. For
  * ChangeKind::Action, target is the name of the compensating action and
- * newValues its input.
+ * newValues its input. Once the action can no longer be undone, the
+ * change is shortened (decision 0174): an update keeps only what changed,
+ * a JSON column as paths (RowDiff), an insert only table and id.
  */
 final readonly class Change extends Entity
 {
@@ -29,5 +31,6 @@ final readonly class Change extends Entity
         public ?string $rowId,
         public ?array $oldValues,
         public ?array $newValues,
+        public bool $shortened = false,
     ) {}
 }

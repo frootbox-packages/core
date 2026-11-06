@@ -12,9 +12,13 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Index;
+use Frootbox\Core\Action\ActionLog;
+use Frootbox\Core\Action\CurrentContext;
+use Frootbox\Core\Action\Journal;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Database\ConnectionFactory;
+use Frootbox\Core\Database\MigrationJournal;
 use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Database\Migrator;
@@ -40,6 +44,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Blueprint::class)]
 #[CoversClass(ColumnDefinition::class)]
 #[UsesClass(ConnectionFactory::class)]
+#[UsesClass(MigrationJournal::class)]
 #[UsesClass(Config::class)]
 #[UsesClass(ProjectPaths::class)]
 final class MigratorTest extends TestCase
@@ -128,7 +133,7 @@ final class MigratorTest extends TestCase
         $empty = $this->project->root . '/migrations';
         mkdir($empty);
 
-        $migrator = new Migrator($this->connection, new MigrationSources()->add('Empty\Migrations', $empty));
+        $migrator = new Migrator($this->connection, new MigrationSources()->add('Empty\Migrations', $empty), $this->journal());
 
         self::assertSame(0, $migrator->pending());
         self::assertSame([], $migrator->migrate());
@@ -138,6 +143,13 @@ final class MigratorTest extends TestCase
     {
         $sources = new MigrationSources()->add('Frootbox\Core\Tests\Fixtures\Migrations', \dirname(__DIR__) . '/Fixtures/Migrations');
 
-        return new Migrator($this->connection, $sources);
+        return new Migrator($this->connection, $sources, $this->journal());
+    }
+
+    private function journal(): MigrationJournal
+    {
+        $journal = new Journal();
+
+        return new MigrationJournal($this->connection, new ActionLog($this->connection, $journal), $journal, new CurrentContext());
     }
 }

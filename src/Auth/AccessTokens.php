@@ -58,6 +58,8 @@ final readonly class AccessTokens
             'token_hash' => self::hash($token),
             'expires_at' => $expiresAt ?? (TokenType::Session === $type ? $this->sessionEnd($now, $remember) : null),
             'remember' => TokenType::Session === $type && $remember,
+            // A session is named after its user agent (decision 0174).
+            'device' => TokenType::Session === $type ? Device::describe($name) : null,
             'created_at' => $now,
         ]));
 

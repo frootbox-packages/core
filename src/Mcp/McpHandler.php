@@ -97,7 +97,7 @@ final readonly class McpHandler implements RequestHandlerInterface
 
             $method = \is_string($message['method']) ? $message['method'] : throw new ProtocolError(ProtocolError::INVALID_REQUEST, 'The method must be a string.');
             $params = self::object($message['params'] ?? [], 'params', 400);
-            $mcp = new Context($context->actor, Channel::Mcp, $context->tokenId, $context->address);
+            $mcp = new Context($context->actor, Channel::Mcp, $context->tokenId, $context->address, device: $context->device);
             $meta = self::object($params['_meta'] ?? [], '_meta', 400);
 
             $result = match (true) {

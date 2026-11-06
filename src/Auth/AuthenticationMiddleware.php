@@ -50,7 +50,7 @@ final readonly class AuthenticationMiddleware implements MiddlewareInterface
         }
 
         return $this->context->runAs(
-            new Context($authentication->actor, $channel, $authentication->token->id, $address),
+            new Context($authentication->actor, $channel, $authentication->token->id, $address, device: $authentication->token->label()),
             static fn(): ResponseInterface => $handler->handle($request->withAttribute(Authentication::class, $authentication)),
         );
     }

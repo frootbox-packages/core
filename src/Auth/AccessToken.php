@@ -26,5 +26,17 @@ final readonly class AccessToken extends Entity
         public ?DateTimeImmutable $expiresAt,
         public DateTimeImmutable $createdAt,
         public bool $remember = false,
+        public ?string $device = null,
     ) {}
+
+    /**
+     * What tells this token apart in the log of actions (decision 0174):
+     * the device of a session, else the name of an API token.
+     */
+    public function label(): ?string
+    {
+        $label = TokenType::Session === $this->type ? $this->device : $this->name;
+
+        return null === $label || '' === $label ? null : mb_substr($label, 0, 100);
+    }
 }

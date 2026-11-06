@@ -12,8 +12,8 @@ use DateTimeImmutable;
 use Frootbox\Database\Entity;
 
 /**
- * One run of an action: who, what, when, through which channel, and how
- * it ended.
+ * One run of an action: who, what, when, through which channel and
+ * token on which device, and how it ended.
  */
 final readonly class LogEntry extends Entity
 {
@@ -35,5 +35,7 @@ final readonly class LogEntry extends Entity
         public ?int $undoneBy,
         public int $durationMs,
         public DateTimeImmutable $createdAt,
+        public ?int $tokenId = null,
+        public ?string $device = null,
     ) {}
 }
