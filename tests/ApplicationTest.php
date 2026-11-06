@@ -62,6 +62,18 @@ final class ApplicationTest extends TestCase
         $this->project?->remove();
     }
 
+    public function testTheAccessTokenComesThroughFastCgi(): void
+    {
+        $request = new ServerRequest('GET', '/api/v1/status.show');
+
+        // Apache with FastCGI: only the variable of the .htaccess, after the rewrite.
+        self::assertSame('Bearer fbt_a', Application::withAuthorization($request, ['REDIRECT_HTTP_AUTHORIZATION' => 'Bearer fbt_a'])->getHeaderLine('Authorization'));
+        self::assertSame('Bearer fbt_b', Application::withAuthorization($request, ['HTTP_AUTHORIZATION' => 'Bearer fbt_b', 'REDIRECT_HTTP_AUTHORIZATION' => 'Bearer fbt_a'])->getHeaderLine('Authorization'));
+        self::assertSame('Bearer fbt_c', Application::withAuthorization($request->withHeader('Authorization', 'Bearer fbt_c'), ['HTTP_AUTHORIZATION' => 'Bearer fbt_b'])->getHeaderLine('Authorization'), 'The header itself wins.');
+        self::assertFalse(Application::withAuthorization($request, ['HTTP_AUTHORIZATION' => ''])->hasHeader('Authorization'));
+        self::assertStringContainsString('[E=HTTP_AUTHORIZATION:%0]', (string) file_get_contents(\dirname(__DIR__, 3) . '/skeleton/public/.htaccess'), 'New websites pass it on.');
+    }
+
     public function testShowsWelcomePage(): void
     {
         $response = $this->request($this->application('dev'), 'GET', '/');

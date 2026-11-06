@@ -148,7 +148,7 @@ final readonly class Application
     public function run(): void
     {
         $factory = new Psr17Factory();
-        $request = new ServerRequestCreator($factory, $factory, $factory, $factory)->fromGlobals();
+        $request = self::withAuthorization(new ServerRequestCreator($factory, $factory, $factory, $factory)->fromGlobals(), $_SERVER);
 
         new ResponseEmitter()->emit($this->handle($request));
 
@@ -167,6 +167,31 @@ final readonly class Application
 
             $after->run();
         }
+    }
+
+    /**
+     * Apache with PHP as FastCGI, usual on webspace, does not hand the
+     * header "Authorization" to PHP. The .htaccess in public/ passes it as a
+     * variable instead, after the rewrite to index.php with REDIRECT_.
+     * Without it, every Bearer token of the REST API, MCP and the hub is lost.
+     *
+     * @internal
+     *
+     * @param array<mixed> $server
+     */
+    public static function withAuthorization(ServerRequestInterface $request, array $server): ServerRequestInterface
+    {
+        if ($request->hasHeader('Authorization')) {
+            return $request;
+        }
+
+        foreach (['HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION'] as $key) {
+            if (\is_string($server[$key] ?? null) && '' !== $server[$key]) {
+                return $request->withHeader('Authorization', $server[$key]);
+            }
+        }
+
+        return $request;
     }
 
     /**
