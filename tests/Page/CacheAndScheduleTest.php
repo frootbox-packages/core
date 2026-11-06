@@ -96,6 +96,25 @@ final class CacheAndScheduleTest extends NotesTestCase
         self::assertFalse($development->accepts(new ServerRequest('GET', 'https://example.org/')), 'No cache while developing.');
     }
 
+    public function testKeepsTheParametersOfRequestsAtTheSameTime(): void
+    {
+        $paths = $this->get(ProjectPaths::class);
+        $news = new PageCache($paths, Environment::Production);
+        $search = new PageCache($paths, Environment::Production);
+
+        // Both requests read the declared parameters before either has cached its page.
+        self::assertNull($news->get(new ServerRequest('GET', 'https://example.org/news')));
+        self::assertNull($search->get(new ServerRequest('GET', 'https://example.org/suche')));
+
+        $search->put(new ServerRequest('GET', 'https://example.org/suche'), 'empty search', ['q']);
+        $news->put(new ServerRequest('GET', 'https://example.org/news'), 'news', ['page']);
+
+        $later = new PageCache($paths, Environment::Production);
+        self::assertSame('empty search', $later->get(new ServerRequest('GET', 'https://example.org/suche')));
+        self::assertNull($later->get(new ServerRequest('GET', 'https://example.org/suche?q=Kaffee')->withQueryParams(['q' => 'Kaffee'])), 'A search never gets the page without one.');
+        self::assertNull($later->get(new ServerRequest('GET', 'https://example.org/news?page=2')->withQueryParams(['page' => '2'])));
+    }
+
     public function testTakesABranchOffline(): void
     {
         $details = $this->runner()->run(new UnpublishPage($this->about));

@@ -142,32 +142,87 @@ final class PageCache
     private function parameters(): array
     {
         if (null === $this->parameters) {
-            $file = $this->paths->var(\sprintf('cache/pages/%s/parameters', $this->generation()));
-            $content = is_file($file) ? @file_get_contents($file) : false;
-            $this->parameters = false === $content || '' === $content ? [] : explode("\n", $content);
+            $handle = @fopen($this->parametersFile(), 'r');
+            $this->parameters = [];
+
+            if (false !== $handle) {
+                // Never read the file while another request writes it.
+                if (flock($handle, \LOCK_SH)) {
+                    $this->parameters = self::lines(stream_get_contents($handle));
+                    flock($handle, \LOCK_UN);
+                }
+
+                fclose($handle);
+            }
         }
 
         return $this->parameters;
     }
 
     /**
+     * Adds parameters to the file. Read and write under one lock: requests
+     * at the same time would otherwise each write what they read plus their
+     * own, and the last one would drop the others, e.g. "q" of the search,
+     * whose results would then come from the cached page without a search.
+     *
      * @param list<string> $parameters
      */
     private function declare(array $parameters): void
     {
-        $new = array_diff($parameters, $this->parameters());
-
-        if ([] === $new) {
+        if ([] === array_diff($parameters, $this->parameters())) {
             return;
         }
 
-        $this->parameters = [...$this->parameters(), ...array_values($new)];
-        sort($this->parameters);
-        $file = $this->paths->var(\sprintf('cache/pages/%s/parameters', $this->generation()));
+        $merged = self::sorted([...$this->parameters(), ...$parameters]);
+        $file = $this->parametersFile();
+        $directory = \dirname($file);
+        $handle = is_dir($directory) || @mkdir($directory, 0o775, true) || is_dir($directory) ? @fopen($file, 'c+') : false;
 
-        if (is_dir(\dirname($file)) || @mkdir(\dirname($file), 0o775, true) || is_dir(\dirname($file))) {
-            @file_put_contents($file, implode("\n", $this->parameters), \LOCK_EX);
+        if (false !== $handle) {
+            if (flock($handle, \LOCK_EX)) {
+                $known = self::lines(stream_get_contents($handle));
+                $merged = self::sorted([...$known, ...$merged]);
+
+                if ($merged !== $known) {
+                    ftruncate($handle, 0);
+                    rewind($handle);
+                    fwrite($handle, implode("\n", $merged));
+                    fflush($handle);
+                }
+
+                flock($handle, \LOCK_UN);
+            }
+
+            fclose($handle);
         }
+
+        $this->parameters = $merged;
+    }
+
+    /**
+     * @param list<string> $parameters
+     *
+     * @return list<string>
+     */
+    private static function sorted(array $parameters): array
+    {
+        $parameters = array_values(array_unique($parameters));
+        sort($parameters);
+
+        return $parameters;
+    }
+
+    private function parametersFile(): string
+    {
+        return $this->paths->var(\sprintf('cache/pages/%s/parameters', $this->generation()));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function lines(string|false $content): array
+    {
+        return false === $content || '' === $content ? [] : explode("\n", $content);
     }
 
     private function generation(): string
