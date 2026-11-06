@@ -59,9 +59,10 @@ final class StatusTest extends NotesTestCase
         self::assertNotNull($status->lastEdit);
         self::assertStringStartsWith('2026-11-05T10:15:00', $status->lastEdit);
         self::assertNotNull($status->storage['free']);
+        self::assertSame(['transport' => 'smtp', 'source' => 'environment'], $status->mail, 'The kind of transport, so the hub can warn without SMTP.');
 
         $json = json_encode($status, \JSON_THROW_ON_ERROR);
-        foreach (['jane@example.com', 'Jane Doe', 'Secret plans'] as $private) {
+        foreach (['jane@example.com', 'Jane Doe', 'Secret plans', 'mail.example.org', 'mailbox-secret'] as $private) {
             self::assertStringNotContainsString($private, $json);
         }
     }
@@ -98,6 +99,11 @@ final class StatusTest extends NotesTestCase
         // Like disable_functions on webspace: the function is not there at all.
         self::assertNull(ShowStatus::space('frootbox_disabled_function', __DIR__), 'Not a failing status page.');
         self::assertNull(ShowStatus::space('disk_total_space', __DIR__ . '/missing'));
+    }
+
+    protected function env(): array
+    {
+        return ['MAILER_DSN' => 'smtp://praxis:mailbox-secret@mail.example.org:587'];
     }
 
     private function call(string $path, string $token): ResponseInterface

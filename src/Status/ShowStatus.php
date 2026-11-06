@@ -21,6 +21,7 @@ use Frootbox\Core\Comment\CommentEditor;
 use Frootbox\Core\Extension\ExtensionPackage;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Frootbox;
+use Frootbox\Core\Mail\Mailer;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Queue\QueueOverview;
 use Frootbox\Core\Revision\Revisions;
@@ -36,7 +37,7 @@ use Throwable;
  *
  * @implements Query<SiteStatus>
  */
-#[AsQuery('status.show', 'Returns the technical status of the website: versions, cron, queue, backup, disk space, drafts and last change, without personal data or contents')]
+#[AsQuery('status.show', 'Returns the technical status of the website: versions, cron, queue, backup, disk space, drafts, last change and how mails leave the server, without personal data or contents')]
 final readonly class ShowStatus implements Query
 {
     public function handle(
@@ -48,6 +49,7 @@ final readonly class ShowStatus implements Query
         CommentEditor $comments,
         ProjectPaths $paths,
         CronStatus $cron,
+        Mailer $mailer,
     ): SiteStatus {
         $now = new DateTimeImmutable();
         $packages = $extensions->packages;
@@ -70,6 +72,7 @@ final readonly class ShowStatus implements Query
             drafts: $revisions->count(['status' => RevisionStatus::Draft]),
             comments: $comments->count(null),
             lastEdit: self::time($revisions->lastChange()),
+            mail: self::mail($mailer),
         );
     }
 
@@ -93,6 +96,23 @@ final readonly class ShowStatus implements Query
         };
 
         return ['kind' => $kind, 'version' => '' === $version ? null : $version];
+    }
+
+    /**
+     * Only the kind of transport and where it is set, no server, account
+     * or sender (decision 0309). The hub warns without SMTP.
+     *
+     * @return array{transport: string, source: string}|null
+     */
+    private static function mail(Mailer $mailer): ?array
+    {
+        try {
+            $status = $mailer->status();
+        } catch (Throwable) {
+            return null;
+        }
+
+        return ['transport' => $status->transport, 'source' => $status->source];
     }
 
     /**

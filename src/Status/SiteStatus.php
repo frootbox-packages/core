@@ -31,6 +31,7 @@ final readonly class SiteStatus
      * @param int                                                  $drafts     unpublished drafts of all kinds
      * @param int|null                                             $comments   open threads in the preview
      * @param string|null                                          $lastEdit   when content was last saved or published
+     * @param array{transport: string, source: string}|null        $mail       how mails leave the server (decision 0309): transport smtp, native, log, null or memory, source environment, settings or default
      */
     public function __construct(
         public array $system,
@@ -44,6 +45,7 @@ final readonly class SiteStatus
         public int $drafts,
         public ?int $comments,
         public ?string $lastEdit,
+        public ?array $mail = null,
         public int $schema = self::SCHEMA,
     ) {}
 }
