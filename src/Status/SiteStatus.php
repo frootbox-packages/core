@@ -24,7 +24,7 @@ final readonly class SiteStatus
      * @param array{version: string}                               $php
      * @param array{kind: string, version: string|null}|null       $database
      * @param list<array{name: string, version: string|null}>      $extensions
-     * @param array{lastRun: string|null}                          $cron
+     * @param array{lastRun: string|null, lastTick: string|null}   $cron       lastTick: the last run the hub asked for (decision 0293)
      * @param array{due: int, failed: int}                         $queue
      * @param array{last: string|null, ageHours: int|null}|null    $backup     null where backups are not possible
      * @param array{free: int|null, total: int|null}               $storage    of the disk that holds storage/

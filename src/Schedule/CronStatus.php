@@ -37,9 +37,29 @@ final readonly class CronStatus
 
     public function lastRun(): ?DateTimeImmutable
     {
-        $time = is_file($this->marker()) ? filemtime($this->marker()) : false;
+        return self::time($this->marker());
+    }
 
-        return false === $time ? null : new DateTimeImmutable()->setTimestamp($time);
+    /**
+     * Notes a run the hub asked for (decision 0293). Apart from cron: the
+     * hub asks only websites without one.
+     */
+    public function ticked(): void
+    {
+        $marker = $this->paths->var('cache/hub-tick');
+        $directory = \dirname($marker);
+
+        if (is_dir($directory) || @mkdir($directory, 0o775, true) || is_dir($directory)) {
+            @touch($marker);
+        }
+    }
+
+    /**
+     * When the hub last asked for a run.
+     */
+    public function lastTick(): ?DateTimeImmutable
+    {
+        return self::time($this->paths->var('cache/hub-tick'));
     }
 
     /**
@@ -55,6 +75,14 @@ final readonly class CronStatus
     public function line(): string
     {
         return \sprintf(self::LINE, $this->paths->root);
+    }
+
+    private static function time(string $file): ?DateTimeImmutable
+    {
+        clearstatcache(true, $file);
+        $time = is_file($file) ? filemtime($file) : false;
+
+        return false === $time ? null : new DateTimeImmutable()->setTimestamp($time);
     }
 
     private function marker(): string

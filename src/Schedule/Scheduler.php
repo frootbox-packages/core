@@ -40,6 +40,9 @@ final readonly class Scheduler
     /** Seconds for jobs after a page request when cron is missing (decision 0221). */
     public const int REQUEST_BUDGET = 5;
 
+    /** Seconds for jobs after the hub asked for a run (decision 0293). */
+    public const int HUB_BUDGET = 20;
+
     public function __construct(
         private Revisions $revisions,
         private PageReader $pages,
@@ -122,6 +125,47 @@ final readonly class Scheduler
         }
 
         return new ScheduleResult($published['done'], $unpublished, [...$published['failed'], ...$failed]);
+    }
+
+    /**
+     * A run the hub asked for (decision 0293), after the response: what is
+     * due and the queue for up to HUB_BUDGET seconds. Nothing while an own
+     * cron job runs. Notes the run apart from cron, so the hub keeps
+     * asking, and as a check from a request, so a visit right after does
+     * not run again.
+     *
+     * @return bool whether it runs
+     */
+    public function runForHub(): bool
+    {
+        if ($this->cron->ranWithin(2 * self::INTERVAL)) {
+            return false;
+        }
+
+        $this->cron->ticked();
+        $marker = $this->paths->var('cache/schedule');
+
+        if (is_dir(\dirname($marker))) {
+            @touch($marker);
+        }
+
+        $this->afterResponse->add(function (): void {
+            try {
+                $result = $this->run();
+
+                if ([] !== $result->failed) {
+                    $this->logger->warning('Scheduled publishing failed in part.', ['failed' => $result->failed]);
+                }
+
+                $this->worker->run(self::HUB_BUDGET);
+            } catch (TableNotFoundException) {
+                // Not migrated yet: nothing can be due.
+            } catch (Throwable $error) {
+                $this->logger->error('The run the hub asked for failed.', ['exception' => $error]);
+            }
+        });
+
+        return true;
     }
 
     /**

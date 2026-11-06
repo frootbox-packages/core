@@ -16,6 +16,7 @@ use Frootbox\Core\Auth\AccessTokens;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Frootbox;
+use Frootbox\Core\Http\AfterResponse;
 use Frootbox\Core\Http\MiddlewareDispatcher;
 use Frootbox\Core\Http\NotFoundHandler;
 use Frootbox\Core\Hub\CompleteHub;
@@ -36,8 +37,10 @@ use Frootbox\Core\Hub\ShowHub;
 use Frootbox\Core\Hub\SwitchHub;
 use Frootbox\Core\Hub\UpdateHubKeys;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Core\Schedule\CronStatus;
 use Frootbox\Core\Security\Secrets;
 use Frootbox\Core\Security\StandardWebhooks;
+use Frootbox\Core\Status\ShowStatus;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\User\Roles;
 use Frootbox\Core\User\Users;
@@ -246,6 +249,31 @@ final class HubTest extends NotesTestCase
         self::assertSame(0, $this->get(Users::class)->count(['kind' => 'service']));
         self::assertSame([], array_filter($this->hub->requests, static fn(array $request): bool => 'DELETE' === $request['method']), 'The hub knows already.');
         self::assertSame(404, $this->fromHub('disconnect', [], $body)->getStatusCode());
+    }
+
+    public function testTheHubRunsTheScheduleOfAWebsiteWithoutCron(): void
+    {
+        $this->runner()->run(new CompleteHub('K7Q2-M9XD'));
+        $cron = $this->get(CronStatus::class);
+
+        self::assertSame(404, $this->fromHub('tick', ['connection' => 'con_another0000'])->getStatusCode());
+
+        $response = $this->fromHub('tick', ['connection' => 'con_0123456789']);
+        self::assertSame(202, $response->getStatusCode(), (string) $response->getBody());
+        self::assertSame(['accepted' => true], json_decode((string) $response->getBody(), true));
+        self::assertTrue($this->get(AfterResponse::class)->pending(), 'The work comes after the response.');
+        $this->get(AfterResponse::class)->run();
+
+        self::assertNotNull($cron->lastTick());
+        self::assertNull($cron->lastRun(), 'A run the hub asked for is no cron, or the hub would stop asking.');
+        $status = $this->runner()->ask(new ShowStatus());
+        self::assertNull($status->cron['lastRun']);
+        self::assertNotNull($status->cron['lastTick']);
+
+        $cron->touch();
+        $own = $this->fromHub('tick', ['connection' => 'con_0123456789']);
+        self::assertSame(['accepted' => false], json_decode((string) $own->getBody(), true), 'An own cron job does the work.');
+        self::assertFalse($this->get(AfterResponse::class)->pending());
     }
 
     public function testTakesNewKeysOfTheHubOnlySignedWithACurrentOne(): void

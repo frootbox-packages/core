@@ -12,6 +12,7 @@ use Frootbox\Core\Action\ActionException;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Error\Problem;
+use Frootbox\Core\Schedule\Scheduler;
 use Frootbox\Core\Security\StandardWebhooks;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -29,12 +30,14 @@ use Psr\Http\Server\RequestHandlerInterface;
  *   never passes as a webhook.
  * - disconnect {connection}: the hub disconnected; deletes the access.
  * - keys {keys}: new keys of the hub, signed with a current one.
+ * - tick {connection}: the hub asks a website without cron to run what is
+ *   due (decision 0293). Answers 202 at once and works after the response.
  *
  * Like the REST API it runs past the password of the website.
  */
 final readonly class HubCallbackHandler implements RequestHandlerInterface
 {
-    public const string ROUTE = '/.well-known/frootbox/{name:verify|disconnect|keys}';
+    public const string ROUTE = '/.well-known/frootbox/{name:verify|disconnect|keys|tick}';
 
     public const string VERIFY_LABEL = 'frootbox-connect-verify-v1';
 
@@ -46,6 +49,7 @@ final readonly class HubCallbackHandler implements RequestHandlerInterface
         private Runner $runner,
         private SeenMessages $seen,
         private ResponseFactoryInterface $responses,
+        private Scheduler $scheduler,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -84,6 +88,7 @@ final readonly class HubCallbackHandler implements RequestHandlerInterface
         return match ($request->getAttribute('name')) {
             'verify' => $this->verify($connection, $data),
             'disconnect' => $this->disconnect($connection, $data),
+            'tick' => $this->tick($connection, $data),
             default => $this->keys($data),
         };
     }
@@ -130,6 +135,20 @@ final readonly class HubCallbackHandler implements RequestHandlerInterface
         $this->runner->run(new DisconnectHub(notify: false), Context::system());
 
         return $this->responses->createResponse(204)->withHeader('Cache-Control', 'no-store');
+    }
+
+    /**
+     * @param array<mixed> $data
+     */
+    private function tick(HubConnection $connection, array $data): ResponseInterface
+    {
+        $id = $data['connection'] ?? null;
+
+        if (!$connection->connected() || !\is_string($id) || !hash_equals((string) $connection->connectionId, $id)) {
+            return $this->problem(404, 'unknown', 'There is no connection with this id.');
+        }
+
+        return $this->json(202, ['accepted' => $this->scheduler->runForHub()]);
     }
 
     /**

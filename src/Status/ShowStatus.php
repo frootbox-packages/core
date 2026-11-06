@@ -25,6 +25,7 @@ use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Queue\QueueOverview;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Revision\RevisionStatus;
+use Frootbox\Core\Schedule\CronStatus;
 use Throwable;
 
 /**
@@ -46,6 +47,7 @@ final readonly class ShowStatus implements Query
         Revisions $revisions,
         CommentEditor $comments,
         ProjectPaths $paths,
+        CronStatus $cron,
     ): SiteStatus {
         $now = new DateTimeImmutable();
         $packages = $extensions->packages;
@@ -58,7 +60,7 @@ final readonly class ShowStatus implements Query
             php: ['version' => \PHP_VERSION],
             database: self::database($connection),
             extensions: array_map(static fn(ExtensionPackage $package): array => ['name' => $package->name, 'version' => $package->version], $packages),
-            cron: ['lastRun' => self::time($queueStatus->cronLastRun)],
+            cron: ['lastRun' => self::time($queueStatus->cronLastRun), 'lastTick' => self::time($cron->lastTick())],
             queue: ['due' => $queueStatus->due, 'failed' => $queueStatus->failed],
             backup: $backups->available() ? [
                 'last' => self::time($latest?->createdAt),
