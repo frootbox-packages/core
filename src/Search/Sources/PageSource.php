@@ -8,11 +8,9 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Search\Sources;
 
-use Frootbox\Core\Component\Component;
-use Frootbox\Core\Component\Components;
-use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Page\PageReader;
 use Frootbox\Core\Page\Pages;
+use Frootbox\Core\Page\PageText;
 use Frootbox\Core\Page\PageTranslations;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Search\AsSearchSource;
@@ -33,8 +31,7 @@ final readonly class PageSource implements PublishedSource
 
     public function __construct(
         private PageReader $reader,
-        private Components $components,
-        private FieldTypes $types,
+        private PageText $text,
     ) {}
 
     public function changed(string $table, array $row): array
@@ -58,10 +55,13 @@ final readonly class PageSource implements PublishedSource
     {
         foreach ($items as $id) {
             $data = $this->reader->draft($id) ?? $this->reader->published($id);
-            $layout = null === $data ? null : $this->components->layout($data->layout);
 
-            foreach (null === $data ? [] : $data->translations as $language => $translation) {
-                $text = implode("\n", array_filter([$translation->slug, null === $layout ? '' : $this->text($layout, $translation->content)], static fn(string $part): bool => '' !== $part));
+            if (null === $data) {
+                continue;
+            }
+
+            foreach ($data->translations as $language => $translation) {
+                $text = implode("\n", array_filter([$translation->slug, $this->text->of($data->layout, $translation->content)], static fn(string $part): bool => '' !== $part));
 
                 yield new SearchEntry(
                     item: $id,
@@ -85,33 +85,16 @@ final readonly class PageSource implements PublishedSource
     {
         foreach ($items as $id) {
             $data = $this->reader->published($id);
-            $layout = null === $data ? null : $this->components->layout($data->layout);
 
-            foreach (null === $data ? [] : $data->translations as $language => $translation) {
-                $text = implode("\n", array_filter([$translation->description, null === $layout ? '' : $this->text($layout, $translation->content)], static fn(string $part): bool => '' !== $part));
+            if (null === $data) {
+                continue;
+            }
+
+            foreach ($data->translations as $language => $translation) {
+                $text = implode("\n", array_filter([$translation->description, $this->text->of($data->layout, $translation->content)], static fn(string $part): bool => '' !== $part));
 
                 yield new PublishedEntry($id, $language, $translation->title, mb_substr($text, 0, self::MAX_TEXT), Target::page($id));
             }
         }
-    }
-
-    /**
-     * @param array<mixed> $body With "fields" and "areas"
-     */
-    private function text(Component $component, array $body): string
-    {
-        $texts = [\is_array($body['fields'] ?? null) ? $this->types->text($component->fields, $body['fields']) : ''];
-
-        foreach (\is_array($body['areas'] ?? null) ? $body['areas'] : [] as $blocks) {
-            foreach (\is_array($blocks) ? $blocks : [] as $block) {
-                $child = \is_array($block) && \is_string($block['block'] ?? null) ? $this->components->block($block['block']) : null;
-
-                if (null !== $child) {
-                    $texts[] = $this->text($child, $block);
-                }
-            }
-        }
-
-        return implode("\n", array_filter($texts, static fn(string $text): bool => '' !== $text));
     }
 }

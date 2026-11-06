@@ -24,6 +24,9 @@ use Frootbox\Core\Ai\PricesOnSchedule;
 use Frootbox\Core\Ai\ShowAiStatus;
 use Frootbox\Core\Ai\ShowAiUsage;
 use Frootbox\Core\Ai\TestAi;
+use Frootbox\Core\Ai\Writing\WriteAltText;
+use Frootbox\Core\Ai\Writing\WriteField;
+use Frootbox\Core\Ai\Writing\WriteSearchSnippet;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Backup\BackupCreateCommand;
@@ -488,6 +491,11 @@ final class CoreExtension implements Extension
         $registry->query(ShowAiUsage::class);
         $registry->action(TestAi::class);
         $registry->listen(ScheduleRan::class, PricesOnSchedule::class);
+
+        // Writing at a field, each a suggestion without saving (decision 0296).
+        $registry->action(WriteField::class);
+        $registry->action(WriteAltText::class);
+        $registry->action(WriteSearchSnippet::class);
 
         // The connection to the hub, frootbox.de (decision 0284).
         $registry->post(HubCallbackHandler::ROUTE, HubCallbackHandler::class, 'hub.callback');

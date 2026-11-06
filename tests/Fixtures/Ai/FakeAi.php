@@ -30,6 +30,9 @@ final class FakeAi implements ProviderClient
 
     public static ?string $failure = null;
 
+    /** The text of the next answer, null for "Hallo Welt." */
+    public static ?string $answer = null;
+
     /** @var list<Request> */
     public static array $requests = [];
 
@@ -38,6 +41,7 @@ final class FakeAi implements ProviderClient
         self::$ready = true;
         self::$usage = null;
         self::$failure = null;
+        self::$answer = null;
         self::$requests = [];
     }
 
@@ -71,6 +75,6 @@ final class FakeAi implements ProviderClient
 
         $last = array_last($usage);
 
-        return new Response([new Text('Hallo '), new Text('Welt.')], StopReason::Done, $usage, null === $last ? 'fake-large' : $last->model);
+        return new Response(null === self::$answer ? [new Text('Hallo '), new Text('Welt.')] : [new Text(self::$answer)], StopReason::Done, $usage, null === $last ? 'fake-large' : $last->model);
     }
 }
