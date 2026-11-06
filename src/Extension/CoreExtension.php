@@ -29,6 +29,7 @@ use Frootbox\Core\Backup\BackupsOnSchedule;
 use Frootbox\Core\Backup\CreateBackup;
 use Frootbox\Core\Backup\DeleteBackup;
 use Frootbox\Core\Backup\ListBackups;
+use Frootbox\Core\Cache\ClearCaches;
 use Frootbox\Core\Cache\ClearPageCache;
 use Frootbox\Core\Category\ApplyPresets;
 use Frootbox\Core\Category\CreateCategory;
@@ -498,6 +499,7 @@ final class CoreExtension implements Extension
         $registry->query(ListBackups::class);
         $registry->query(ListMigrations::class);
         $registry->action(RunMigrations::class);
+        $registry->action(ClearCaches::class);
         $registry->listen(ScheduleRan::class, BackupsOnSchedule::class);
 
         $registry->query(ShowAccount::class);
