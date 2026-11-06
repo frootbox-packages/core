@@ -19,6 +19,10 @@ use Frootbox\Core\Account\SignOut;
 use Frootbox\Core\Account\UpdateLanguage;
 use Frootbox\Core\Action\ActionExecuted;
 use Frootbox\Core\Action\Undo\UndoAction;
+use Frootbox\Core\Ai\AiSettings;
+use Frootbox\Core\Ai\ShowAiStatus;
+use Frootbox\Core\Ai\ShowAiUsage;
+use Frootbox\Core\Ai\TestAi;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Backup\BackupCreateCommand;
@@ -476,6 +480,12 @@ final class CoreExtension implements Extension
         $registry->settings(MailSettings::class);
         $registry->query(ShowMailStatus::class);
         $registry->action(SendTestMail::class);
+
+        // The AI interface; providers come as modules (decision 0294).
+        $registry->settings(AiSettings::class);
+        $registry->query(ShowAiStatus::class);
+        $registry->query(ShowAiUsage::class);
+        $registry->action(TestAi::class);
 
         // The connection to the hub, frootbox.de (decision 0284).
         $registry->post(HubCallbackHandler::ROUTE, HubCallbackHandler::class, 'hub.callback');
