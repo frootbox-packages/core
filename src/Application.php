@@ -156,7 +156,10 @@ final readonly class Application
         $after = $this->service(AfterResponse::class, AfterResponse::class);
 
         if ($after->pending()) {
-            ignore_user_abort(true);
+            // Webspace may disable it (disable_functions).
+            if (\function_exists('ignore_user_abort')) {
+                ignore_user_abort(true);
+            }
 
             if (\function_exists('fastcgi_finish_request')) {
                 fastcgi_finish_request();

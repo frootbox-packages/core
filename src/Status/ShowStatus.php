@@ -98,10 +98,24 @@ final readonly class ShowStatus implements Query
      */
     private static function disk(string $folder): array
     {
-        $free = is_dir($folder) ? @disk_free_space($folder) : false;
-        $total = is_dir($folder) ? @disk_total_space($folder) : false;
+        return ['free' => self::space('disk_free_space', $folder), 'total' => self::space('disk_total_space', $folder)];
+    }
 
-        return ['free' => false === $free ? null : (int) $free, 'total' => false === $total ? null : (int) $total];
+    /**
+     * Webspace often disables these functions (disable_functions), the
+     * status then knows no disk space instead of failing.
+     *
+     * @internal public for the test
+     */
+    public static function space(string $function, string $folder): ?int
+    {
+        if (!\in_array($function, ['disk_free_space', 'disk_total_space'], true) || !\function_exists($function) || !is_dir($folder)) {
+            return null;
+        }
+
+        $space = @$function($folder);
+
+        return \is_float($space) ? (int) $space : null;
     }
 
     private static function time(?DateTimeImmutable $time): ?string

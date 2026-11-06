@@ -92,6 +92,14 @@ final class StatusTest extends NotesTestCase
         $this->runner()->ask(new ShowStatus(), new Context(Actor::user($editor->id, $editor->name), Channel::Api));
     }
 
+    public function testWithoutTheFunctionsForDiskSpaceItKnowsNone(): void
+    {
+        self::assertIsInt(ShowStatus::space('disk_total_space', __DIR__));
+        // Like disable_functions on webspace: the function is not there at all.
+        self::assertNull(ShowStatus::space('frootbox_disabled_function', __DIR__), 'Not a failing status page.');
+        self::assertNull(ShowStatus::space('disk_total_space', __DIR__ . '/missing'));
+    }
+
     private function call(string $path, string $token): ResponseInterface
     {
         $factory = new Psr17Factory();
