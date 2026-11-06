@@ -1,5 +1,10 @@
 [
     {
+        "name": "frootbox/ai-anthropic",
+        "title": "Anthropic",
+        "description": "Claude by Anthropic as the AI provider of the website, with a monthly limit in the settings of the AI"
+    },
+    {
         "name": "frootbox/captcha-recaptcha",
         "title": "reCAPTCHA",
         "description": "reCAPTCHA of Google for the forms, v2 with a box or v3 with a score, loaded only after consent"
