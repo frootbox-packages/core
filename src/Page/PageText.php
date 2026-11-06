@@ -34,6 +34,18 @@ final readonly class PageText
     }
 
     /**
+     * The plain text of one block with the blocks inside it.
+     *
+     * @param array<mixed> $block A block of the content, with "block", "fields" and "areas"
+     */
+    public function block(array $block): string
+    {
+        $component = \is_string($block['block'] ?? null) ? $this->components->block($block['block']) : null;
+
+        return null === $component ? '' : $this->text($component, $block);
+    }
+
+    /**
      * @param array<mixed> $body With "fields" and "areas"
      */
     private function text(Component $component, array $body): string

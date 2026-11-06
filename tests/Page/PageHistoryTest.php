@@ -15,6 +15,7 @@ use Frootbox\Core\Action\HistoryEntry;
 use Frootbox\Core\Action\HistoryPage;
 use Frootbox\Core\Action\RowDiff;
 use Frootbox\Core\Extension\Extensions;
+use Frootbox\Core\Page\ChangeLabels;
 use Frootbox\Core\Page\CreatePage;
 use Frootbox\Core\Page\DiscardPage;
 use Frootbox\Core\Page\PageChange;
@@ -39,6 +40,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(PageHistory::class)]
 #[CoversClass(PageHistoryEntry::class)]
 #[CoversClass(PageChange::class)]
+#[CoversClass(ChangeLabels::class)]
 final class PageHistoryTest extends NotesTestCase
 {
     private string $page;
@@ -79,8 +81,8 @@ final class PageHistoryTest extends NotesTestCase
         self::assertSame('System', $title->actorName);
         self::assertTrue($title->undoable);
         self::assertSame('Neu', $title->input['value'] ?? null);
-        self::assertEquals([new PageChange('update', 'draft', 'de', $this->teaser, 'acme/base/Teaser', 'fields/title', 'Frisch', 'Neu')], $title->changes, 'The first change of a draft compares with what was published.');
-        self::assertEquals([new PageChange('update', 'draft', 'de', null, null, 'fields/heading', 'Willkommen', 'Hallo')], $heading->changes);
+        self::assertEquals([new PageChange('update', 'draft', 'de', $this->teaser, 'acme/base/Teaser', 'fields/title', 'Frisch', 'Neu', 'Teaser', 'Title', 'Frisch', 'Neu')], $title->changes, 'The first change of a draft compares with what was published.');
+        self::assertEquals([new PageChange('update', 'draft', 'de', null, null, 'fields/heading', 'Willkommen', 'Hallo', null, 'Heading', 'Willkommen', 'Hallo')], $heading->changes);
 
         self::assertSame(['page.update-field', 'page.update-field', 'page.publish', 'page.create'], array_map(static fn(PageHistoryEntry $entry): string => $entry->action, $history->entries));
         self::assertCount(1, $this->history(block: $this->teaser)->entries, 'Only the block.');
@@ -105,6 +107,7 @@ final class PageHistoryTest extends NotesTestCase
         self::assertCount(1, $removed);
         self::assertSame([$this->teaser, 'acme/base/Teaser', ''], [$removed[0]->block, $removed[0]->blockType, $removed[0]->path]);
         self::assertSame('Frisch', RowDiff::at($removed[0]->old, 'fields/title'), 'The removed block with its content.');
+        self::assertSame(['Teaser', null, 'Frisch', null], [$removed[0]->blockTitle, $removed[0]->field, $removed[0]->oldText, $removed[0]->newText], 'Named and readable.');
 
         $live = array_values(array_filter($publish->changes, fn(PageChange $change): bool => 'published' === $change->state && $this->teaser === $change->block));
         self::assertNotEmpty($live, 'Publishing takes the block off the website.');

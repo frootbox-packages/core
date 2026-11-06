@@ -67,7 +67,7 @@ final readonly class ShowPageHistory implements Query, Scoped
         return [Scope::page($this->id)];
     }
 
-    public function handle(History $history, Connection $connection): PageHistory
+    public function handle(History $history, Connection $connection, PageReader $reader, ChangeLabels $labels): PageHistory
     {
         $translations = [];
 
@@ -116,7 +116,24 @@ final readonly class ShowPageHistory implements Query, Scoped
             );
         }
 
-        return new PageHistory($this->typed($entries, $connection), $page->next);
+        $layout = ($reader->draft($this->id) ?? $reader->published($this->id))?->layout;
+        $entries = array_map(static fn(PageHistoryEntry $entry): PageHistoryEntry => new PageHistoryEntry(
+            $entry->id,
+            $entry->action,
+            $entry->status,
+            $entry->actorType,
+            $entry->actorId,
+            $entry->actorName,
+            $entry->channel,
+            $entry->device,
+            $entry->createdAt,
+            $entry->undoable,
+            $entry->undone,
+            $entry->input,
+            array_map(static fn(PageChange $change): PageChange => $labels->describe($change, $layout), $entry->changes),
+        ), $this->typed($entries, $connection));
+
+        return new PageHistory($entries, $page->next);
     }
 
     /**
