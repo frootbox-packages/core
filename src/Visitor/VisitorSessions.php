@@ -87,6 +87,14 @@ final readonly class VisitorSessions
     }
 
     /**
+     * Deletes all sessions, e.g. in a copy of the website (decision 0319).
+     */
+    public function clear(): int
+    {
+        return $this->journal->trusted(fn(): int => (int) $this->connection->executeStatement('DELETE FROM ' . self::TABLE));
+    }
+
+    /**
      * Deletes expired sessions.
      */
     public function prune(DateTimeImmutable $now): int

@@ -31,6 +31,8 @@ use Frootbox\Core\Ai\Writing\WriteField;
 use Frootbox\Core\Ai\Writing\WriteSearchSnippet;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
+use Frootbox\Core\Auth\EndSessions;
+use Frootbox\Core\Auth\SessionsEndCommand;
 use Frootbox\Core\Backup\BackupCreateCommand;
 use Frootbox\Core\Backup\BackupListCommand;
 use Frootbox\Core\Backup\BackupPruneCommand;
@@ -537,6 +539,8 @@ final class CoreExtension implements Extension
         $registry->listen(ScheduleRan::class, BackupsOnSchedule::class);
         $registry->listen(ScheduleRan::class, PruneOnSchedule::class);
         $registry->listen(ScheduleRan::class, PruneVisitorSessions::class);
+        $registry->action(EndSessions::class);
+        $registry->command(SessionsEndCommand::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListLanguages::class);

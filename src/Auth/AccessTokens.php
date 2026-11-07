@@ -130,6 +130,17 @@ final readonly class AccessTokens
     }
 
     /**
+     * Ends the browser sessions of all users; API tokens stay (decision 0319).
+     */
+    public function endSessions(): int
+    {
+        return $this->journal->trusted(fn(): int => (int) $this->connection->executeStatement(
+            'DELETE FROM ' . self::TABLE . ' WHERE type = ?',
+            [TokenType::Session->value],
+        ));
+    }
+
+    /**
      * Signs a user out everywhere, except for one token if given.
      */
     public function revokeAll(int $userId, ?int $except = null): int

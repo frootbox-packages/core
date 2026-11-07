@@ -27,8 +27,10 @@ use Frootbox\Core\Auth\AccessTokens;
 use Frootbox\Core\Auth\Actor;
 use Frootbox\Core\Auth\AuthenticationException;
 use Frootbox\Core\Auth\CurrentUser;
+use Frootbox\Core\Auth\EndSessions;
 use Frootbox\Core\Auth\IssuedToken;
 use Frootbox\Core\Auth\Passwords;
+use Frootbox\Core\Auth\SessionsEndCommand;
 use Frootbox\Core\Auth\TokenType;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\User\CreateUser;
@@ -36,6 +38,7 @@ use Frootbox\Core\User\UpdateUser;
 use Frootbox\Core\User\User;
 use Frootbox\Core\User\UserException;
 use Frootbox\Core\User\Users;
+use Frootbox\Core\Visitor\VisitorSessions;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 #[CoversClass(SignIn::class)]
@@ -47,6 +50,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(ListTokens::class)]
 #[CoversClass(ShowAccount::class)]
 #[CoversClass(AccessTokens::class)]
+#[CoversClass(EndSessions::class)]
+#[CoversClass(SessionsEndCommand::class)]
 #[CoversClass(AccessToken::class)]
 #[CoversClass(IssuedToken::class)]
 #[CoversClass(Passwords::class)]
@@ -166,6 +171,23 @@ final class AccountTest extends NotesTestCase
 
         $this->runner()->run(new RevokeToken($issued->accessToken->id), $context);
         self::assertNull($this->tokens()->authenticate($issued->token));
+    }
+
+    public function testACopyOfTheWebsiteStartsWithoutSessions(): void
+    {
+        $session = $this->signIn();
+        $api = $this->tokens()->issue($this->user->id, TokenType::Api, 'Deploy');
+        $visitors = $this->get(VisitorSessions::class);
+        $visitors->create('cookie', ['acme/shop' => ['cart' => ['p1' => 1]]], new DateTimeImmutable());
+
+        self::assertSame(2, $this->runner()->run(new EndSessions(), Context::system()));
+
+        self::assertNull($this->tokens()->authenticate($session->token));
+        self::assertNotNull($this->tokens()->authenticate($api->token), 'API tokens are given out on purpose.');
+        self::assertNull($visitors->find('cookie', new DateTimeImmutable()));
+
+        $this->expectException(AccessDeniedException::class);
+        $this->runner()->run(new EndSessions(), $this->context($this->signIn()));
     }
 
     public function testAccountActionsNeedAUser(): void
