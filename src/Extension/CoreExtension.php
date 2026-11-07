@@ -259,6 +259,7 @@ use Frootbox\Core\Site\ShowSite;
 use Frootbox\Core\Site\UnprotectSite;
 use Frootbox\Core\Site\UpdateSite;
 use Frootbox\Core\Site\UpdateSiteField;
+use Frootbox\Core\Status\ShowPhpInfo;
 use Frootbox\Core\Status\ShowStatus;
 use Frootbox\Core\Storage\StorageCache;
 use Frootbox\Core\Storage\StorageCheckCommand;
@@ -513,6 +514,8 @@ final class CoreExtension implements Extension
         $registry->query(ListComponentUsages::class);
         $registry->query(ShowQueueStatus::class);
         $registry->query(ShowStatus::class);
+        // How PHP is set up, for superusers (decision 0335).
+        $registry->query(ShowPhpInfo::class);
         $registry->action(RetryJob::class);
         $registry->action(DeleteJob::class);
         // Mails leave through the queue (decision 0222).
