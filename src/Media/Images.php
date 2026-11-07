@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Media;
 
 use Frootbox\Core\Support\Message;
+use Intervention\Image\Alignment;
 use Intervention\Image\Config;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
@@ -245,6 +246,33 @@ final class Images
         // Never an empty file, it would be cached as the image for a year.
         if ('' === $contents) {
             throw new RuntimeException(\sprintf('The image driver wrote nothing for "%s" as %s.', $original, $extension));
+        }
+
+        return $contents;
+    }
+
+    /**
+     * A square PNG on an opaque background, e.g. the icon for Apple
+     * devices, which shows transparent areas black (decision 0318). An
+     * image with a transparent corner gets a margin of a eighteenth.
+     *
+     * @param string $background A colour such as "#ffffff"
+     */
+    public function tile(string $original, int $size, string $background): string
+    {
+        $image = $this->manager()->decodePath($original);
+        $margin = $image->colorAt(0, 0)->isTransparent() ? (int) round($size / 18) : 0;
+        $inner = $size - 2 * $margin;
+        $image->contain($inner, $inner, $background)->fillTransparentAreas($background);
+
+        $contents = $this->manager()->createImage($size, $size)
+            ->fill($background)
+            ->insert($image, 0, 0, Alignment::CENTER)
+            ->encodeUsingFormat(Format::PNG)
+            ->toString();
+
+        if ('' === $contents) {
+            throw new RuntimeException(\sprintf('The image driver wrote nothing for "%s" as tile.', $original));
         }
 
         return $contents;

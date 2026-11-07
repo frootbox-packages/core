@@ -31,6 +31,12 @@ final readonly class SiteIcon
 
     public const string MANIFEST = '/manifest.webmanifest';
 
+    /** Apple devices show transparent areas black, so this one gets a background. */
+    private const string APPLE = '/apple-touch-icon.png';
+
+    /** Changes when the files are made differently, so old copies are left behind. */
+    private const string REVISION = '2';
+
     /** The sizes inside favicon.ico. */
     private const array ICO_SIZES = [16, 32, 48];
 
@@ -81,7 +87,10 @@ final readonly class SiteIcon
             return null;
         }
 
-        return substr(hash('sha256', $icon . '|' . filemtime($icon) . '|' . filesize($icon)), 0, 12);
+        // The background of the Apple icon counts too, and how the files are made.
+        $background = $this->themes->tokens()['color-bg'] ?? '';
+
+        return substr(hash('sha256', implode('|', [self::REVISION, $icon, filemtime($icon), filesize($icon), $background])), 0, 12);
     }
 
     /**
@@ -101,7 +110,11 @@ final readonly class SiteIcon
         $file = $this->paths->var('cache/icon/' . $version . '/' . basename($address));
 
         if (!is_file($file)) {
-            $contents = 0 === $size ? $this->ico($icon) : $this->images->render($icon, $size, $size, 500, 500, 'png');
+            $contents = match (true) {
+                0 === $size => $this->ico($icon),
+                self::APPLE === $address => $this->images->tile($icon, $size, self::color($this->themes->tokens()['color-bg'] ?? null) ?? '#ffffff'),
+                default => $this->images->render($icon, $size, $size, 500, 500, 'png'),
+            };
             self::write($file, $contents);
         }
 

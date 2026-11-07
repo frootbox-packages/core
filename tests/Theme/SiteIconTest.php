@@ -76,6 +76,9 @@ final class SiteIconTest extends NotesTestCase
         }
 
         self::assertSame(304, $this->fetch('/icon-192.png', $this->fetch('/icon-192.png')->getHeaderLine('ETag'))->getStatusCode(), 'The browser keeps what it has.');
+
+        self::assertSame(127, self::corner($this->fetch('/icon-192.png')), 'The icons of the manifest stay transparent.');
+        self::assertSame(0, self::corner($this->fetch('/apple-touch-icon.png')), 'Apple devices would show transparency black.');
     }
 
     public function testDescribesTheWebsiteInTheManifest(): void
@@ -118,6 +121,16 @@ final class SiteIconTest extends NotesTestCase
     protected function config(): array
     {
         return ['app' => ['name' => 'Acme', 'url' => 'https://example.org'], 'theme' => $this->theme, 'languages' => ['de' => ['title' => 'Deutsch']]];
+    }
+
+    /** The alpha of the top left pixel, 0 opaque to 127 transparent. */
+    private static function corner(ResponseInterface $response): int
+    {
+        $image = imagecreatefromstring((string) $response->getBody());
+        self::assertNotFalse($image);
+        $color = imagecolorsforindex($image, (int) imagecolorat($image, 0, 0));
+
+        return $color['alpha'];
     }
 
     private function fetch(string $address, string $etag = ''): ResponseInterface
