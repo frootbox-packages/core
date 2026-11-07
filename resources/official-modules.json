@@ -55,6 +55,11 @@
         "description": "Sitemap, robots.txt, Open Graph, structured data and a check of every page"
     },
     {
+        "name": "frootbox/shop",
+        "title": "Online shop",
+        "description": "The catalog of a shop provider with categories and images, cart, sign-in of customers, checkout and their orders and invoices"
+    },
+    {
         "name": "frootbox/statistics",
         "title": "Statistics",
         "description": "Visits and page views without cookies or personal data, the most visited pages, where visitors come from and their devices"
