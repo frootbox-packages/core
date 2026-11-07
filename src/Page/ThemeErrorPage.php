@@ -13,7 +13,9 @@ use Frootbox\Core\Config\Config;
 use Frootbox\Core\Error\ErrorDetails;
 use Frootbox\Core\Error\ErrorPage;
 use Frootbox\Core\Http\Exception\HttpException;
+use Frootbox\Core\I18n\Formality;
 use Frootbox\Core\I18n\Translator;
+use Frootbox\Core\I18n\VisitorFormality;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Theme\Theme;
 use Frootbox\Core\Theme\ThemeChain;
@@ -79,7 +81,8 @@ final readonly class ThemeErrorPage implements ErrorPage
         [$title, $text] = self::TEXTS[$status] ?? self::TEXTS[$status >= 500 ? 500 : 404];
         $themes = array_map(static fn(Theme $theme): string => $theme->name, $this->service(ThemeChain::class)->themes);
         $translator = $this->service(Translator::class);
-        $translate = static fn(string $english): string => $translator->in($language->code, $english, $themes);
+        $formality = $this->formality();
+        $translate = static fn(string $english): string => $translator->in($language->code, $english, $themes, formality: $formality);
         $title = $translate($title);
 
         $body = $this->service(Twig::class)->render(self::TEMPLATE, [
@@ -94,6 +97,19 @@ final readonly class ThemeErrorPage implements ErrorPage
         $head->add('<meta name="robots" content="noindex">');
 
         return $this->service(Document::class)->render($head, $body, new AssetList(), $request);
+    }
+
+    /**
+     * How the visitor is addressed (decision 0316); informal when the
+     * settings cannot be read, e.g. because the database is the error.
+     */
+    private function formality(): Formality
+    {
+        try {
+            return $this->service(VisitorFormality::class)->current();
+        } catch (Throwable) {
+            return Formality::Informal;
+        }
     }
 
     private function responsible(int $status, Throwable $throwable): bool
