@@ -41,6 +41,7 @@ use Frootbox\Core\Language\Script;
  *         hide: [frootbox/theme-base/Pricing]
  *       layouts:
  *         only: [frootbox/theme-base/Page]
+ *       icon: assets/icon.png
  *
  * Tokens become CSS variables such as --color-primary. Those with a type
  * may be changed by editors, the short form stays fixed; fonts are what a
@@ -51,11 +52,12 @@ use Frootbox\Core\Language\Script;
  * Fields hold content that is the same on every page, read by
  * Site\SiteFields (decision 0128). Navigations are the menus the theme
  * shows (decision 0106). Blocks and layouts say which of others the
- * theme offers editors (decision 0162).
+ * theme offers editors (decision 0162). The icon is a square PNG, best
+ * 512 pixels, from which the core makes the favicon (decision 0318).
  */
 final readonly class Theme
 {
-    private const array KEYS = ['parent', 'tokens', 'fonts', 'scripts', 'fields', 'navigations', 'blocks', 'layouts', 'design'];
+    private const array KEYS = ['parent', 'tokens', 'fonts', 'scripts', 'fields', 'navigations', 'blocks', 'layouts', 'design', 'icon'];
 
     private const array FONT = ['label', 'family', 'files', 'fallback'];
 
@@ -75,6 +77,7 @@ final readonly class Theme
      * @param array<string, array<string, string>> $scripts Flat tokens by script, e.g. "arab" => ["font-body" => …]
      * @param array<string, Frame>|null      $places      Frames of the design page, null if a parent names them (decision 0208)
      * @param array<string, Frame>|null      $surfaces    As $places
+     * @param string|null                    $icon        Absolute path of a square PNG for the favicon (decision 0318)
      */
     public function __construct(
         public string $name,
@@ -90,6 +93,7 @@ final readonly class Theme
         public Offer $layouts = new Offer(),
         public ?array $places = null,
         public ?array $surfaces = null,
+        public ?string $icon = null,
     ) {}
 
     public static function fromPackage(ExtensionPackage $package): ?self
@@ -144,7 +148,27 @@ final readonly class Theme
         $definitions = [];
         $flat = self::flatten($tokens, '', $where, $definitions);
 
-        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where, $package->path), $fields, self::scripts($package->theme['scripts'] ?? [], $where), Offer::from($package->theme['blocks'] ?? null, 'blocks', $where), Offer::from($package->theme['layouts'] ?? null, 'layouts', $where), Frame::list($package->theme['design'] ?? null, Frame::PLACES, $package->name, $where), Frame::list($package->theme['design'] ?? null, Frame::SURFACES, $package->name, $where));
+        return new self($package->name, $package->path, $parent, $flat, $navigations, $definitions, self::fonts($package->theme['fonts'] ?? [], $where, $package->path), $fields, self::scripts($package->theme['scripts'] ?? [], $where), Offer::from($package->theme['blocks'] ?? null, 'blocks', $where), Offer::from($package->theme['layouts'] ?? null, 'layouts', $where), Frame::list($package->theme['design'] ?? null, Frame::PLACES, $package->name, $where), Frame::list($package->theme['design'] ?? null, Frame::SURFACES, $package->name, $where), self::icon($package->theme['icon'] ?? null, $where, $package->path));
+    }
+
+    /**
+     * The absolute path of the icon, a PNG in an assets/ folder.
+     */
+    private static function icon(mixed $icon, string $where, string $root): ?string
+    {
+        if (null === $icon) {
+            return null;
+        }
+
+        if (!\is_string($icon) || 1 !== preg_match('#^(?:[^/]+/)*assets/[^/]+\.png$#D', $icon) || str_contains($icon, '..')) {
+            throw new ThemeException(\sprintf('%s: "icon" must be a PNG in an assets folder, e.g. "assets/icon.png".', $where));
+        }
+
+        if (!is_file($root . '/' . $icon)) {
+            throw new ThemeException(\sprintf('%s: the icon %s does not exist.', $where, $icon));
+        }
+
+        return $root . '/' . $icon;
     }
 
     /**

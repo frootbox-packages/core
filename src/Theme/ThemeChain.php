@@ -74,6 +74,20 @@ final readonly class ThemeChain
         return $this->themes[0] ?? null;
     }
 
+    /**
+     * The icon of the most specific theme that has one (decision 0318).
+     */
+    public function icon(): ?string
+    {
+        foreach ($this->themes as $theme) {
+            if (null !== $theme->icon) {
+                return $theme->icon;
+            }
+        }
+
+        return null;
+    }
+
     public function contains(string $package): bool
     {
         return array_any($this->themes, static fn(Theme $theme): bool => $theme->name === $package);

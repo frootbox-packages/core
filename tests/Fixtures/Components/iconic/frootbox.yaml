@@ -1,0 +1,5 @@
+title: Theme with an icon
+description: Brings a square PNG from which the core makes the favicon (decision 0318).
+theme:
+  parent: acme/site
+  icon: assets/icon.png

@@ -15,6 +15,7 @@ use Frootbox\Core\Consent\ConsentMarkup;
 use Frootbox\Core\Design\DesignTokens;
 use Frootbox\Core\Design\WebFonts;
 use Frootbox\Core\Language\Languages;
+use Frootbox\Core\Theme\SiteIcon;
 use Frootbox\Core\Theme\ThemeChain;
 use Frootbox\Core\Url\Target;
 use Frootbox\RichText\Html;
@@ -38,6 +39,7 @@ final readonly class Document
         private DesignTokens $design,
         private WebFonts $fonts,
         private ConsentMarkup $consent,
+        private SiteIcon $icon,
     ) {}
 
     public function render(Head $head, string $body, AssetList $assets, ServerRequestInterface $request, ?Target $target = null): string
@@ -90,6 +92,9 @@ final readonly class Document
             // The default language, the first one configured, for everyone else.
             $lines[] = \sprintf('<link rel="alternate" hreflang="x-default" href="%s">', Html::escape($this->defaultAlternate($alternates)));
         }
+
+        // The icon of the website from the theme (decision 0318).
+        $lines = [...$lines, ...$this->icon->tags()];
 
         // Fonts first, so the browser starts loading them early (decision 0165).
         $lines = [...$lines, ...$this->fonts->preloads()];

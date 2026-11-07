@@ -252,6 +252,8 @@ use Frootbox\Core\Tag\MergeTags;
 use Frootbox\Core\Tag\TagOptions;
 use Frootbox\Core\Tag\UpdateTag;
 use Frootbox\Core\Theme\ListIcons;
+use Frootbox\Core\Theme\SiteIcon;
+use Frootbox\Core\Theme\SiteIconHandler;
 use Frootbox\Core\Url\ClearNotFound;
 use Frootbox\Core\Url\CreateRedirect;
 use Frootbox\Core\Url\DeleteRedirect;
@@ -471,6 +473,11 @@ final class CoreExtension implements Extension
         $registry->get(Previews::ROUTE, PreviewHandler::class, 'previews');
         // Everything the theme brings, for agencies to approve (decision 0205).
         $registry->get(DesignPage::ROUTE, DesignPage::class, 'design');
+
+        // The icon of the website from the theme (decision 0318).
+        foreach ([...array_keys(SiteIcon::FILES), SiteIcon::MANIFEST] as $address) {
+            $registry->get($address, SiteIconHandler::class, 'icon.' . basename($address));
+        }
 
         // Settings of extensions and the queue (decision 0221).
         $registry->action(UpdateSettings::class);
