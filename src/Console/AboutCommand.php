@@ -14,6 +14,7 @@ use Frootbox\Core\Config\Config;
 use Frootbox\Core\Database\Migrator;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\Frootbox;
+use Frootbox\Core\Media\Images;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Site\SiteProtection;
 use Psr\Container\ContainerInterface;
@@ -49,6 +50,7 @@ final class AboutCommand extends Command
             ['Environment', $this->config->environment->value],
             ['Project root', $this->paths->root],
             ['Extensions', (string) \count($this->extensions)],
+            ['Images', Images::describe()],
         ];
 
         $protection = null;

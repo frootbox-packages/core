@@ -67,6 +67,12 @@ final class ImagesTest extends TestCase
         }
     }
 
+    public function testNamesItsDriver(): void
+    {
+        // Decision 0334: the screen of the shop sync shows it.
+        self::assertMatchesRegularExpression(\extension_loaded('imagick') ? '/^Imagick/' : '/^GD/', Images::describe());
+    }
+
     /**
      * @param array<string, mixed>|object $facts
      *

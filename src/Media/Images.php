@@ -120,6 +120,25 @@ final class Images
         return null === $maxEdge ? $side : min($side, $maxEdge);
     }
 
+    /**
+     * The driver that writes the images, with its version, e.g.
+     * "Imagick (ImageMagick 7.1.1-43)" or "GD 2.3.3". Imagick needs the
+     * extension of PHP; the program convert alone is not enough.
+     */
+    public static function describe(): string
+    {
+        if (\extension_loaded('imagick')) {
+            $version = \Imagick::getVersion()['versionString'];
+
+            return 'Imagick' . (1 === preg_match('/ImageMagick ([0-9][0-9.\-]*)/', $version, $match) ? ' (ImageMagick ' . $match[1] . ')' : '');
+        }
+
+        $version = \function_exists('gd_info') ? gd_info()['GD Version'] ?? '' : '';
+        $version = \is_string($version) ? $version : '';
+
+        return 'GD' . ('' === $version ? '' : ' ' . $version);
+    }
+
     public static function notAnImage(): Message
     {
         return new Message('The file is no image of type JPEG, PNG, WebP, GIF or SVG.');
