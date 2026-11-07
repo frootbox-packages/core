@@ -11,6 +11,7 @@ namespace Frootbox\Core\Action;
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\Exception\InvalidFieldNameException;
 use Frootbox\Core\Auth\Actor;
 use Frootbox\Database\EntityMapper;
@@ -306,8 +307,13 @@ final readonly class ActionLog
                     ), self::BATCH),
                     [$after, $before->format(Values::DATE_FORMAT)],
                 );
-            } catch (InvalidFieldNameException) {
+            } catch (DriverException $error) {
                 // Updated, not yet migrated: shortened after the migration.
+                // SQLite reports the missing column only as a general error.
+                if (!$error instanceof InvalidFieldNameException && !str_contains($error->getMessage(), 'no such column')) {
+                    throw $error;
+                }
+
                 return 0;
             }
 

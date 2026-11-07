@@ -10,6 +10,7 @@ namespace Frootbox\Core\Auth;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\InvalidFieldNameException;
 use Frootbox\Core\Action\Journal;
 use Frootbox\Core\Config\Config;
 use Frootbox\Core\User\Users;
@@ -29,6 +30,13 @@ final readonly class AccessTokens
     public const string TABLE = 'access_tokens';
 
     private const string PREFIX = 'fbx_';
+
+    /**
+     * Columns added later (decisions 0174, 0322): until an update has
+     * migrated, a session is written without them, so the superuser can
+     * still sign in and start the migrations in the backend.
+     */
+    private const array LATER = ['device', 'provider', 'provider_session'];
 
     /** Last use is written at most this often per token. */
     private const int TOUCH_SECONDS = 300;
@@ -58,7 +66,7 @@ final readonly class AccessTokens
             $expiresAt ??= $now->modify(\sprintf('+%d hours', $this->config->int('auth.provider_session_hours', 12)));
         }
 
-        $row = $this->journal->trusted(fn(): array => $this->writer->insert(self::TABLE, [
+        $row = $this->journal->trusted(fn(): array => $this->insert([
             'user_id' => $userId,
             'type' => $type,
             'name' => $name,
@@ -73,6 +81,28 @@ final readonly class AccessTokens
         ]));
 
         return new IssuedToken($token, EntityMapper::hydrate(AccessToken::class, $row));
+    }
+
+    /**
+     * @param array<string, mixed> $values
+     *
+     * @return array<string, mixed>
+     */
+    private function insert(array $values): array
+    {
+        try {
+            return $this->writer->insert(self::TABLE, $values);
+        } catch (InvalidFieldNameException $error) {
+            // Updated, not yet migrated. A session through a provider needs
+            // its columns, it must not quietly become an ordinary one.
+            $later = array_intersect_key($values, array_flip(self::LATER));
+
+            if ([] === $later || null !== ($values['provider'] ?? null)) {
+                throw $error;
+            }
+
+            return $this->writer->insert(self::TABLE, array_diff_key($values, $later));
+        }
     }
 
     /**
