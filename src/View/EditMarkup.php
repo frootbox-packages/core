@@ -141,17 +141,29 @@ final readonly class EditMarkup
     /**
      * Adds the block and its area to the outer element of a rendered block.
      *
+     * The lists of the block without entries go along with their labels,
+     * so the bar can hold their place on the page (decision 0336).
+     *
      * @param bool $fixed The view of a plugin: no moving, copying or deleting (decision 0232)
      */
     public function block(string $html, Instance $block, Component $component, string $area, bool $fixed = false): string
     {
+        $empty = [];
+
+        foreach ($component->fields as $name => $field) {
+            if ('list' === $field->type && [] === ($block->fields[$name] ?? [])) {
+                $empty[$name] = $field->label;
+            }
+        }
+
         $attributes = \sprintf(
-            '%s data-fb-name="%s" data-fb-title="%s" data-fb-area="%s"%s',
+            '%s data-fb-name="%s" data-fb-title="%s" data-fb-area="%s"%s%s',
             null === $block->id ? '' : ' data-fb-block="' . Html::escape($block->id) . '"',
             Html::escape($component->name),
             Html::escape($component->title),
             Html::escape($area),
             $fixed ? ' data-fb-fixed' : '',
+            [] === $empty || $this->anchors ? '' : ' data-fb-empty-lists="' . Html::escape(json_encode($empty, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE)) . '"',
         );
 
         return (string) preg_replace('/^(\s*(?:<!--.*?-->\s*)*<[a-zA-Z][a-zA-Z0-9-]*)(?=[\s>\/])/s', '$1' . $attributes, $html, 1);

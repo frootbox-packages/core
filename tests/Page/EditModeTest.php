@@ -177,6 +177,17 @@ final class EditModeTest extends NotesTestCase
         self::assertStringContainsString('<fb-area data-fb-area="main" data-fb-label="Main" data-fb-hint="Insert a block" data-fb-empty></fb-area>', $this->html('/ueber-uns', $this->admin), 'Named, with what a click does.');
     }
 
+    public function testNamesTheListsOfABlockWithoutEntries(): void
+    {
+        $this->createPage($this->start, 'Leer', ['fields' => ['heading' => 'Leer'], 'areas' => ['main' => [
+            ['block' => 'acme/site/Hero', 'fields' => ['slides' => []]],
+        ]]]);
+        $html = $this->html('/leer', $this->admin);
+
+        self::assertStringContainsString('data-fb-empty-lists="{&quot;slides&quot;:&quot;Slides&quot;}"', $html, 'The bar holds their place on the page (decision 0336).');
+        self::assertStringNotContainsString('data-fb-empty-lists', $this->html('/', $this->admin), 'Not for a list with entries.');
+    }
+
     public function testMarksLightlyInAPreview(): void
     {
         $this->get(Urls::class)->clear();

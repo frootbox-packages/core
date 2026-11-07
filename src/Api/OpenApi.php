@@ -84,7 +84,10 @@ final readonly class OpenApi
                 'description' => 'Success',
                 'content' => ['application/json' => ['schema' => [
                     'type' => 'object',
-                    'properties' => ['data' => new stdClass()],
+                    'properties' => ['data' => new stdClass(), ...($descriptor->isAction() && $descriptor->undoable ? ['entry' => [
+                        'type' => 'integer',
+                        'description' => 'Id of the entry of the journal, for action.undo',
+                    ]] : [])],
                     'required' => ['data'],
                 ]]],
             ],

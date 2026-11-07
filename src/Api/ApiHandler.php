@@ -12,6 +12,7 @@ use Frootbox\Core\Action\Catalog;
 use Frootbox\Core\Action\Channel;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\CurrentContext;
+use Frootbox\Core\Action\Journal;
 use Frootbox\Core\Action\Normalizer;
 use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Action\UnknownActionException;
@@ -27,7 +28,9 @@ use Psr\Http\Server\RequestHandlerInterface;
  * - Queries: GET /api/v1/user.show?id=5.
  * - Extensions: POST /api/v1/acme/shop/order.create.
  *
- * The answer is {"data": …}; errors are problem details (see Problem).
+ * The answer is {"data": …}, with "entry" for an action that can be
+ * undone: the id for action.undo, as in the backend (decision 0176).
+ * Errors are problem details (see Problem).
  * Only a Bearer token signs in. A session cookie does not count here, so
  * the API cannot be abused by cross-site requests.
  */
@@ -46,6 +49,7 @@ final readonly class ApiHandler implements RequestHandlerInterface
         private Runner $runner,
         private CurrentContext $context,
         private JsonResponder $json,
+        private Journal $journal,
     ) {}
 
     /**
@@ -77,6 +81,8 @@ final readonly class ApiHandler implements RequestHandlerInterface
 
         $result = $this->runner->call($name, RequestInput::of($request, $descriptor), self::context($this->context));
 
-        return $this->json->respond(['data' => Normalizer::normalize($result)]);
+        $entry = $descriptor->isAction() ? $this->journal->lastUndoableEntryId() : null;
+
+        return $this->json->respond(['data' => Normalizer::normalize($result), ...(null === $entry ? [] : ['entry' => $entry])]);
     }
 }

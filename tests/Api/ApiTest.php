@@ -55,6 +55,7 @@ final class ApiTest extends NotesTestCase
         self::assertSame(['a', 'b'], $data['tags']);
         self::assertSame(1, $this->notes()->count());
         self::assertSame(Channel::Api->value, $this->lastEntry()->channel);
+        self::assertSame($this->lastEntry()->id, $this->json($response)['entry'] ?? null, 'The id for action.undo, as in the backend.');
     }
 
     public function testRunsAQueryWithValuesFromTheQueryString(): void
@@ -65,6 +66,7 @@ final class ApiTest extends NotesTestCase
         $response = $this->send('GET', '/api/v1/user.show?id=' . $id, token: $token);
 
         self::assertSame(200, $response->getStatusCode());
+        self::assertArrayNotHasKey('entry', $this->json($response), 'A query changes nothing.');
         $user = $this->data($response)['user'] ?? null;
         self::assertIsArray($user);
         self::assertSame('john@example.com', $user['email']);
@@ -191,6 +193,9 @@ final class ApiTest extends NotesTestCase
         self::assertSame([['bearer' => []]], $create['security']);
         self::assertIsArray($create['requestBody']);
         self::assertTrue($create['requestBody']['required']);
+        $answer = $create['responses'] ?? null;
+        self::assertIsArray($answer);
+        self::assertStringContainsString('"entry":{"type":"integer"', (string) json_encode($answer['200'] ?? null), 'The id for action.undo.');
 
         $show = $this->operation($paths, '/user.show', 'get');
         self::assertSame([['name' => 'id', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'integer']]], $show['parameters']);
