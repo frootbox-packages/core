@@ -8,7 +8,10 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Tests\Api;
 
+use Doctrine\DBAL\Driver\PDO\Exception as PdoException;
+use Doctrine\DBAL\Exception\LockWaitTimeoutException;
 use Frootbox\Core\Action\AccessDeniedException;
+use Frootbox\Core\Action\BusyException;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\UndoException;
 use Frootbox\Core\Action\UnknownActionException;
@@ -38,6 +41,8 @@ final class ProblemTest extends TestCase
         yield 'unknown action' => [UnknownActionException::named('x.y'), 404, 'not-found'];
         yield 'unknown row' => [EntityNotFoundException::for('users', 5), 404, 'not-found'];
         yield 'undo' => [UndoException::notPossible(5, 'no.'), 409, 'conflict'];
+        yield 'busy' => [new BusyException('Wait.'), 503, 'busy'];
+        yield 'database locked' => [new LockWaitTimeoutException(PdoException::new(new \PDOException('database is locked')), null), 503, 'busy'];
         yield 'other action error' => [UserException::notYourself('delete'), 422, 'unprocessable'];
         yield 'http' => [HttpException::methodNotAllowed('GET', ['POST']), 405, 'method-not-allowed'];
         yield 'anything else' => [new RuntimeException('Secret'), 500, 'server-error'];
@@ -50,6 +55,14 @@ final class ProblemTest extends TestCase
 
         self::assertSame($status, $problem->status);
         self::assertSame($code, $problem->code);
+    }
+
+    public function testABusyServerSaysWhenToTryAgain(): void
+    {
+        $problem = Problem::from(new LockWaitTimeoutException(PdoException::new(new \PDOException('SQLSTATE[HY000]: database is locked')), null), showDetails: false);
+
+        self::assertSame('The website is busy right now. Please try again in a moment.', $problem->detail);
+        self::assertSame(['Retry-After' => '3'], $problem->headers);
     }
 
     public function testHidesServerErrorsOutsideDevelopment(): void

@@ -67,7 +67,10 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
         ];
 
         // A 503 for a locked page is no failure (decision 0117).
-        if ($status >= 500 && !$throwable instanceof HttpException) {
+        if ('busy' === $problem->code) {
+            // Goes away by itself, the caller tries again (decision 0331).
+            $this->logger->warning('{method} {path} was busy: {message}', $context);
+        } elseif ($status >= 500 && !$throwable instanceof HttpException) {
             $this->logger->error('{method} {path} failed with {status}: {message}', $context);
         } else {
             $this->logger->debug('{method} {path} answered with {status}', $context);

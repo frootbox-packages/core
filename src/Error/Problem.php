@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Error;
 
+use Doctrine\DBAL\Exception\RetryableException;
 use Frootbox\Core\Action\AccessDeniedException;
 use Frootbox\Core\Action\ActionException;
+use Frootbox\Core\Action\BusyException;
 use Frootbox\Core\Action\ConflictException;
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\UndoException;
@@ -86,6 +88,9 @@ final readonly class Problem
             $throwable instanceof EntityNotFoundException => new self(404, 'not-found', $throwable->getMessage()),
             $throwable instanceof UndoException => new self(409, 'conflict', $throwable->getMessage()),
             $throwable instanceof ConflictException => new self(409, 'conflict', $throwable->getMessage(), null === $throwable->received ? [] : ['Upload-Offset' => (string) $throwable->received]),
+            // Busy, e.g. SQLite locked by another writer for longer than its timeout (decision 0331).
+            $throwable instanceof BusyException => new self(503, 'busy', $throwable->getMessage(), ['Retry-After' => (string) BusyException::RETRY_AFTER]),
+            $throwable instanceof RetryableException => new self(503, 'busy', BusyException::database()->getMessage(), ['Retry-After' => (string) BusyException::RETRY_AFTER]),
             $throwable instanceof TooManyAttemptsException => new self(429, 'too-many-requests', $throwable->getMessage(), ['Retry-After' => (string) $throwable->retryAfter]),
             $throwable instanceof ActionException => new self(422, 'unprocessable', $throwable->getMessage()),
             default => new self(500, 'server-error', $showDetails ? $throwable->getMessage() : self::title(500)),
