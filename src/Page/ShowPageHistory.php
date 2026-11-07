@@ -22,10 +22,10 @@ use Frootbox\Core\Action\Schema\Pattern;
 use Frootbox\Core\Action\Schema\Range;
 use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
+use Frootbox\Core\Revision\Baseline;
 use Frootbox\Core\Revision\Revisions;
 use Frootbox\Core\Revision\RevisionStatus;
 use Frootbox\Database\Ulid;
-use Frootbox\Database\Values;
 
 /**
  * The history of a page (decision 0174): who changed what and when, also
@@ -67,7 +67,7 @@ final readonly class ShowPageHistory implements Query, Scoped
         return [Scope::page($this->id)];
     }
 
-    public function handle(History $history, Connection $connection, PageReader $reader, ChangeLabels $labels): PageHistory
+    public function handle(History $history, Connection $connection, PageReader $reader, ChangeLabels $labels, Baseline $baseline): PageHistory
     {
         $translations = [];
 
@@ -92,7 +92,7 @@ final readonly class ShowPageHistory implements Query, Scoped
         $entries = [];
 
         foreach ($page->entries as $entry) {
-            $filtered = array_values(array_filter($this->changes($entry, $translations, $revisions, $connection), $this->wanted(...)));
+            $filtered = array_values(array_filter($this->changes($entry, $translations, $revisions, $baseline), $this->wanted(...)));
 
             if ([] === $filtered) {
                 continue;
@@ -195,7 +195,7 @@ final readonly class ShowPageHistory implements Query, Scoped
      *
      * @return list<PageChange>
      */
-    private function changes(HistoryEntry $entry, array $translations, array $revisions, Connection $connection): array
+    private function changes(HistoryEntry $entry, array $translations, array $revisions, Baseline $baseline): array
     {
         $changes = [];
 
@@ -209,9 +209,11 @@ final readonly class ShowPageHistory implements Query, Scoped
                 ? (\is_string($row['language'] ?? null) ? $row['language'] : $translations[(string) $change->rowId] ?? null)
                 : null;
 
-            $base = $this->base($change, $entry, $connection);
+            $base = $this->base($change, $entry, $baseline);
+            // A new draft shortened to what it changed reads like an update.
+            $changedDraft = $change->shortened && ChangeKind::Insert === $change->kind && null !== $change->newValues;
 
-            if (ChangeKind::Update !== $change->kind && null === $base) {
+            if (ChangeKind::Update !== $change->kind && null === $base && !$changedDraft) {
                 $changes[] = new PageChange($change->kind->value, $state, $language, null, null, '');
 
                 continue;
@@ -295,23 +297,14 @@ final readonly class ShowPageHistory implements Query, Scoped
 
     /**
      * A new draft starts from the published state: what was published
-     * then, as a row to compare with. Data of a revision stays as it is
-     * once it is published.
+     * then, as a row to compare with (decision 0330). Once shortened, the
+     * change holds only what differed from it.
      *
      * @return array<string, mixed>|null
      */
-    private function base(Change $change, HistoryEntry $entry, Connection $connection): ?array
+    private function base(Change $change, HistoryEntry $entry, Baseline $baseline): ?array
     {
-        if (ChangeKind::Insert !== $change->kind || Revisions::TABLE !== $change->target || $change->shortened) {
-            return null;
-        }
-
-        $data = $connection->fetchOne(
-            $connection->getDatabasePlatform()->modifyLimitQuery('SELECT data FROM ' . Revisions::TABLE . ' WHERE type = ? AND entity_id = ? AND published_at IS NOT NULL AND published_at <= ? AND id <> ? ORDER BY published_at DESC, id DESC', 1),
-            [PageReader::TYPE, $this->id, $entry->entry->createdAt->format(Values::DATE_FORMAT), (int) $change->rowId],
-        );
-
-        return \is_string($data) ? ['data' => $data] : null;
+        return $change->shortened ? null : $baseline->of($change, $entry->entry->createdAt);
     }
 
     /**

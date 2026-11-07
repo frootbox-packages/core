@@ -23,6 +23,7 @@ use Frootbox\Core\Database\MigrationsFactory;
 use Frootbox\Core\Database\MigrationSources;
 use Frootbox\Core\Database\Migrator;
 use Frootbox\Core\ProjectPaths;
+use Frootbox\Core\Revision\Baseline;
 use Frootbox\Core\Tests\Fixtures\Migrations\Version20261030000000;
 use Frootbox\Core\Tests\Fixtures\Migrations\Version20261030000001;
 use Frootbox\Core\Tests\Support\TemporaryProject;
@@ -150,6 +151,6 @@ final class MigratorTest extends TestCase
     {
         $journal = new Journal();
 
-        return new MigrationJournal($this->connection, new ActionLog($this->connection, $journal), $journal, new CurrentContext());
+        return new MigrationJournal($this->connection, new ActionLog($this->connection, $journal, new Baseline($this->connection)), $journal, new CurrentContext());
     }
 }

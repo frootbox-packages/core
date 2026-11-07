@@ -10,6 +10,7 @@ namespace Frootbox\Core\Tests\Page;
 
 use DateTimeImmutable;
 use Frootbox\Core\Action\ActionLog;
+use Frootbox\Core\Action\Change;
 use Frootbox\Core\Action\History;
 use Frootbox\Core\Action\HistoryEntry;
 use Frootbox\Core\Action\HistoryPage;
@@ -26,6 +27,7 @@ use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\RemoveBlock;
 use Frootbox\Core\Page\ShowPageHistory;
 use Frootbox\Core\Page\UpdatePageField;
+use Frootbox\Core\Revision\Baseline;
 use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -41,6 +43,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(PageHistoryEntry::class)]
 #[CoversClass(PageChange::class)]
 #[CoversClass(ChangeLabels::class)]
+#[CoversClass(Baseline::class)]
 final class PageHistoryTest extends NotesTestCase
 {
     private string $page;
@@ -126,6 +129,35 @@ final class PageHistoryTest extends NotesTestCase
         self::assertFalse($after->entries[0]->undoable);
         self::assertSame('fields/title', $after->entries[0]->changes[0]->path);
         self::assertSame($this->teaser, $after->entries[0]->changes[0]->block);
+
+        self::assertEquals($before->entries[1]->changes, $after->entries[1]->changes, 'The change that started the draft reads the same (decision 0330).');
+        self::assertEquals([new PageChange('update', 'draft', 'de', null, null, 'fields/heading', 'Willkommen', 'Hallo', null, 'Heading', 'Willkommen', 'Hallo')], $after->entries[1]->changes);
+    }
+
+    public function testANewDraftKeepsOnlyWhatItChangedOnceShortened(): void
+    {
+        $this->runner()->run(new UpdatePageField($this->page, 'de', 'heading', 'Hallo', 'Willkommen'));
+        $entry = $this->history()->entries[0]->id;
+
+        $this->get(ActionLog::class)->prune(new DateTimeImmutable('+1 minute'), new DateTimeImmutable('-1 year'));
+        $inserts = array_values(array_filter($this->get(ActionLog::class)->changes($entry), static fn(Change $change): bool => 'revisions' === $change->target));
+
+        self::assertCount(1, $inserts);
+        self::assertTrue($inserts[0]->shortened);
+        self::assertSame(['data' => ['translations/de/content/fields/heading' => 'Willkommen']], $inserts[0]->oldValues, 'Only the path it changed from what was published.');
+        self::assertSame(['data' => ['translations/de/content/fields/heading' => 'Hallo']], $inserts[0]->newValues);
+    }
+
+    public function testANewPageKeepsOnlyTableAndIdOnceShortened(): void
+    {
+        $other = $this->runner()->run(new CreatePage('acme/base/Page', ['de' => ['title' => 'Neu', 'content' => ['fields' => ['heading' => 'Erst']]]], $this->page))->id;
+        $entry = $this->runner()->ask(new ShowPageHistory($other))->entries[0]->id;
+
+        $this->get(ActionLog::class)->prune(new DateTimeImmutable('+1 minute'), new DateTimeImmutable('-1 year'));
+        $inserts = array_values(array_filter($this->get(ActionLog::class)->changes($entry), static fn(Change $change): bool => 'revisions' === $change->target));
+
+        self::assertNotEmpty($inserts);
+        self::assertNull($inserts[0]->newValues, 'Nothing was published before it.');
     }
 
     public function testLeavesOutOtherPagesOfTheSameAction(): void

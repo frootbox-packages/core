@@ -14,6 +14,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\Exception\InvalidFieldNameException;
 use Frootbox\Core\Auth\Actor;
+use Frootbox\Core\Revision\Baseline;
 use Frootbox\Database\EntityMapper;
 use Frootbox\Database\Values;
 use LogicException;
@@ -44,6 +45,7 @@ final readonly class ActionLog
     public function __construct(
         private Connection $connection,
         private Journal $journal,
+        private Baseline $baseline,
     ) {}
 
     /**
@@ -261,7 +263,9 @@ final readonly class ActionLog
      * Shortens old changes, so the actions can no longer be undone, and
      * deletes old log entries with their changes (decision 0174). Of an
      * update only what changed stays (RowDiff), of a delete the whole row,
-     * since it is the lost content, of an insert only table and id.
+     * since it is the lost content, of an insert only table and id. A new
+     * draft keeps what it changed from the state it started from, like an
+     * update (decision 0330).
      *
      * @return array{shortened: int, entries: int} number of shortened changes and deleted entries
      */
@@ -297,7 +301,7 @@ final readonly class ActionLog
             try {
                 $rows = $this->connection->fetchAllAssociative(
                     $this->connection->getDatabasePlatform()->modifyLimitQuery(\sprintf(
-                        'SELECT c.* FROM %1$s c INNER JOIN %2$s e ON e.%3$s = c.%4$s WHERE c.%5$s = 0 AND c.%3$s > ? AND e.%6$s < ? ORDER BY c.%3$s',
+                        'SELECT c.*, e.%6$s AS entry_created_at FROM %1$s c INNER JOIN %2$s e ON e.%3$s = c.%4$s WHERE c.%5$s = 0 AND c.%3$s > ? AND e.%6$s < ? ORDER BY c.%3$s',
                         $changes,
                         $this->quote(self::ENTRIES),
                         $this->quote('id'),
@@ -322,7 +326,7 @@ final readonly class ActionLog
                 $after = $change->id;
                 $values = match ($change->kind) {
                     ChangeKind::Update => array_combine(['old_values', 'new_values'], RowDiff::of($change->oldValues ?? [], $change->newValues ?? [])),
-                    ChangeKind::Insert => ['new_values' => null],
+                    ChangeKind::Insert => $this->shortenInsert($change, \is_string($row['entry_created_at'] ?? null) ? new DateTimeImmutable($row['entry_created_at']) : $before),
                     ChangeKind::Delete, ChangeKind::Action => [],
                 };
 
@@ -332,6 +336,23 @@ final readonly class ActionLog
         } while (self::BATCH === \count($rows));
 
         return $shortened;
+    }
+
+    /**
+     * Only table and id of an insert, of a new draft what it changed from
+     * the state it started from (decision 0330).
+     *
+     * @return array<string, mixed>
+     */
+    private function shortenInsert(Change $change, DateTimeImmutable $at): array
+    {
+        $base = $this->baseline->of($change, $at);
+
+        if (null === $base) {
+            return ['new_values' => null];
+        }
+
+        return array_combine(['old_values', 'new_values'], RowDiff::of($base, ['data' => $change->newValues['data'] ?? null]));
     }
 
     /**
