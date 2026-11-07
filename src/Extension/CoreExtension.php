@@ -12,8 +12,11 @@ use Frootbox\Core\Account\ChangePassword;
 use Frootbox\Core\Account\CreateToken;
 use Frootbox\Core\Account\ListLanguages;
 use Frootbox\Core\Account\ListTokens;
+use Frootbox\Core\Account\RequestPasswordReset;
+use Frootbox\Core\Account\ResetPassword;
 use Frootbox\Core\Account\RevokeToken;
 use Frootbox\Core\Account\ShowAccount;
+use Frootbox\Core\Account\ShowPasswordReset;
 use Frootbox\Core\Account\SignIn;
 use Frootbox\Core\Account\SignOut;
 use Frootbox\Core\Account\UpdateLanguage;
@@ -366,9 +369,12 @@ final class CoreExtension implements Extension
         $registry->query(ListRoles::class);
         $registry->query(ListPermissions::class);
 
-        foreach ([SignIn::class, SignOut::class, ChangePassword::class, UpdateLanguage::class, CreateToken::class, RevokeToken::class] as $action) {
+        foreach ([SignIn::class, SignOut::class, ChangePassword::class, UpdateLanguage::class, CreateToken::class, RevokeToken::class, RequestPasswordReset::class, ResetPassword::class] as $action) {
             $registry->action($action);
         }
+
+        // A forgotten password (decision 0325).
+        $registry->query(ShowPasswordReset::class);
 
         foreach ([CreatePage::class, UpdatePage::class, UpdatePageField::class, AddBlock::class, MoveBlock::class, CopyBlock::class, RemoveBlock::class, UpdateBlock::class, AddListEntry::class, MoveListEntry::class, RemoveListEntry::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class] as $action) {
             $registry->action($action);

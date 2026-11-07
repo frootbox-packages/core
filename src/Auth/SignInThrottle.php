@@ -10,6 +10,7 @@ namespace Frootbox\Core\Auth;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
+use Frootbox\Core\Support\Message;
 use Frootbox\Core\User\Users;
 use Frootbox\Database\Values;
 
@@ -35,6 +36,10 @@ final readonly class SignInThrottle
     private const int ADDRESS_LIMIT = 30;
 
     private const int MAX_WAIT = 900;
+
+    private const int RESET_EMAIL_LIMIT = 3;
+
+    private const int RESET_ADDRESS_LIMIT = 10;
 
     private const int KEEP = 86400;
 
@@ -149,6 +154,47 @@ final readonly class SignInThrottle
     }
 
     /**
+     * Throws if the address asked for too many links for a forgotten
+     * password (decision 0325): from 10 within 15 minutes, 15 minutes break.
+     *
+     * @throws TooManyAttemptsException
+     */
+    public function checkReset(?string $address, ?DateTimeImmutable $now = null): void
+    {
+        $now ??= new DateTimeImmutable();
+        [$count, $last] = $this->failures(self::resetAddressKey($address), $now);
+
+        if ($count >= self::RESET_ADDRESS_LIMIT && null !== $last) {
+            $wait = $last + self::MAX_WAIT - $now->getTimestamp();
+
+            if ($wait > 0) {
+                throw new TooManyAttemptsException($wait, new Message('Too many requests. Try again in {minutes} minutes.', ['minutes' => max(1, (int) ceil($wait / 60))]));
+            }
+        }
+    }
+
+    /**
+     * Whether another mail may go to this email: at most 3 within 15
+     * minutes, so nobody fills an inbox with links.
+     */
+    public function resetMailAllowed(string $email, ?DateTimeImmutable $now = null): bool
+    {
+        return $this->failures(self::resetEmailKey($email), $now ?? new DateTimeImmutable())[0] < self::RESET_EMAIL_LIMIT;
+    }
+
+    /**
+     * Counts a request for a link, apart from failed sign-ins.
+     */
+    public function countReset(string $email, ?string $address, ?DateTimeImmutable $now = null): void
+    {
+        $time = ($now ?? new DateTimeImmutable())->format(Values::DATE_FORMAT);
+
+        foreach ([self::resetEmailKey($email), self::resetAddressKey($address)] as $key) {
+            $this->connection->insert(self::TABLE, ['key_hash' => $key, 'failed_at' => $time]);
+        }
+    }
+
+    /**
      * Forgets the failures of an account after a successful sign-in.
      */
     public function clear(string $email): void
@@ -185,6 +231,16 @@ final readonly class SignInThrottle
     private static function providerKey(string $provider, ?string $address): string
     {
         return hash('sha256', 'oidc:' . $provider . ':ip:' . ($address ?? 'unknown'));
+    }
+
+    private static function resetEmailKey(string $email): string
+    {
+        return hash('sha256', 'reset:email:' . Users::normalizeEmail($email));
+    }
+
+    private static function resetAddressKey(?string $address): string
+    {
+        return hash('sha256', 'reset:ip:' . ($address ?? 'unknown'));
     }
 
     private static function addressKey(string $address): string

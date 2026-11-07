@@ -31,6 +31,9 @@ final class ActionNameTest extends TestCase
     {
         yield 'core' => ['user.create', true];
         yield 'core with hyphen' => ['user.set-password', true];
+        yield 'longer name with hyphens' => ['account.request-password-reset', true];
+        yield 'long extension name' => ['acme-corp/shop-extras/order-item.request-password-reset-again', true];
+        yield 'double separator' => ['acme..corp/shop/order.create', false];
         yield 'extension' => ['acme/shop/order.create', true];
         yield 'composer style package' => ['acme-corp/shop.v2/order.create', true];
         yield 'one part' => ['create', false];

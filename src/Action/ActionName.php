@@ -17,8 +17,12 @@ namespace Frootbox\Core\Action;
  */
 final class ActionName
 {
-    /** A Composer package name, e.g. "acme/shop". */
-    public const string PACKAGE = '[a-z0-9](?:[_.-]?[a-z0-9]+)*/[a-z0-9](?:(?:[_.]|-{1,2})?[a-z0-9]+)*';
+    /**
+     * A Composer package name, e.g. "acme/shop". Every separator stands
+     * between letters, so a longer name with dashes cannot exhaust the
+     * backtracking of PCRE (an optional separator before each run could).
+     */
+    public const string PACKAGE = '[a-z0-9]+(?:[_.-][a-z0-9]+)*/[a-z0-9]+(?:(?:[_.]|-{1,2})[a-z0-9]+)*';
 
     /** One part of a name, e.g. "order" or "set-password". */
     public const string SEGMENT = '[a-z][a-z0-9]*(?:-[a-z0-9]+)*';

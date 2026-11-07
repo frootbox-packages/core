@@ -172,7 +172,7 @@ final readonly class Scheduler
      * Runs what is due if the last check from a request was more than a
      * minute ago. Errors are logged and never stop the request. Without
      * cron it also runs jobs of the queue for a few seconds, after the
-     * response was sent.
+     * response was sent, but only if the server sends it first.
      */
     public function runIfDue(): void
     {
@@ -201,7 +201,9 @@ final readonly class Scheduler
             $this->logger->error('Scheduled publishing failed.', ['exception' => $error]);
         }
 
-        if (!$this->cron->ranWithin(2 * self::INTERVAL)) {
+        // Only where the visitor does not wait for it: elsewhere the
+        // ticks of the hub run the queue (decision 0325).
+        if (!$this->cron->ranWithin(2 * self::INTERVAL) && $this->afterResponse->detached()) {
             $this->afterResponse->add(function (): void {
                 try {
                     $this->worker->run(self::REQUEST_BUDGET);

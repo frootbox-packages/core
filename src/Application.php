@@ -164,10 +164,7 @@ final readonly class Application
                 ignore_user_abort(true);
             }
 
-            if (\function_exists('fastcgi_finish_request')) {
-                fastcgi_finish_request();
-            }
-
+            AfterResponse::finishResponse();
             $after->run();
         }
     }

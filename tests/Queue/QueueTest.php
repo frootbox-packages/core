@@ -176,17 +176,26 @@ final class QueueTest extends NotesTestCase
     public function testWithoutCronAPageRequestRunsTheQueueAfterTheResponse(): void
     {
         $this->runner()->run(new QueueNote(1));
+        $after = $this->get(AfterResponse::class);
+        $marker = $this->get(ProjectPaths::class)->var('cache/schedule');
 
+        // A server that cannot send the response first, e.g. Apache with
+        // mod_fcgid: the visitor would wait, so the queue waits for the hub.
+        $after->assumeDetached(false);
+        $this->get(Scheduler::class)->runIfDue();
+        self::assertFalse($after->pending());
+        self::assertTrue(touch($marker, time() - 120));
+
+        $after->assumeDetached(true);
         $this->get(Scheduler::class)->runIfDue();
         self::assertSame([], Outbox::$messages);
-        $after = $this->get(AfterResponse::class);
         self::assertTrue($after->pending());
         $after->run();
         self::assertSame(['sent #1 as System from notes@example.test'], Outbox::$messages);
 
         // With cron, requests leave the queue alone.
         $this->runner()->run(new QueueNote(2));
-        self::assertTrue(touch($this->get(ProjectPaths::class)->var('cache/schedule'), time() - 120));
+        self::assertTrue(touch($marker, time() - 120));
         $this->get(CronStatus::class)->touch();
         $this->get(Scheduler::class)->runIfDue();
         self::assertFalse($after->pending());
