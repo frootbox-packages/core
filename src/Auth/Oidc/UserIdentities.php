@@ -38,6 +38,14 @@ final class UserIdentities extends Repository
         return $this->fetch(['where' => ['userId' => $userId], 'order' => ['provider' => 'ASC']])->all();
     }
 
+    /**
+     * @return list<UserIdentity>
+     */
+    public function managed(): array
+    {
+        return $this->fetch(['where' => ['managed' => true], 'order' => ['userId' => 'ASC', 'provider' => 'ASC']])->all();
+    }
+
     protected function table(): string
     {
         return self::TABLE;

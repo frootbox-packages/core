@@ -40,6 +40,7 @@ use Frootbox\Core\Auth\Oidc\CompleteSignIn;
 use Frootbox\Core\Auth\Oidc\GrantAccess;
 use Frootbox\Core\Auth\Oidc\LinkAccount;
 use Frootbox\Core\Auth\Oidc\ListIdentities;
+use Frootbox\Core\Auth\Oidc\ListManagedUsers;
 use Frootbox\Core\Auth\Oidc\ListProviders;
 use Frootbox\Core\Auth\Oidc\ListUserIdentities;
 use Frootbox\Core\Auth\Oidc\LogoutHandler;
@@ -553,7 +554,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        foreach ([ListProviders::class, ListIdentities::class, ListUserIdentities::class] as $query) {
+        foreach ([ListProviders::class, ListIdentities::class, ListUserIdentities::class, ListManagedUsers::class] as $query) {
             $registry->query($query);
         }
 
