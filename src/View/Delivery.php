@@ -48,6 +48,9 @@ final class Delivery
     /** Whether the page may go into the page cache, see withoutCache() */
     private bool $cacheable = true;
 
+    /** Seconds the page may stay in the page cache, see cacheFor() */
+    private ?int $lifetime = null;
+
     public function __construct(private readonly Languages $languages) {}
 
     public function set(Language $language, ?Language $content = null, ?Target $target = null, ?Subpage $subpage = null): void
@@ -130,6 +133,7 @@ final class Delivery
     {
         // A new request: it may go into the cache until a block says otherwise.
         $this->cacheable = true;
+        $this->lifetime = null;
         $this->query = [];
 
         foreach ($query as $name => $value) {
@@ -174,6 +178,25 @@ final class Delivery
     public function cacheable(): bool
     {
         return $this->cacheable;
+    }
+
+    /**
+     * Keeps this page in the page cache for at most so many seconds, e.g.
+     * a calendar of bookings from another system that changes without an
+     * action here (decision 0339). The shortest time of all blocks counts.
+     */
+    public function cacheFor(int $seconds): void
+    {
+        $seconds = max(1, $seconds);
+        $this->lifetime = null === $this->lifetime ? $seconds : min($this->lifetime, $seconds);
+    }
+
+    /**
+     * Seconds the page may stay in the page cache, null for until it is cleared.
+     */
+    public function cacheLifetime(): ?int
+    {
+        return $this->lifetime;
     }
 
     /**

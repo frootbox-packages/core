@@ -96,6 +96,29 @@ final class CacheAndScheduleTest extends NotesTestCase
         self::assertFalse($development->accepts(new ServerRequest('GET', 'https://example.org/')), 'No cache while developing.');
     }
 
+    public function testAnEntryWithALifetimeRunsOut(): void
+    {
+        $cache = $this->get(PageCache::class);
+        $request = new ServerRequest('GET', 'https://example.org/kalender');
+
+        $cache->put($request, '<p>frei</p>', [], 300, 1_000);
+        self::assertSame('<p>frei</p>', $cache->get($request, 1_299), 'Within its time the page as it was.');
+        self::assertNull($cache->get($request, 1_300), 'Then a fresh one.');
+        self::assertNull($cache->get($request, 1_000), 'A run-out entry is gone.');
+
+        $cache->put($request, '<p>ohne</p>');
+        self::assertSame('<p>ohne</p>', $cache->get($request, \PHP_INT_MAX), 'Without a lifetime until it is cleared.');
+
+        $delivery = $this->get(\Frootbox\Core\View\Delivery::class);
+        $delivery->setQuery([]);
+        $delivery->cacheFor(600);
+        $delivery->cacheFor(120);
+        $delivery->cacheFor(900);
+        self::assertSame(120, $delivery->cacheLifetime(), 'The shortest time counts.');
+        $delivery->setQuery([]);
+        self::assertNull($delivery->cacheLifetime(), 'Each request on its own.');
+    }
+
     public function testKeepsTheParametersOfRequestsAtTheSameTime(): void
     {
         $paths = $this->get(ProjectPaths::class);

@@ -125,7 +125,7 @@ final readonly class PageHandler implements RequestHandlerInterface
                 return $this->page($html, null);
             }
 
-            $cache->put($request, $html, $this->service(Delivery::class)->parameters());
+            $cache->put($request, $html, $this->service(Delivery::class)->parameters(), $this->service(Delivery::class)->cacheLifetime());
 
             return $this->page($html, 'miss');
         }

@@ -28,6 +28,9 @@ final class PageCache
 {
     public const string HEADER = 'X-Frootbox-Cache';
 
+    /** The first line of an entry with a lifetime: until when it counts (decision 0339). */
+    private const string UNTIL = '<!--frootbox-cache-until:';
+
     private ?string $generation = null;
 
     /** @var list<string>|null */
@@ -58,7 +61,10 @@ final class PageCache
             && null === $request->getAttribute(VisitorSession::class);
     }
 
-    public function get(ServerRequestInterface $request): ?string
+    /**
+     * @param int|null $now the time to compare lifetimes with, for tests
+     */
+    public function get(ServerRequestInterface $request, ?int $now = null): ?string
     {
         if (!$this->accepts($request)) {
             return null;
@@ -67,13 +73,30 @@ final class PageCache
         $file = $this->file($request);
         $html = is_file($file) ? @file_get_contents($file) : false;
 
-        return false === $html ? null : $html;
+        if (false === $html) {
+            return null;
+        }
+
+        if (!str_starts_with($html, self::UNTIL)) {
+            return $html;
+        }
+
+        $end = strpos($html, "-->\n");
+
+        if (false === $end || (int) substr($html, \strlen(self::UNTIL), $end - \strlen(self::UNTIL)) <= ($now ?? time())) {
+            @unlink($file);
+
+            return null;
+        }
+
+        return substr($html, $end + 4);
     }
 
     /**
      * @param list<string> $parameters The query parameters the blocks of the page declared
+     * @param int|null     $seconds    How long the entry counts, null until the cache is cleared
      */
-    public function put(ServerRequestInterface $request, string $html, array $parameters = []): void
+    public function put(ServerRequestInterface $request, string $html, array $parameters = [], ?int $seconds = null, ?int $now = null): void
     {
         if (!$this->accepts($request)) {
             return;
@@ -89,6 +112,10 @@ final class PageCache
 
         // Write to a temporary file first, so no request reads a half-written page.
         $temporary = $file . '.' . bin2hex(random_bytes(4));
+
+        if (null !== $seconds) {
+            $html = self::UNTIL . (($now ?? time()) + max(1, $seconds)) . "-->\n" . $html;
+        }
 
         if (false !== @file_put_contents($temporary, $html)) {
             @rename($temporary, $file);
