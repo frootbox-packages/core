@@ -11,6 +11,7 @@ namespace Frootbox\Core\View;
 use Frootbox\Core\Consent\ConsentMarkup;
 use Frootbox\Core\Consent\Embeds;
 use Frootbox\Core\Consent\ExternalServices;
+use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\I18n\Translator;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
@@ -28,6 +29,7 @@ use Frootbox\Core\Url\Subpage;
 use Frootbox\Core\Url\Target;
 use Frootbox\Core\Url\Urls;
 use Frootbox\RichText\Html;
+use LogicException;
 use Psr\Container\ContainerInterface;
 use Stringable;
 use Twig\Error\RuntimeError;
@@ -70,6 +72,8 @@ use Twig\TwigFunction;
  *     {{ video_embed(url, {title: 'Video: …'}) }} a video at YouTube or Vimeo behind consent, nothing for other addresses
  *     {{ map_embed({coordinates: '50.9, 6.9', address: '…', provider: 'openstreetmap', zoom: 16, title: 'Map: …'}) }}
  *                                     a map of OpenStreetMap or Google Maps behind consent (decision 0225)
+ *
+ * Extensions add functions of their own with a TemplateFunction.
  */
 final class ViewExtension extends AbstractExtension
 {
@@ -79,9 +83,41 @@ final class ViewExtension extends AbstractExtension
     public function __construct(
         private readonly ComponentRenderer $renderer,
         private readonly ContainerInterface $container,
+        private readonly Registry $registry,
     ) {}
 
     public function getFunctions(): array
+    {
+        $functions = $this->coreFunctions();
+        $names = array_map(static fn(TwigFunction $function): string => $function->getName(), $functions);
+
+        // Those of extensions (decision 0313), never in place of one of the core.
+        foreach ($this->registry->items(TemplateFunction::class) as $function) {
+            if (\in_array($function->name, $names, true)) {
+                continue;
+            }
+
+            $names[] = $function->name;
+            $functions[] = new TwigFunction($function->name, fn(mixed ...$arguments): mixed => $this->templateFunction($function)(...$arguments), $function->html ? ['is_safe' => ['html']] : []);
+        }
+
+        return $functions;
+    }
+
+    /**
+     * The method of the service of a function of an extension.
+     */
+    private function templateFunction(TemplateFunction $function): callable
+    {
+        $callable = [$this->container->get($function->class), $function->method];
+
+        return \is_callable($callable) ? $callable : throw new LogicException(\sprintf('The template function "%s" has no method %s::%s().', $function->name, $function->class, $function->method));
+    }
+
+    /**
+     * @return list<TwigFunction>
+     */
+    private function coreFunctions(): array
     {
         return [
             new TwigFunction('field', fn(array $context, string $name, ?string $part = null): mixed => self::frame($context, 'field')->scope->field($name, $part), ['needs_context' => true]),

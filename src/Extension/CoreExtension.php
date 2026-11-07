@@ -274,6 +274,7 @@ use Frootbox\Core\User\ShowUser;
 use Frootbox\Core\User\UpdateRole;
 use Frootbox\Core\User\UpdateUser;
 use Frootbox\Core\User\Users;
+use Frootbox\Core\Visitor\PruneVisitorSessions;
 
 /**
  * The core registers itself like any other extension, through the same
@@ -526,6 +527,7 @@ final class CoreExtension implements Extension
         $registry->action(ClearCaches::class);
         $registry->listen(ScheduleRan::class, BackupsOnSchedule::class);
         $registry->listen(ScheduleRan::class, PruneOnSchedule::class);
+        $registry->listen(ScheduleRan::class, PruneVisitorSessions::class);
 
         $registry->query(ShowAccount::class);
         $registry->query(ListLanguages::class);

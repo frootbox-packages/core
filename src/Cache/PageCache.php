@@ -13,6 +13,7 @@ use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Preview\PreviewAccess;
 use Frootbox\Core\ProjectPaths;
 use Frootbox\Core\Url\UrlPath;
+use Frootbox\Core\Visitor\VisitorSession;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
@@ -52,7 +53,9 @@ final class PageCache
             && '' === $request->getHeaderLine('Authorization')
             && null === $request->getAttribute(Authentication::class)
             // A preview shows drafts, never cached (decision 0152).
-            && null === $request->getAttribute(PreviewAccess::class);
+            && null === $request->getAttribute(PreviewAccess::class)
+            // A visitor with a cart sees a page of their own (decision 0312).
+            && null === $request->getAttribute(VisitorSession::class);
     }
 
     public function get(ServerRequestInterface $request): ?string

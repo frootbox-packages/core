@@ -35,6 +35,7 @@ use Frootbox\Core\View\ComponentRenderer;
 use Frootbox\Core\View\Delivery;
 use Frootbox\Core\View\Document;
 use Frootbox\Core\View\Head;
+use Frootbox\Core\Visitor\VisitorSession;
 use Frootbox\Database\Ulid;
 use LogicException;
 use Psr\Container\ContainerInterface;
@@ -120,7 +121,7 @@ final readonly class PageHandler implements RequestHandlerInterface
             $html = $this->render($resolution->page, $request);
             $cache = $this->service(PageCache::class);
 
-            if (!$cache->accepts($request) || !$this->service(Delivery::class)->cacheable()) {
+            if (!$cache->accepts($request) || !$this->service(Delivery::class)->cacheable() || $this->service(VisitorSession::class)->active()) {
                 return $this->page($html, null);
             }
 

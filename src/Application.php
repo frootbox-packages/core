@@ -29,6 +29,7 @@ use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Page\PageHandler;
 use Frootbox\Core\Routing\RoutingMiddleware;
 use Frootbox\Core\Site\SiteAccessMiddleware;
+use Frootbox\Core\Visitor\VisitorSessionMiddleware;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
 use Psr\Container\ContainerInterface;
@@ -70,6 +71,8 @@ final readonly class Application
         ErrorMiddleware::class,
         // Preview links and the password of the website, before the page cache (decisions 0152, 0153).
         SiteAccessMiddleware::class,
+        // Sessions of visitors, e.g. for a cart, before the page cache (decision 0312).
+        VisitorSessionMiddleware::class,
         RoutingMiddleware::class,
     ];
 
