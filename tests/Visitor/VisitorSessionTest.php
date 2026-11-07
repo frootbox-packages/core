@@ -145,7 +145,9 @@ final class VisitorSessionTest extends NotesTestCase
     {
         $this->request(static fn(VisitorSession $session) => $session->set(self::PACKAGE, 'cart', []));
         $this->request(static fn(VisitorSession $session) => $session->set(self::PACKAGE, 'cart', []));
-        $this->connection()->executeStatement('UPDATE visitor_sessions SET expires_at = ? WHERE id = (SELECT MIN(id) FROM visitor_sessions)', [new DateTimeImmutable('-1 day')->format(Values::DATE_FORMAT)]);
+        // MySQL cannot update a table it selects from in a subquery.
+        $first = $this->connection()->fetchOne('SELECT MIN(id) FROM visitor_sessions');
+        $this->connection()->executeStatement('UPDATE visitor_sessions SET expires_at = ? WHERE id = ?', [new DateTimeImmutable('-1 day')->format(Values::DATE_FORMAT), $first]);
 
         $prune = $this->get(PruneVisitorSessions::class);
         $prune(new ScheduleRan(new DateTimeImmutable()));
