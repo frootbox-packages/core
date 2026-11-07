@@ -22,7 +22,7 @@ use Frootbox\Core\User\User;
 use Frootbox\Core\User\Users;
 
 /**
- * Sets a new password with a link from the mail (decision 0325), signs the
+ * Sets a new password with a link from the mail (decision 0326), signs the
  * person out everywhere and forgets failed sign-ins, so someone who locked
  * themselves out can sign in right away.
  *

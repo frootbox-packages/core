@@ -16,7 +16,7 @@ use Frootbox\Core\User\UserKind;
 use Frootbox\Core\User\Users;
 
 /**
- * Links for a forgotten password (decision 0325): "<id>.<expiry>.<signature>",
+ * Links for a forgotten password (decision 0326): "<id>.<expiry>.<signature>",
  * signed over the id, the expiry and a fingerprint of the email and the
  * current password hash. Nothing is stored; once the password changes,
  * every older link is void.

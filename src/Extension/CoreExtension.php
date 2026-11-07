@@ -373,7 +373,7 @@ final class CoreExtension implements Extension
             $registry->action($action);
         }
 
-        // A forgotten password (decision 0325).
+        // A forgotten password (decision 0326).
         $registry->query(ShowPasswordReset::class);
 
         foreach ([CreatePage::class, UpdatePage::class, UpdatePageField::class, AddBlock::class, MoveBlock::class, CopyBlock::class, RemoveBlock::class, UpdateBlock::class, AddListEntry::class, MoveListEntry::class, RemoveListEntry::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class] as $action) {

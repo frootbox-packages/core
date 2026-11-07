@@ -9,7 +9,7 @@ declare(strict_types=1);
 namespace Frootbox\Core\Account;
 
 /**
- * The answer of account.password-reset-show (decision 0325).
+ * The answer of account.password-reset-show (decision 0326).
  */
 final readonly class PasswordResetState
 {

@@ -16,7 +16,7 @@ use Frootbox\Core\Action\Schema\Sensitive;
 
 /**
  * Whether the website offers a link for a forgotten password and whether a
- * link still works (decision 0325).
+ * link still works (decision 0326).
  *
  * @implements Query<PasswordResetState>
  */

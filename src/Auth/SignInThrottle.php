@@ -155,7 +155,7 @@ final readonly class SignInThrottle
 
     /**
      * Throws if the address asked for too many links for a forgotten
-     * password (decision 0325): from 10 within 15 minutes, 15 minutes break.
+     * password (decision 0326): from 10 within 15 minutes, 15 minutes break.
      *
      * @throws TooManyAttemptsException
      */

@@ -24,7 +24,7 @@ use Frootbox\Core\Queue\Queue;
 use Frootbox\Core\User\Users;
 
 /**
- * Mails a link for a new password (decision 0325). The answer is the same
+ * Mails a link for a new password (decision 0326). The answer is the same
  * whether the account exists or not, so nobody can try out addresses.
  *
  * @implements Action<void>
