@@ -128,6 +128,7 @@ use Frootbox\Core\Hub\HubDisconnectCommand;
 use Frootbox\Core\Hub\ShowHub;
 use Frootbox\Core\Hub\SwitchHub;
 use Frootbox\Core\Hub\UpdateHubKeys;
+use Frootbox\Core\I18n\FormalitySettings;
 use Frootbox\Core\Install\InstallCommand;
 use Frootbox\Core\Mail\MailSettings;
 use Frootbox\Core\Mail\SendMail;
@@ -329,6 +330,7 @@ final class CoreExtension implements Extension
 
         // Banner, privacy settings and consent tools (decision 0264).
         $registry->settings(ConsentSettings::class);
+        $registry->settings(FormalitySettings::class);
         $registry->query(ListServices::class);
         $registry->query(ListProofs::class);
         $registry->post(ProofHandler::ROUTE, ProofHandler::class, 'consent.proof');

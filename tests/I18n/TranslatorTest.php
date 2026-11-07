@@ -17,6 +17,7 @@ use Frootbox\Core\Config\Environment;
 use Frootbox\Core\Extension\ExtensionPackage;
 use Frootbox\Core\Extension\Extensions;
 use Frootbox\Core\I18n\Catalogue;
+use Frootbox\Core\I18n\Formality;
 use Frootbox\Core\I18n\Translator;
 use Frootbox\Core\I18n\UserLanguages;
 use Frootbox\Core\Language\Languages;
@@ -99,6 +100,18 @@ final class TranslatorTest extends TestCase
         self::assertSame('Titel', $this->translator(['backend' => ['language' => 'de']], environment: Environment::Production)->get('Title'), 'Also from the cache.');
     }
 
+    public function testFormalTextsComeFirstWhenAsked(): void
+    {
+        $translator = $this->translator();
+
+        self::assertSame('Dein Konto', $translator->in('de', 'Your account'));
+        self::assertSame('Ihr Konto', $translator->in('de', 'Your account', formality: Formality::Formal));
+        // Texts the same in both forms come from de.yaml.
+        self::assertSame('Menü', $translator->in('de', 'Menu', formality: Formality::Formal));
+        // The formal file adds no language.
+        self::assertArrayNotHasKey('de.formal', $translator->available());
+    }
+
     public function testEnglishCanHaveTextsToo(): void
     {
         self::assertSame('Eyebrow', $this->translator(['backend' => ['language' => 'en']])->label('Dachzeile', 'acme/theme'));
@@ -136,7 +149,7 @@ final class TranslatorTest extends TestCase
         };
 
         return new Translator($config, Languages::fromConfig($config), new Extensions([
-            $this->package('acme/core', ['de' => ['Title' => 'Titel', 'Menu' => 'Menü'], 'nl' => ['Title' => 'Titel']]),
+            $this->package('acme/core', ['de' => ['Title' => 'Titel', 'Menu' => 'Menü', 'Your account' => 'Dein Konto'], 'de.formal' => ['Your account' => 'Ihr Konto'], 'nl' => ['Title' => 'Titel']]),
             $this->package('acme/theme', ['de' => ['Title' => 'Überschrift'], 'en' => ['Dachzeile' => 'Eyebrow']]),
             $this->package('acme/other', ['de' => ['Title' => 'Titel'], 'website/he' => ['Older articles' => 'כתבות ישנות']]),
             $this->package('acme/look', ['ar' => ['Skip to content' => 'انتقل إلى المحتوى'], 'de' => ['Title' => 'Bezeichnung']], theme: true),

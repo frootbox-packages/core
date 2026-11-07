@@ -45,6 +45,9 @@ final class Translator
 
     private const string CACHE = 'cache/translations-%s.cache';
 
+    /** Suffix of the files with formal texts, e.g. de.formal.yaml (decision 0316). */
+    private const string FORMAL = '.formal';
+
     /** @var array<string, string> The language by actor, e.g. "user:3" => "de" */
     private array $languages = [];
 
@@ -116,7 +119,10 @@ final class Translator
             $files = glob($package->path . '/' . self::FOLDER . '/*.yaml');
 
             foreach (false === $files ? [] : $files as $file) {
-                $codes[] = basename($file, '.yaml');
+                // de.formal.yaml only adds to German (decision 0316).
+                if (!str_contains(basename($file, '.yaml'), '.')) {
+                    $codes[] = basename($file, '.yaml');
+                }
             }
         }
 
@@ -166,15 +172,17 @@ final class Translator
      * A text of a theme for visitors in the language of the page, e.g.
      * "Skip to content" (decision 0162): the translation of the first of
      * the packages that has one, then that of any package. Without one
-     * it shows as written, English in official themes.
+     * it shows as written, English in official themes. Formal: the text
+     * from translations/<language>.formal.yaml first, where a package has
+     * one, see VisitorFormality for the current visitor (decision 0316).
      *
      * @param string|array{string, string}                         $text
      * @param list<string>                                         $packages
      * @param array<string, bool|float|int|string|Stringable|null> $parameters
      */
-    public function in(string $language, string|array $text, array $packages = [], array $parameters = []): string
+    public function in(string $language, string|array $text, array $packages = [], array $parameters = [], Formality $formality = Formality::Informal): string
     {
-        return $this->translate($text, $parameters, $packages, $language);
+        return $this->translate($text, $parameters, $packages, $language, Formality::Formal === $formality);
     }
 
     /**
@@ -195,12 +203,12 @@ final class Translator
      * @param array<string, bool|float|int|string|Stringable|null> $parameters
      * @param string|list<string>|null                             $packages
      */
-    private function translate(string|array $text, array $parameters, string|array|null $packages, string $language): string
+    private function translate(string|array $text, array $parameters, string|array|null $packages, string $language, bool $formal = false): string
     {
         $count = $parameters['count'] ?? null;
         $one = !(\is_int($count) || \is_float($count)) || 1.0 === (float) $count;
         $key = \is_array($text) ? $text[0] : $text;
-        $message = $this->catalogue($language)->find($key, $packages);
+        $message = ($formal ? $this->catalogue($language, true)->find($key, $packages) : null) ?? $this->catalogue($language)->find($key, $packages);
 
         if (\is_array($message)) {
             $message = $one ? $message['one'] : $message['other'];
@@ -217,19 +225,21 @@ final class Translator
         return strtr($message, $replace);
     }
 
-    private function catalogue(string $language): Catalogue
+    private function catalogue(string $language, bool $formal = false): Catalogue
     {
-        if (isset($this->catalogues[$language])) {
-            return $this->catalogues[$language];
+        $name = $language . ($formal ? self::FORMAL : '');
+
+        if (isset($this->catalogues[$name])) {
+            return $this->catalogues[$name];
         }
 
-        $files = $this->files($language);
+        $files = $this->files($language, formal: $formal);
         $fingerprint = implode('|', array_map(static fn(array $file): string => $file['path'] . ':' . filemtime($file['path']), $files));
-        $cache = $this->paths->var(\sprintf(self::CACHE, $language));
+        $cache = $this->paths->var(\sprintf(self::CACHE, $name));
         $cached = $this->config->environment->isDevelopment() ? null : CacheFile::read($cache, $fingerprint, []);
 
         if (\is_array($cached)) {
-            return $this->catalogues[$language] = Catalogue::fromArray($cached, $cache, $this->themes());
+            return $this->catalogues[$name] = Catalogue::fromArray($cached, $cache, $this->themes());
         }
 
         $packages = [];
@@ -244,7 +254,7 @@ final class Translator
             CacheFile::write($cache, $fingerprint, $catalogue->toArray());
         }
 
-        return $this->catalogues[$language] = $catalogue;
+        return $this->catalogues[$name] = $catalogue;
     }
 
     /**
@@ -272,7 +282,7 @@ final class Translator
      *
      * @return list<array{package: string, path: string}>
      */
-    private function files(string $language, bool $website = true): array
+    private function files(string $language, bool $website = true, bool $formal = false): array
     {
         $candidates = array_unique([explode('-', $language)[0], $language]);
         $folders = $website ? [self::FOLDER, self::FOLDER . '/' . self::WEBSITE] : [self::FOLDER];
@@ -281,7 +291,7 @@ final class Translator
         foreach ($this->extensions as $package) {
             foreach ($folders as $folder) {
                 foreach ($candidates as $candidate) {
-                    $file = $package->path . '/' . $folder . '/' . $candidate . '.yaml';
+                    $file = $package->path . '/' . $folder . '/' . $candidate . ($formal ? self::FORMAL : '') . '.yaml';
 
                     if (is_file($file)) {
                         $files[] = ['package' => $package->name, 'path' => $file];

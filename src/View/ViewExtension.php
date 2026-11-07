@@ -13,6 +13,7 @@ use Frootbox\Core\Consent\Embeds;
 use Frootbox\Core\Consent\ExternalServices;
 use Frootbox\Core\Extension\Registry;
 use Frootbox\Core\I18n\Translator;
+use Frootbox\Core\I18n\VisitorFormality;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Media\Credits;
@@ -509,7 +510,7 @@ final class ViewExtension extends AbstractExtension
     {
         $themes = array_map(static fn(Theme $theme): string => $theme->name, $this->service(ThemeChain::class)->themes);
 
-        return $this->service(Translator::class)->in($this->service(Delivery::class)->language()->code, $text, $themes, $parameters);
+        return $this->service(Translator::class)->in($this->service(Delivery::class)->language()->code, $text, $themes, $parameters, $this->service(VisitorFormality::class)->current());
     }
 
     private function site(): Scope
