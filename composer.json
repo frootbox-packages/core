@@ -10,8 +10,11 @@
     "require": {
         "php": ">=8.5",
         "ext-intl": "*",
+        "ext-openssl": "*",
+        "ext-sodium": "*",
         "doctrine/dbal": "^4.5",
         "doctrine/migrations": "^3.9",
+        "firebase/php-jwt": "^7.2",
         "frootbox/database": "^0.1",
         "frootbox/rich-text": "^0.1",
         "intervention/image": "^4.4",

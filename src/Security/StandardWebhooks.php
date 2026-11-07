@@ -60,6 +60,17 @@ final class StandardWebhooks
     }
 
     /**
+     * The 64 bytes libsodium signs with for a secret key "whsk_…", e.g.
+     * for a JWT with EdDSA (decision 0322).
+     *
+     * @return non-empty-string
+     */
+    public static function signingKey(string $secretKey): string
+    {
+        return sodium_crypto_sign_secretkey(self::keyPairOf($secretKey));
+    }
+
+    /**
      * The public key "whpk_…" of a secret key "whsk_…".
      *
      * @throws InvalidArgumentException for no secret key

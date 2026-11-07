@@ -33,5 +33,7 @@ final readonly class HubDetails
         public ?string $publicKey,
         public ?string $statusUrl,
         public ?string $lastPoll,
+        /** The highest role the hub may give while "login" is on (decision 0322) */
+        public ?string $loginMaxRole = null,
     ) {}
 }

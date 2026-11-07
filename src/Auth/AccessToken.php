@@ -27,6 +27,10 @@ final readonly class AccessToken extends Entity
         public DateTimeImmutable $createdAt,
         public bool $remember = false,
         public ?string $device = null,
+        /** The provider of a session through OpenID Connect, e.g. "hub" (decision 0322) */
+        public ?string $provider = null,
+        /** The sid of the provider for its back channel */
+        public ?string $providerSession = null,
     ) {}
 
     /**

@@ -44,12 +44,19 @@ final readonly class AccessTokens
     }
 
     /**
-     * @param bool $remember for a session: "stay signed in" for days instead of hours (decision 0115)
+     * @param bool        $remember        for a session: "stay signed in" for days instead of hours (decision 0115)
+     * @param string|null $provider        for a session through OpenID Connect: it ends hours after the sign-in, even while used (decision 0322)
+     * @param string|null $providerSession the sid of the provider, for its back channel
      */
-    public function issue(int $userId, TokenType $type, ?string $name = null, ?DateTimeImmutable $expiresAt = null, bool $remember = false): IssuedToken
+    public function issue(int $userId, TokenType $type, ?string $name = null, ?DateTimeImmutable $expiresAt = null, bool $remember = false, ?string $provider = null, ?string $providerSession = null): IssuedToken
     {
         $token = self::PREFIX . bin2hex(random_bytes(32));
         $now = new DateTimeImmutable();
+
+        if (TokenType::Session === $type && null !== $provider) {
+            $remember = false;
+            $expiresAt ??= $now->modify(\sprintf('+%d hours', $this->config->int('auth.provider_session_hours', 12)));
+        }
 
         $row = $this->journal->trusted(fn(): array => $this->writer->insert(self::TABLE, [
             'user_id' => $userId,
@@ -60,6 +67,8 @@ final readonly class AccessTokens
             'remember' => TokenType::Session === $type && $remember,
             // A session is named after its user agent (decision 0174).
             'device' => TokenType::Session === $type ? Device::describe($name) : null,
+            'provider' => TokenType::Session === $type ? $provider : null,
+            'provider_session' => TokenType::Session === $type && null !== $provider ? $providerSession : null,
             'created_at' => $now,
         ]));
 
@@ -95,7 +104,8 @@ final readonly class AccessTokens
         if (null === $accessToken->lastUsedAt || $now->getTimestamp() - $accessToken->lastUsedAt->getTimestamp() >= self::TOUCH_SECONDS) {
             $changes = ['last_used_at' => $now];
 
-            if (TokenType::Session === $accessToken->type) {
+            // A session through a provider does not slide (decision 0322).
+            if (TokenType::Session === $accessToken->type && null === $accessToken->provider) {
                 $changes['expires_at'] = $this->sessionEnd($now, $accessToken->remember);
             }
 
@@ -138,6 +148,31 @@ final readonly class AccessTokens
             'DELETE FROM ' . self::TABLE . ' WHERE type = ?',
             [TokenType::Session->value],
         ));
+    }
+
+    /**
+     * Ends the sessions through a provider (decision 0322): all of them,
+     * those of one user, or those of one sign-in at the provider (sid).
+     * Sessions with a password stay.
+     */
+    public function endProviderSessions(string $provider, ?int $userId = null, ?string $providerSession = null): int
+    {
+        return $this->journal->trusted(function () use ($provider, $userId, $providerSession): int {
+            $sql = 'DELETE FROM ' . self::TABLE . ' WHERE type = ? AND provider = ?';
+            $params = [TokenType::Session->value, $provider];
+
+            if (null !== $userId) {
+                $sql .= ' AND user_id = ?';
+                $params[] = $userId;
+            }
+
+            if (null !== $providerSession) {
+                $sql .= ' AND provider_session = ?';
+                $params[] = $providerSession;
+            }
+
+            return (int) $this->connection->executeStatement($sql, $params);
+        });
     }
 
     /**

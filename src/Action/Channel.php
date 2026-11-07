@@ -20,4 +20,6 @@ enum Channel: string
     case Ai = 'ai';
     case Console = 'console';
     case System = 'system';
+    // Messages of the hub on behalf of a person (decision 0322).
+    case Hub = 'hub';
 }

@@ -8,12 +8,22 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Hub;
 
+use Frootbox\Core\Action\AccessDeniedException;
 use Frootbox\Core\Action\ActionException;
+use Frootbox\Core\Action\Channel;
 use Frootbox\Core\Action\Context;
+use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Runner;
+use Frootbox\Core\Auth\Actor;
+use Frootbox\Core\Auth\Oidc\GrantAccess;
+use Frootbox\Core\Auth\Oidc\RevokeAccess;
+use Frootbox\Core\Auth\Oidc\RoleLimit;
+use Frootbox\Core\Auth\Oidc\UserIdentities;
 use Frootbox\Core\Error\Problem;
 use Frootbox\Core\Schedule\Scheduler;
 use Frootbox\Core\Security\StandardWebhooks;
+use Frootbox\Core\User\RoleAssignments;
+use Frootbox\Core\User\Users;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -32,12 +42,17 @@ use Psr\Http\Server\RequestHandlerInterface;
  * - keys {keys}: new keys of the hub, signed with a current one.
  * - tick {connection}: the hub asks a website without cron to run what is
  *   due (decision 0293). Answers 202 at once and works after the response.
+ * - access {connection, actor, person, role}: a person in the hub gives or
+ *   takes access to this website (decision 0322). Giving runs
+ *   user.grant-access as the linked local account of the actor, with its
+ *   rights, at most the role the hub gives the actor, capped by maxRole.
+ *   Taking (role null) runs user.revoke-access for the hub.
  *
  * Like the REST API it runs past the password of the website.
  */
 final readonly class HubCallbackHandler implements RequestHandlerInterface
 {
-    public const string ROUTE = '/.well-known/frootbox/{name:verify|disconnect|keys|tick}';
+    public const string ROUTE = '/.well-known/frootbox/{name:verify|disconnect|keys|tick|access}';
 
     public const string VERIFY_LABEL = 'frootbox-connect-verify-v1';
 
@@ -50,6 +65,11 @@ final readonly class HubCallbackHandler implements RequestHandlerInterface
         private SeenMessages $seen,
         private ResponseFactoryInterface $responses,
         private Scheduler $scheduler,
+        private HubLogin $login,
+        private UserIdentities $identities,
+        private Users $users,
+        private RoleAssignments $assignments,
+        private RoleLimit $limit,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -89,6 +109,7 @@ final readonly class HubCallbackHandler implements RequestHandlerInterface
             'verify' => $this->verify($connection, $data),
             'disconnect' => $this->disconnect($connection, $data),
             'tick' => $this->tick($connection, $data),
+            'access' => $this->access($connection, $data),
             default => $this->keys($data),
         };
     }
@@ -149,6 +170,76 @@ final readonly class HubCallbackHandler implements RequestHandlerInterface
         }
 
         return $this->json(202, ['accepted' => $this->scheduler->runForHub()]);
+    }
+
+    /**
+     * @param array<mixed> $data
+     */
+    private function access(HubConnection $connection, array $data): ResponseInterface
+    {
+        $id = $data['connection'] ?? null;
+
+        if (!$connection->connected() || !\is_string($id) || !hash_equals((string) $connection->connectionId, $id)) {
+            return $this->problem(404, 'unknown', 'There is no connection with this id.');
+        }
+
+        $provider = $this->login->providers()[0] ?? null;
+
+        if (null === $provider) {
+            return $this->problem(409, 'login-off', 'Signing in through the hub is off on this website.');
+        }
+
+        $person = \is_array($data['person'] ?? null) ? $data['person'] : [];
+        $actor = \is_array($data['actor'] ?? null) ? $data['actor'] : [];
+        $subject = $person['sub'] ?? null;
+        $role = $data['role'] ?? null;
+
+        if (!\is_string($subject) || '' === $subject || (null !== $role && !\is_string($role))) {
+            return $this->problem(400, 'input', 'person.sub is required, role is a name or null.');
+        }
+
+        if (null === $role) {
+            $result = $this->runner->run(new RevokeAccess($provider->key, $subject), Context::system(Channel::Hub));
+
+            return $this->json(200, ['result' => $result]);
+        }
+
+        $email = $person['email'] ?? null;
+        $name = \is_string($person['name'] ?? null) && '' !== trim($person['name']) ? trim($person['name']) : $email;
+
+        if (!\is_string($email) || !\is_string($name) || true !== ($person['email_verified'] ?? null)) {
+            return $this->problem(422, 'input', 'person needs a confirmed email.');
+        }
+
+        $identity = \is_string($actor['sub'] ?? null) ? $this->identities->findBySubject($provider->issuer, $actor['sub']) : null;
+        $user = null === $identity ? null : $this->users->fetchById($identity->userId);
+
+        if (null === $user || !$user->active) {
+            return $this->problem(404, 'unknown-actor', 'The website does not know you yet: sign in there through the hub once.');
+        }
+
+        // The same rule as for signing in: never more than the hub may give.
+        $allowed = $this->limit->cap(\is_string($actor['role'] ?? null) ? $actor['role'] : null, $provider->maxRole);
+
+        if (null === $allowed) {
+            return $this->problem(403, 'forbidden', 'You have no access to this website through the hub.');
+        }
+
+        if ($this->assignments->globalLevel($user->id) > $this->limit->level($allowed)) {
+            return $this->problem(409, 'ranks-higher', 'Your account on the website ranks above what the hub may give.');
+        }
+
+        try {
+            $granted = $this->runner->run(new GrantAccess($provider->key, $subject, $email, mb_substr($name, 0, 255), $role), new Context(Actor::user($user->id, $user->name), Channel::Hub));
+        } catch (AccessDeniedException $error) {
+            return $this->problem(403, 'forbidden', $error->getMessage());
+        } catch (InvalidInputException $error) {
+            return $this->problem(422, 'unprocessable', $error->getMessage());
+        } catch (ActionException $error) {
+            return $this->problem(409, 'conflict', $error->getMessage());
+        }
+
+        return $this->json(200, ['result' => $granted->result, 'user' => ['id' => $granted->user->id, 'name' => $granted->user->name]]);
     }
 
     /**

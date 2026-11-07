@@ -11,6 +11,7 @@ namespace Frootbox\Core\Hub;
 use Frootbox\Core\Action\Action;
 use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Schema\Description;
+use Frootbox\Core\Auth\AccessTokens;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -31,7 +32,7 @@ final readonly class DisconnectHub implements Action
         public bool $forgetKey = false,
     ) {}
 
-    public function handle(Hub $hub, HubClient $client, HubConnections $connections, HubAccess $access, LoggerInterface $logger): HubDetails
+    public function handle(Hub $hub, HubClient $client, HubConnections $connections, HubAccess $access, AccessTokens $tokens, LoggerInterface $logger): HubDetails
     {
         $connection = $hub->current();
 
@@ -40,6 +41,8 @@ final readonly class DisconnectHub implements Action
         }
 
         $access->revoke($connection->userId);
+        // The links stay, so a new connection to the same hub creates nobody anew (decision 0322).
+        $tokens->endProviderSessions(HubLogin::PROVIDER);
 
         if ($this->forgetKey) {
             $connections->delete($connection->id);
@@ -53,6 +56,7 @@ final readonly class DisconnectHub implements Action
                 'status' => false,
                 'packages' => false,
                 'login' => false,
+                'loginMaxRole' => null,
                 'userId' => null,
                 'connectedAt' => null,
             ]);

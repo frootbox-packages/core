@@ -32,6 +32,19 @@ use Frootbox\Core\Ai\Writing\WriteSearchSnippet;
 use Frootbox\Core\Api\ApiHandler;
 use Frootbox\Core\Api\OpenApiHandler;
 use Frootbox\Core\Auth\EndSessions;
+use Frootbox\Core\Auth\Oidc\BackChannelLogout;
+use Frootbox\Core\Auth\Oidc\CompleteSignIn;
+use Frootbox\Core\Auth\Oidc\GrantAccess;
+use Frootbox\Core\Auth\Oidc\LinkAccount;
+use Frootbox\Core\Auth\Oidc\ListIdentities;
+use Frootbox\Core\Auth\Oidc\ListProviders;
+use Frootbox\Core\Auth\Oidc\ListUserIdentities;
+use Frootbox\Core\Auth\Oidc\LogoutHandler;
+use Frootbox\Core\Auth\Oidc\OidcPaths;
+use Frootbox\Core\Auth\Oidc\OidcProviders;
+use Frootbox\Core\Auth\Oidc\RevokeAccess;
+use Frootbox\Core\Auth\Oidc\StartSignIn;
+use Frootbox\Core\Auth\Oidc\UnlinkAccount;
 use Frootbox\Core\Auth\SessionsEndCommand;
 use Frootbox\Core\Backup\BackupCreateCommand;
 use Frootbox\Core\Backup\BackupListCommand;
@@ -127,6 +140,7 @@ use Frootbox\Core\Hub\HubCallbackHandler;
 use Frootbox\Core\Hub\HubConnectCommand;
 use Frootbox\Core\Hub\HubConnections;
 use Frootbox\Core\Hub\HubDisconnectCommand;
+use Frootbox\Core\Hub\HubLogin;
 use Frootbox\Core\Hub\ShowHub;
 use Frootbox\Core\Hub\SwitchHub;
 use Frootbox\Core\Hub\UpdateHubKeys;
@@ -524,6 +538,18 @@ final class CoreExtension implements Extension
         $registry->command(HubConnectCommand::class);
         $registry->command(HubDisconnectCommand::class);
         $registry->sensitive(HubConnections::TABLE, 'secret_key');
+
+        // Signing in through OpenID Connect, the hub as the first provider (decision 0322).
+        $registry->add(OidcProviders::class, new OidcProviders(HubLogin::class));
+        $registry->post(OidcPaths::LOGOUT, LogoutHandler::class, 'oidc.logout');
+
+        foreach ([StartSignIn::class, CompleteSignIn::class, LinkAccount::class, UnlinkAccount::class, BackChannelLogout::class, GrantAccess::class, RevokeAccess::class] as $action) {
+            $registry->action($action);
+        }
+
+        foreach ([ListProviders::class, ListIdentities::class, ListUserIdentities::class] as $query) {
+            $registry->query($query);
+        }
 
         // Backups of the database (decision 0183).
         $registry->command(BackupCreateCommand::class);

@@ -120,6 +120,35 @@ final readonly class SignInThrottle
     }
 
     /**
+     * Throws if the address has to wait before it may sign in through a
+     * provider again (decision 0322), counted per provider and address.
+     *
+     * @throws TooManyAttemptsException
+     */
+    public function checkProvider(string $provider, ?string $address, ?DateTimeImmutable $now = null): void
+    {
+        $now ??= new DateTimeImmutable();
+        [$count, $last] = $this->failures(self::providerKey($provider, $address), $now);
+
+        if ($count >= self::ACCOUNT_LIMIT && null !== $last) {
+            $wait = $last + min(self::MAX_WAIT, 60 * 2 ** ($count - self::ACCOUNT_LIMIT)) - $now->getTimestamp();
+
+            if ($wait > 0) {
+                throw new TooManyAttemptsException($wait);
+            }
+        }
+    }
+
+    /**
+     * Counts a failed sign-in through a provider.
+     */
+    public function failProvider(string $provider, ?string $address, ?DateTimeImmutable $now = null): void
+    {
+        $now ??= new DateTimeImmutable();
+        $this->connection->insert(self::TABLE, ['key_hash' => self::providerKey($provider, $address), 'failed_at' => $now->format(Values::DATE_FORMAT)]);
+    }
+
+    /**
      * Forgets the failures of an account after a successful sign-in.
      */
     public function clear(string $email): void
@@ -151,6 +180,11 @@ final readonly class SignInThrottle
     private static function siteKey(?string $address): string
     {
         return hash('sha256', 'site:ip:' . ($address ?? 'unknown'));
+    }
+
+    private static function providerKey(string $provider, ?string $address): string
+    {
+        return hash('sha256', 'oidc:' . $provider . ':ip:' . ($address ?? 'unknown'));
     }
 
     private static function addressKey(string $address): string

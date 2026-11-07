@@ -36,6 +36,8 @@ final readonly class HubConnection extends Entity
         public ?int $userId,
         public ?DateTimeImmutable $connectedAt,
         public DateTimeImmutable $createdAt,
+        /** The highest role the hub may give, null while the switch "login" is off (decision 0322) */
+        public ?string $loginMaxRole = null,
     ) {}
 
     public function connected(): bool

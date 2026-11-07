@@ -141,13 +141,25 @@ final readonly class Hub
     }
 
     /**
-     * The switches of decision 0283: only "status" works for now.
+     * The switches of decision 0283: "status" and "login" (decision 0322)
+     * work, "packages" comes with F1.
      *
      * @return array{status: bool, packages: bool, login: bool}
      */
-    public static function switches(bool $status): array
+    public static function switches(bool $status, bool $login = false): array
     {
-        return ['status' => $status, 'packages' => false, 'login' => false];
+        return ['status' => $status, 'packages' => false, 'login' => $login];
+    }
+
+    /**
+     * How people know the hub: "hub.frootbox.de" reads as "frootbox.de"
+     * (decision 0288).
+     */
+    public static function name(string $hubUrl): string
+    {
+        $host = parse_url($hubUrl, \PHP_URL_HOST);
+
+        return \is_string($host) ? (string) preg_replace('~^hub\.~', '', $host) : $hubUrl;
     }
 
     public function details(): HubDetails
@@ -185,10 +197,11 @@ final readonly class Hub
             connectionId: $connected ? $connection->connectionId : null,
             organization: $connected ? $connection->organization : null,
             connectedAt: $connected ? $connection->connectedAt?->format(\DATE_ATOM) : null,
-            switches: self::switches($connected && $connection->status),
+            switches: self::switches($connected && $connection->status, $connected && $connection->login),
             publicKey: $connection?->publicKey,
             statusUrl: $connected && $connection->status && null !== $siteUrl ? $siteUrl . '/api/v1/status.show' : null,
             lastPoll: $lastPoll?->format(\DATE_ATOM),
+            loginMaxRole: $connected && $connection->login ? $connection->loginMaxRole : null,
         );
     }
 }
