@@ -174,7 +174,7 @@ final class EditModeTest extends NotesTestCase
         self::assertStringContainsString('<fb-field data-fb-field="text" data-fb-type="richtext" data-fb-label="Text" data-fb-optional data-fb-headings="3" data-fb-heading-flow="{&quot;wanted&quot;:[1,2,3],&quot;open&quot;:[],&quot;floor&quot;:1,&quot;main&quot;:false}" tabindex="0"></fb-field></article>', $html, 'Next to others it keeps the wrapper.');
         self::assertStringContainsString('<li><fb-field data-fb-field="slides/0/title" data-fb-type="headline" data-fb-label="Title" data-fb-placeholder="Slide title" tabindex="0" data-fb-value="&quot;Eins&quot;">Eins</fb-field><fb-field data-fb-field="slides/0/link"', $html);
         self::assertStringContainsString('data-fb-field="slides/1/title"', $html);
-        self::assertStringContainsString('<fb-area data-fb-area="main" data-fb-empty></fb-area>', $this->html('/ueber-uns', $this->admin));
+        self::assertStringContainsString('<fb-area data-fb-area="main" data-fb-label="Main" data-fb-hint="Insert a block" data-fb-empty></fb-area>', $this->html('/ueber-uns', $this->admin), 'Named, with what a click does.');
     }
 
     public function testMarksLightlyInAPreview(): void

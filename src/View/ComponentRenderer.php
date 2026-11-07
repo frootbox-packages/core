@@ -211,7 +211,13 @@ final readonly class ComponentRenderer
             $html .= null === $component ? $rendered : $this->markup->block($rendered, $block, $component, $name);
         }
 
-        return $marking && '' === $html ? $this->markup->emptyArea($name) : $html;
+        if (!$marking || '' !== $html) {
+            return $html;
+        }
+
+        $labels = $this->service(Labels::class);
+
+        return $this->markup->emptyArea($name, $labels->component($frame->component)->areas[$name]->label, $labels->text('Insert a block'));
     }
 
     /**

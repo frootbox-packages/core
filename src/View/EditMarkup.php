@@ -176,10 +176,16 @@ final readonly class EditMarkup
     }
 
     /**
-     * Holds the place of an area without blocks.
+     * Holds the place of an area without blocks: its name for the label
+     * and what a click does, in the language of the backend.
      */
-    public function emptyArea(string $area): string
+    public function emptyArea(string $area, string $label = '', string $hint = ''): string
     {
-        return \sprintf('<fb-area data-fb-area="%s" data-fb-empty></fb-area>', Html::escape($area));
+        return \sprintf(
+            '<fb-area data-fb-area="%s"%s%s data-fb-empty></fb-area>',
+            Html::escape($area),
+            '' === $label ? '' : ' data-fb-label="' . Html::escape($label) . '"',
+            '' === $hint ? '' : ' data-fb-hint="' . Html::escape($hint) . '"',
+        );
     }
 }

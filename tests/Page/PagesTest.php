@@ -170,7 +170,7 @@ final class PagesTest extends NotesTestCase
 
         $this->assertInvalid([
             '/translations/de/content/fields' => 'Unknown fields: nope',
-            '/translations/de/content/options/x' => 'is not an option of this variant. Options: none.',
+            '/translations/de/content/options/x' => 'is not an option, this variant has none.',
             '/translations/de/content/areas/side' => 'acme/base/Page has no area "side". Areas: main.',
             '/translations/de/content/areas/main/0/areas/left/0/block' => 'acme/site/Hero is not allowed in the area "left". Allowed: acme/base/Teaser, acme/news/List, acme/base/Badge.',
             '/translations/de/content/areas/main/1/options/rounded' => 'must be a valid boolean.',

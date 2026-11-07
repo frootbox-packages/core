@@ -256,7 +256,7 @@ final class ObjectFields
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, string|Message>
      */
     private function errors(ObjectField $field, mixed $value, string $at): array
     {
@@ -264,7 +264,7 @@ final class ObjectFields
         $schema = ['type' => 'object', 'properties' => ['value' => ContentValidator::withoutMinimums($type->valueSchema($field->field))]];
         $errors = [];
 
-        foreach ($this->validator->errors($schema, ['value' => $value]) as $path => $message) {
+        foreach ($this->validator->messages($schema, ['value' => $value]) as $path => $message) {
             $errors[$at . substr($path, \strlen('/value'))] = $message;
         }
 

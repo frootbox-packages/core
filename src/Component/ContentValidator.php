@@ -10,6 +10,7 @@ namespace Frootbox\Core\Component;
 
 use Frootbox\Core\Action\Schema\InputValidator;
 use Frootbox\Core\Field\FieldTypes;
+use Frootbox\Core\Support\Message;
 
 /**
  * Checks the content of a layout with its blocks against their
@@ -47,7 +48,7 @@ final readonly class ContentValidator
     /**
      * @param mixed $stored The content as it is stored, to keep what is orphaned in it
      *
-     * @return array{array<string, mixed>, array<string, string>} The content with block ids, and messages by JSON pointer
+     * @return array{array<string, mixed>, array<string, string|Message>} The content with block ids, and messages by JSON pointer
      */
     public function check(Component $layout, ?string $variant, mixed $content, bool $complete, mixed $stored = null): array
     {
@@ -77,7 +78,7 @@ final readonly class ContentValidator
 
     /**
      * @param array<mixed>          $data
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      * @param array<string, true>   $ids
      * @param list<string>          $keys
      * @param array<mixed>          $stored The same block or layout as stored, or [] for a new one
@@ -90,13 +91,13 @@ final readonly class ContentValidator
         $unknown = array_diff(array_map(strval(...), array_keys($data)), $keys);
 
         if ([] !== $unknown) {
-            $errors['' === $pointer ? '/' : $pointer] = \sprintf('Unknown keys: %s. Allowed: %s.', implode(', ', $unknown), implode(', ', $keys));
+            $errors['' === $pointer ? '/' : $pointer] = new Message('Unknown keys: {keys}. Allowed: {allowed}.', ['keys' => implode(', ', $unknown), 'allowed' => implode(', ', $keys)]);
         }
 
         $checked = [];
 
         if (null !== $variant && !isset($component->variants[$variant]) && $variant !== ($stored['variant'] ?? null)) {
-            $errors[$pointer . '/variant'] = \sprintf('%s has no variant "%s". Variants: %s.', $component->name, $variant, implode(', ', array_keys($component->variants)));
+            $errors[$pointer . '/variant'] = new Message('{component} has no variant "{variant}". Variants: {variants}.', ['component' => $component->name, 'variant' => $variant, 'variants' => implode(', ', array_keys($component->variants))]);
         }
 
         $options = $this->options($component->variant($variant), $data['options'] ?? [], $pointer . '/options', $errors, self::map($stored['options'] ?? null));
@@ -113,7 +114,7 @@ final readonly class ContentValidator
     }
 
     /**
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      * @param array<string, mixed>  $stored
      *
      * @return array<string, mixed>
@@ -135,11 +136,13 @@ final readonly class ContentValidator
             if ((null === $option || !$option->accepts($value)) && self::unchanged($stored, $name, $value)) {
                 $checked[$name] = $value;
             } elseif (null === $option) {
-                $errors[$pointer . '/' . $name] = \sprintf('is not an option of this variant. Options: %s.', [] === $variant->options ? 'none' : implode(', ', array_keys($variant->options)));
+                $errors[$pointer . '/' . $name] = [] === $variant->options
+                    ? new Message('is not an option, this variant has none.')
+                    : new Message('is not an option of this variant. Options: {options}.', ['options' => implode(', ', array_keys($variant->options))]);
             } elseif (!$option->accepts($value)) {
                 $errors[$pointer . '/' . $name] = 'choice' === $option->type
-                    ? \sprintf('must be one of %s.', implode(', ', array_keys($option->choices)))
-                    : \sprintf('must be a valid %s.', $option->type);
+                    ? new Message('must be one of {choices}.', ['choices' => implode(', ', array_keys($option->choices))])
+                    : new Message('must be a valid {type}.', ['type' => $option->type]);
             } else {
                 $checked[$name] = $value;
             }
@@ -149,7 +152,7 @@ final readonly class ContentValidator
     }
 
     /**
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      * @param array<string, mixed>  $stored
      *
      * @return array<string, mixed>
@@ -176,7 +179,7 @@ final readonly class ContentValidator
         }
 
         $schema = $complete ? $this->types->schemaForPublishing($component->fields, $values) : self::withoutMinimums($this->types->schemaFor($component->fields));
-        $found = $this->validator->errors($schema, $values)
+        $found = $this->validator->messages($schema, $values)
             + $this->types->validate($component->fields, $values);
 
         foreach ($found as $path => $message) {
@@ -187,7 +190,7 @@ final readonly class ContentValidator
     }
 
     /**
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      * @param array<string, true>   $ids
      * @param array<string, mixed>  $stored
      * @param array<string, mixed>  $before
@@ -216,7 +219,9 @@ final readonly class ContentValidator
                 /** @var list<array<string, mixed>> $blocks */
                 $orphaned[$name] = $blocks;
             } else {
-                $errors[$pointer . '/' . $name] = \sprintf('%s has no area "%s". Areas: %s.', $component->name, $name, [] === $component->areas ? 'none' : implode(', ', array_keys($component->areas)));
+                $errors[$pointer . '/' . $name] = [] === $component->areas
+                    ? new Message('{component} has no areas.', ['component' => $component->name])
+                    : new Message('{component} has no area "{area}". Areas: {areas}.', ['component' => $component->name, 'area' => $name, 'areas' => implode(', ', array_keys($component->areas))]);
             }
         }
 
@@ -230,11 +235,11 @@ final readonly class ContentValidator
             }
 
             if (null !== $area->max && \count($blocks) > $area->max) {
-                $errors[$pointer . '/' . $name] = \sprintf('may contain at most %d blocks.', $area->max);
+                $errors[$pointer . '/' . $name] = new Message('may contain at most {max} blocks.', ['max' => $area->max]);
             }
 
             if ($complete && null !== $area->min && \count($blocks) < $area->min) {
-                $errors[$pointer . '/' . $name] = \sprintf('needs at least %d blocks.', $area->min);
+                $errors[$pointer . '/' . $name] = new Message('needs at least {min} blocks.', ['min' => $area->min]);
             }
 
             $list = [];
@@ -256,7 +261,7 @@ final readonly class ContentValidator
     }
 
     /**
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      * @param array<string, true>   $ids
      * @param array<string, mixed>  $before
      *
@@ -287,19 +292,19 @@ final readonly class ContentValidator
                 return $stored;
             }
 
-            $errors[$pointer . '/block'] = \sprintf('there is no block "%s".', $name);
+            $errors[$pointer . '/block'] = new Message('there is no block "{block}".', ['block' => $name]);
 
             return null;
         }
 
         if ($component->plugin) {
-            $errors[$pointer . '/block'] = \sprintf('%s is the view of a plugin. It goes into no area, the page shows it when it shows a space of the plugin.', $name);
+            $errors[$pointer . '/block'] = new Message('{block} is the view of a plugin. It goes into no area, the page shows it when it shows a space of the plugin.', ['block' => $name]);
         }
 
         if (!$area->allows($name, $component->widget)) {
             $errors[$pointer . '/block'] = null === $area->allow
-                ? \sprintf('%s is a widget and only goes into areas that allow it by name, e.g. the columns of a section.', $name)
-                : \sprintf('%s is not allowed in the area "%s". Allowed: %s.', $name, $area->name, implode(', ', $area->allow));
+                ? new Message('{block} is a widget and only goes into areas that allow it by name, e.g. the columns of a section.', ['block' => $name])
+                : new Message('{block} is not allowed in the area "{area}". Allowed: {allowed}.', ['block' => $name, 'area' => $area->name, 'allowed' => implode(', ', $area->allow)]);
         }
 
         $variant = $block['variant'] ?? null;
@@ -319,7 +324,7 @@ final readonly class ContentValidator
      * The view of the plugin a page shows (decision 0232): a block with
      * "plugin: true", outside the areas.
      *
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      * @param array<string, true>   $ids
      * @param array<string, mixed>  $before
      *
@@ -353,7 +358,7 @@ final readonly class ContentValidator
     /**
      * The given id if it is valid and unused, otherwise a new one.
      *
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      * @param array<string, true>   $ids
      */
     private function id(mixed $id, string $pointer, array &$errors, array &$ids): string
@@ -362,7 +367,7 @@ final readonly class ContentValidator
             if (!\is_string($id) || 1 !== preg_match('/' . self::ID_PATTERN . '/', $id)) {
                 $errors[$pointer] = 'must be 8 characters a-z and 0-9, or be left out for a new block.';
             } elseif (isset($ids[$id])) {
-                $errors[$pointer] = \sprintf('"%s" is used by another block of this content.', $id);
+                $errors[$pointer] = new Message('"{id}" is used by another block of this content.', ['id' => $id]);
             } else {
                 return $this->claim($id, $ids);
             }
@@ -394,7 +399,7 @@ final readonly class ContentValidator
      * False, with an error, if one is used already.
      *
      * @param array<mixed>          $blocks
-     * @param array<string, string> $errors
+     * @param array<string, string|Message> $errors
      * @param array<string, true>   $ids
      */
     private function claimAll(array $blocks, string $pointer, array &$errors, array &$ids): bool
@@ -404,7 +409,7 @@ final readonly class ContentValidator
 
         foreach (array_keys($found) as $id) {
             if (isset($ids[$id])) {
-                $errors[$pointer] = \sprintf('"%s" is used by another block of this content.', $id);
+                $errors[$pointer] = new Message('"{id}" is used by another block of this content.', ['id' => $id]);
 
                 return false;
             }

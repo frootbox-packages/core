@@ -11,6 +11,7 @@ namespace Frootbox\Core\Field\Types;
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\ObjectOnly;
+use Frootbox\Core\Support\Message;
 use Frootbox\Core\View\Delivery;
 use LogicException;
 use NumberFormatter;
@@ -59,7 +60,7 @@ final readonly class NumberType implements ObjectOnly
         $decimals = self::decimals($field);
 
         if (\is_float($value) && abs(round($value, $decimals) - $value) > 1e-9) {
-            return ['' => \sprintf('may have at most %d decimal places.', $decimals)];
+            return ['' => new Message('may have at most {decimals} decimal places.', ['decimals' => $decimals])];
         }
 
         return [];

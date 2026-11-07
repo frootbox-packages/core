@@ -261,6 +261,16 @@ final class UserActionsTest extends NotesTestCase
         self::assertSame([], $this->get(RoleAssignments::class)->rolesOf($user->id));
     }
 
+    public function testKeepsTheNameForCreatingARoleFree(): void
+    {
+        try {
+            $this->runner()->run(new CreateRole('new', 'Neu'));
+            self::fail('The role took the address of the form for a new one.');
+        } catch (InvalidInputException $error) {
+            self::assertSame(['/name' => 'is reserved. Choose another name.'], $error->errors);
+        }
+    }
+
     public function testRejectsInvalidPermissionRules(): void
     {
         try {

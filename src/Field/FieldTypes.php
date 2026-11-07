@@ -10,6 +10,7 @@ namespace Frootbox\Core\Field;
 
 use Frootbox\Core\Action\DefinitionException;
 use Frootbox\Core\Component\ContentValidator;
+use Frootbox\Core\Support\Message;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
 
@@ -159,7 +160,7 @@ final class FieldTypes
      * @param array<string, Field> $fields
      * @param array<mixed>         $values
      *
-     * @return array<string, string> Message by JSON pointer, e.g. "/button/url"
+     * @return array<string, string|Message> Message by JSON pointer, e.g. "/button/url"
      */
     public function validate(array $fields, array $values): array
     {

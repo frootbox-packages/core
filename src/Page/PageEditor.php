@@ -18,6 +18,7 @@ use Frootbox\Core\Media\MediaReferences;
 use Frootbox\Core\Media\UsageIndex;
 use Frootbox\Core\Revision\RevisionStore;
 use Frootbox\Core\Routing\Router;
+use Frootbox\Core\Support\Message;
 use Frootbox\Core\Support\SortKey;
 use Frootbox\Core\Url\AddressSync;
 use Frootbox\Database\EntityNotFoundException;
@@ -440,7 +441,7 @@ final readonly class PageEditor
      *
      * @param array<string, PageNode> $nodes
      *
-     * @return array{PageData, array<string, string>} The page, and messages by JSON pointer
+     * @return array{PageData, array<string, string|Message>} The page, and messages by JSON pointer
      */
     private function check(string $id, PageData $data, array $nodes, bool $complete): array
     {

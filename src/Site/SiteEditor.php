@@ -158,7 +158,7 @@ final readonly class SiteEditor
         foreach ($this->languages->codes() as $code) {
             $values = $this->site->merged($stored, $code);
 
-            foreach ($this->validator->errors($this->types->schemaForPublishing($fields, $values), $values) + $this->types->validate($fields, $values) as $pointer => $message) {
+            foreach ($this->validator->messages($this->types->schemaForPublishing($fields, $values), $values) + $this->types->validate($fields, $values) as $pointer => $message) {
                 $errors['/languages/' . $code . ('/' === $pointer ? '' : $pointer)] = $message;
             }
         }
@@ -214,7 +214,7 @@ final readonly class SiteEditor
     private function save(string $action, Theme $theme, array $languages, array $own, string $pointer): void
     {
         $fields = $this->site->fields();
-        $found = $this->validator->errors(ContentValidator::withoutMinimums($this->types->schemaFor($fields)), $own) + $this->types->validate($fields, $own);
+        $found = $this->validator->messages(ContentValidator::withoutMinimums($this->types->schemaFor($fields)), $own) + $this->types->validate($fields, $own);
 
         if ([] !== $found) {
             $errors = [];

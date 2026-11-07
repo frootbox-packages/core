@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Field;
 
+use Frootbox\Core\Support\Message;
+
 /**
  * A kind of content field, e.g. a headline or a list. Register it with
  * $registry->fieldType() and name it with #[AsFieldType].
@@ -32,7 +34,7 @@ interface FieldType
     /**
      * Checks the JSON schema cannot express. The value already fits the schema.
      *
-     * @return array<string, string> Message by JSON pointer below the value, e.g. "/url"
+     * @return array<string, string|Message> Message by JSON pointer below the value, e.g. "/url", a Message to translate one with values
      */
     public function validate(mixed $value, Field $field): array;
 

@@ -24,6 +24,9 @@ use Frootbox\Core\Auth\Hierarchy;
 #[AsAction('role.create', 'Creates a role that bundles permissions')]
 final readonly class CreateRole implements Action
 {
+    /** Names the surfaces need for creating a role, e.g. /cms/roles/new. */
+    public const array RESERVED = ['new'];
+
     /**
      * @param list<string> $permissions
      */
@@ -45,6 +48,10 @@ final readonly class CreateRole implements Action
     public function handle(Roles $roles, Hierarchy $hierarchy): Role
     {
         $hierarchy->assertMayChangeRole($this->name, $this->level);
+
+        if (\in_array($this->name, self::RESERVED, true)) {
+            throw new InvalidInputException('role.create', ['/name' => 'is reserved. Choose another name.']);
+        }
 
         if (null !== $roles->findByName($this->name)) {
             throw new InvalidInputException('role.create', ['/name' => 'is already in use.']);
