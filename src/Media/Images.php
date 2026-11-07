@@ -54,9 +54,11 @@ final class Images
      * Checks a file and writes it as original: turned upright by its EXIF
      * data, without metadata, an animation reduced to its first picture.
      *
+     * @param int|null $maxEdge Pixels of the longer side at most, null for the size of the file (decision 0328)
+     *
      * @return array{type: string, width: int, height: int, size: int}|Message The facts or why not
      */
-    public function prepare(string $source, string $target): array|Message
+    public function prepare(string $source, string $target, ?int $maxEdge = null): array|Message
     {
         $type = (string) new \finfo(\FILEINFO_MIME_TYPE)->file($source);
 
@@ -82,6 +84,11 @@ final class Images
 
         try {
             $image = $this->manager()->decodePath($source);
+
+            if (null !== $maxEdge && max($image->width(), $image->height()) > $maxEdge) {
+                $image->scaleDown($maxEdge, $maxEdge);
+            }
+
             $format = 'image/gif' === $type ? Format::PNG : Format::create($type);
             $image->encodeUsingFormat($format, ...('image/png' === $type || 'image/gif' === $type ? [] : ['quality' => 92]))->save($target);
         } catch (Throwable) {
@@ -94,6 +101,23 @@ final class Images
             'height' => $image->height(),
             'size' => (int) filesize($target),
         ];
+    }
+
+    /**
+     * The longer side prepare() gives an image file, null for a file it
+     * does not change in size (SVG) or cannot read.
+     */
+    public static function longerSide(string $path, ?int $maxEdge = null): ?int
+    {
+        $size = self::isImage($path) ? @getimagesize($path) : false;
+
+        if (false === $size || $size[0] < 1 || $size[1] < 1) {
+            return null;
+        }
+
+        $side = max($size[0], $size[1]);
+
+        return null === $maxEdge ? $side : min($side, $maxEdge);
     }
 
     public static function notAnImage(): Message

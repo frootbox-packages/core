@@ -53,10 +53,11 @@ final readonly class MediaEditor
      * @param list<string> $tags
      * @param string|null  $copyright Null takes the one from the file, if it has one (decision 0203)
      * @param AiOrigin|null $ai       Null takes the one from the file (decision 0251)
+     * @param int|null      $maxEdge  Pixels of the longer side of an image at most, null for the size of the file (decision 0328)
      *
      * @throws InvalidInputException
      */
-    public function create(string $action, string $upload, ?string $folderId, array $texts, array $tags, ?string $copyright = null, ?AiOrigin $ai = null): MediumDetails
+    public function create(string $action, string $upload, ?string $folderId, array $texts, array $tags, ?string $copyright = null, ?AiOrigin $ai = null, ?int $maxEdge = null): MediumDetails
     {
         $path = $this->uploads->path($upload);
         $errors = null === $path ? ['/upload' => 'There is no upload with this token (any more). Upload the file first.'] : [];
@@ -83,7 +84,7 @@ final readonly class MediaEditor
         // Read before the metadata go with preparing the original.
         $copyright = self::cleanCopyright($copyright ?? Images::copyright($path));
         $ai ??= Images::aiOrigin($path);
-        $facts = $this->prepare($path, $this->files->target($id), null, $this->uploads->name($upload));
+        $facts = $this->prepare($path, $this->files->target($id), null, $this->uploads->name($upload), $maxEdge);
 
         if ($facts instanceof Message) {
             $this->files->drop($id);
@@ -192,12 +193,15 @@ final readonly class MediaEditor
      * Gives the medium a new file (decisions 0146, 0147): same id, new
      * original, the focus point stays. A public medium gets it in its
      * draft. Uploading the published file again takes a new file out of
-     * the draft.
+     * the draft. The same file counts as new when it comes out in another
+     * size, e.g. with another $maxEdge (decision 0328).
+     *
+     * @param int|null $maxEdge Pixels of the longer side of an image at most, null for the size of the file
      *
      * @throws InvalidInputException
      * @throws EntityNotFoundException
      */
-    public function replace(string $action, string $id, string $upload): MediumDetails
+    public function replace(string $action, string $id, string $upload, ?int $maxEdge = null): MediumDetails
     {
         $medium = $this->media->getById($id);
         $path = $this->uploads->path($upload);
@@ -209,7 +213,11 @@ final readonly class MediaEditor
         $draft = $this->drafts->of($id);
         $hash = $this->uploads->hash($upload);
 
-        if (null !== $hash && $hash === ($draft['file']['hash'] ?? $medium->hash)) {
+        // The file would come out as the one the medium has, in its size.
+        $same = static fn(?string $other, int $width, int $height): bool => null !== $hash && $hash === $other
+            && \in_array(Images::longerSide($path, $maxEdge), [null, max($width, $height)], true);
+
+        if ($same($draft['file']['hash'] ?? $medium->hash, $draft['file']['width'] ?? $medium->width, $draft['file']['height'] ?? $medium->height)) {
             throw new InvalidInputException($action, ['/upload' => 'The medium has this file already.']);
         }
 
@@ -219,7 +227,7 @@ final readonly class MediaEditor
             throw new InvalidInputException($action, ['/upload' => new Message('The file is in the media library already, as "{name}".', ['name' => $other->fileName])]);
         }
 
-        if (null !== $draft && null !== $draft['file'] && $hash === $medium->hash) {
+        if (null !== $draft && null !== $draft['file'] && $same($medium->hash, $medium->width, $medium->height)) {
             $this->files->release($draft['file']['name']);
             $draft['file'] = null;
             $this->uploads->remove($upload);
@@ -232,7 +240,7 @@ final readonly class MediaEditor
         // A new file made with AI says so; one without takes no label away (decision 0251).
         $ai = Images::aiOrigin($path);
         $ai = AiOrigin::None === $ai ? null : $ai;
-        $facts = $this->prepare($path, $this->files->target($name), $medium->kind(), $this->uploads->name($upload));
+        $facts = $this->prepare($path, $this->files->target($name), $medium->kind(), $this->uploads->name($upload), $maxEdge);
 
         if ($facts instanceof Message) {
             $this->files->drop($name);
@@ -711,11 +719,12 @@ final readonly class MediaEditor
      * Writes the original of an image, video or document.
      *
      * @param string|null $kind "image", "video" or "document" when the file has to be of that kind
-     * @param string      $name The name of the uploaded file, it tells documents apart (decision 0179)
+     * @param string      $name    The name of the uploaded file, it tells documents apart (decision 0179)
+     * @param int|null    $maxEdge Pixels of the longer side of an image at most (decision 0328)
      *
      * @return array{type: string, codec: string, width: int, height: int, size: int}|Message
      */
-    private function prepare(string $path, string $target, ?string $kind, string $name): array|Message
+    private function prepare(string $path, string $target, ?string $kind, string $name, ?int $maxEdge = null): array|Message
     {
         $found = match (true) {
             Videos::isVideo($path) => 'video',
@@ -745,7 +754,7 @@ final readonly class MediaEditor
         }
 
         if ('image' === $found) {
-            $facts = $this->images->prepare($path, $target);
+            $facts = $this->images->prepare($path, $target, $maxEdge);
 
             return $facts instanceof Message ? $facts : [...$facts, 'codec' => ''];
         }

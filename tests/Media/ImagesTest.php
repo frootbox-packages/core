@@ -47,4 +47,35 @@ final class ImagesTest extends TestCase
         self::assertTrue($images->supports('jpg'));
         self::assertFalse($images->supports('gif'));
     }
+
+    public function testShrinksAnOriginalToALongerSide(): void
+    {
+        // Decision 0328: at most the longer side asked for, never larger.
+        $images = new Images();
+        $target = $this->file . '.out';
+
+        try {
+            self::assertSame([32, 24], $this->dimensions($images->prepare($this->file, $target, 32)));
+            self::assertSame(32, Images::longerSide($this->file, 32));
+            self::assertSame([64, 48], $this->dimensions($images->prepare($this->file, $target, 100)));
+            self::assertSame(64, Images::longerSide($this->file, 100));
+            self::assertSame([64, 48], $this->dimensions($images->prepare($this->file, $target)));
+            self::assertSame(64, Images::longerSide($this->file));
+            self::assertNull(Images::longerSide(__FILE__, 32));
+        } finally {
+            @unlink($target);
+        }
+    }
+
+    /**
+     * @param array<string, mixed>|object $facts
+     *
+     * @return list<mixed>
+     */
+    private function dimensions(array|object $facts): array
+    {
+        self::assertIsArray($facts);
+
+        return [$facts['width'], $facts['height']];
+    }
 }
