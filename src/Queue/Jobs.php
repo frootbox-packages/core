@@ -85,6 +85,24 @@ final readonly class Jobs
         return self::number($this->due($now)->select('COUNT(*)')->executeQuery()->fetchOne());
     }
 
+    /**
+     * Whether a job of this name waits, due or later, and is not running.
+     */
+    public function waiting(string $name, DateTimeImmutable $now): bool
+    {
+        return false !== $this->connection->createQueryBuilder()
+            ->select('id')
+            ->from(self::TABLE)
+            ->where('name = :name')
+            ->andWhere('failed_at IS NULL')
+            ->andWhere('(locked_until IS NULL OR locked_until < :now)')
+            ->setParameter('name', $name)
+            ->setParameter('now', $now->format(Values::DATE_FORMAT))
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchOne();
+    }
+
     public function countFailed(): int
     {
         return self::number($this->connection->createQueryBuilder()

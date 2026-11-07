@@ -46,4 +46,16 @@ final readonly class Queue
             $attribute->attempts,
         )->id;
     }
+
+    /**
+     * Like push(), unless a job of the same name waits already and has not
+     * started; one that runs now does not count, it may have read its data
+     * already.
+     *
+     * @return string|null the id of the job, null if one waits already
+     */
+    public function pushOnce(Job $job, int $delay = 0): ?string
+    {
+        return $this->jobs->waiting(JobClasses::attribute($job::class)->name, new DateTimeImmutable()) ? null : $this->push($job, $delay);
+    }
 }

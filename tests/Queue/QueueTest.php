@@ -121,6 +121,25 @@ final class QueueTest extends NotesTestCase
         self::assertSame('waiting', $this->runner()->ask(new ListJobs())->jobs[0]->state);
     }
 
+    public function testPushOnceLeavesAWaitingJobAlone(): void
+    {
+        $queue = $this->get(Queue::class);
+        $push = fn(): ?string => $this->get(CurrentContext::class)->runAs(Context::system(), fn(): ?string => $queue->pushOnce(new SendNote(1), 600));
+
+        $first = $push();
+
+        self::assertNotNull($first);
+        self::assertNull($push(), 'One waits already.');
+
+        // A running one may have read its data already: another one waits.
+        $job = $this->get(Jobs::class)->find($first);
+        self::assertNotNull($job);
+        $now = new DateTimeImmutable();
+        $this->get(Jobs::class)->claim($job, $now, $now->modify('+5 minutes'));
+
+        self::assertNotNull($push());
+    }
+
     public function testAJobOfARemovedExtensionFails(): void
     {
         $id = $this->runner()->run(new QueueNote(1));
