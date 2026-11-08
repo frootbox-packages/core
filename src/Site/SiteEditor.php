@@ -13,6 +13,7 @@ use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Schema\InputValidator;
 use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Component\FieldSummary;
+use Frootbox\Core\Field\Blank;
 use Frootbox\Core\Field\EntryKey;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
@@ -23,6 +24,7 @@ use Frootbox\Core\Media\MediaReferences;
 use Frootbox\Core\Media\UsageIndex;
 use Frootbox\Core\Page\ContentField;
 use Frootbox\Core\Revision\Revisions;
+use Frootbox\Core\Revision\RevisionStatus;
 use Frootbox\Core\Revision\RevisionStore;
 use Frootbox\Core\Support\Message;
 use Frootbox\Core\Theme\Theme;
@@ -68,7 +70,79 @@ final readonly class SiteEditor
             $values[$code] = $this->site->merged($stored, $code);
         }
 
-        return new SiteDetails($theme->name, null !== $draft, $published?->version, FieldSummary::all($this->site->translated()), $values, $this->protection->status());
+        $own = [];
+
+        foreach ($this->languages->codes() as $code) {
+            $own[$code] = $stored[$code] ?? [];
+        }
+
+        return new SiteDetails($theme->name, null !== $draft, $published?->version, FieldSummary::all($this->site->translated()), $values, $this->protection->status(), $own);
+    }
+
+    /**
+     * The published versions, the newest first (decision 0348).
+     *
+     * @return list<SiteVersion>
+     */
+    public function versions(): array
+    {
+        $theme = $this->themes->active();
+
+        if (null === $theme) {
+            return [];
+        }
+
+        $versions = [];
+
+        foreach ($this->revisions->versions(SiteFields::TYPE, $theme->name) as $revision) {
+            $versions[] = new SiteVersion(
+                $revision->version ?? 0,
+                RevisionStatus::Published === $revision->status,
+                $revision->publishedAt ?? $revision->createdAt,
+                $revision->authorId,
+                $revision->channel,
+            );
+        }
+
+        return $versions;
+    }
+
+    /**
+     * Makes a new draft from an earlier version; values of fields the
+     * theme no longer has are left out (decision 0348).
+     *
+     * @throws InvalidInputException
+     */
+    public function restore(string $action, int $version): SiteDetails
+    {
+        $theme = $this->theme($action);
+        $old = $this->revisions->version(SiteFields::TYPE, $theme->name, $version);
+
+        if (null === $old || null === $old->version) {
+            throw new InvalidInputException($action, ['/version' => new Message('The fields of the website have no version {version}.', ['version' => $version])]);
+        }
+
+        $fields = $this->site->fields();
+        $languages = [];
+
+        foreach (SiteFields::languages($old) as $code => $values) {
+            if ($this->languages->has($code)) {
+                $languages[$code] = array_intersect_key($values, $fields);
+            }
+        }
+
+        $languages = array_filter($languages, static fn(array $values): bool => [] !== $values);
+        $published = SiteFields::languages($this->revisions->published(SiteFields::TYPE, $theme->name));
+
+        if (ContentField::same($languages, $published)) {
+            $this->store->discard(SiteFields::TYPE, $theme->name);
+        } else {
+            $this->store->saveDraft(SiteFields::TYPE, $theme->name, ['languages' => $languages]);
+        }
+
+        $this->usages->site();
+
+        return $this->details();
     }
 
     /**
@@ -87,7 +161,8 @@ final readonly class SiteEditor
         $own = $languages[$language] ?? [];
 
         foreach ($fields as $name => $value) {
-            $own = self::named(self::put($own, [(string) $name], $value));
+            // Empty is no value of its own, e.g. a field of a form left empty (decision 0348).
+            $own = self::named(self::put($own, [(string) $name], self::empty($value) ? null : $value));
         }
 
         $languages[$language] = $own;
@@ -354,6 +429,21 @@ final readonly class SiteEditor
         }
 
         return $named;
+    }
+
+    /**
+     * Whether a value holds nothing an editor entered, the kinds of nodes
+     * of rich text not counted: {"type": "doc", "content": [{"type": "paragraph"}]}.
+     */
+    private static function empty(mixed $value): bool
+    {
+        if (!\is_array($value)) {
+            return Blank::is($value);
+        }
+
+        unset($value['type']);
+
+        return [] === array_filter($value, static fn(mixed $item): bool => !self::empty($item));
     }
 
     /**

@@ -257,9 +257,11 @@ use Frootbox\Core\Settings\StoredSettings;
 use Frootbox\Core\Settings\UpdateSettings;
 use Frootbox\Core\Site\DiscardSite;
 use Frootbox\Core\Site\EnterSite;
+use Frootbox\Core\Site\ListSiteVersions;
 use Frootbox\Core\Site\Protections;
 use Frootbox\Core\Site\ProtectSite;
 use Frootbox\Core\Site\PublishSite;
+use Frootbox\Core\Site\RestoreSite;
 use Frootbox\Core\Site\ShowProtection;
 use Frootbox\Core\Site\ShowSite;
 use Frootbox\Core\Site\UnprotectSite;
@@ -477,11 +479,12 @@ final class CoreExtension implements Extension
         $registry->query(ListDesignVersions::class);
 
         // Fields of the website (decision 0128).
-        foreach ([UpdateSiteField::class, UpdateSite::class, PublishSite::class, DiscardSite::class, ProtectSite::class, UnprotectSite::class, EnterSite::class] as $action) {
+        foreach ([UpdateSiteField::class, UpdateSite::class, PublishSite::class, DiscardSite::class, RestoreSite::class, ProtectSite::class, UnprotectSite::class, EnterSite::class] as $action) {
             $registry->action($action);
         }
 
         $registry->query(ShowSite::class);
+        $registry->query(ListSiteVersions::class);
         $registry->query(ShowProtection::class);
         $registry->sensitive(Protections::TABLE, 'password_hash');
 

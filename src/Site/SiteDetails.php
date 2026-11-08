@@ -30,5 +30,13 @@ final readonly class SiteDetails
         public array $values,
         /** Whether a password protects the website (decisions 0153, 0154) */
         public ?ProtectionStatus $protection = null,
+        /**
+         * The values each language has itself, without those of the first
+         * language (decision 0348); a field missing here shows the first
+         * language's value.
+         *
+         * @var array<string, array<string, mixed>>
+         */
+        public array $own = [],
     ) {}
 }

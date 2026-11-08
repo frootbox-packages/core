@@ -31,6 +31,13 @@ final readonly class FieldSummary
         public ?int $min = null,
         public ?int $max = null,
         public bool $caption = false,
+        /**
+         * The settings of its type, e.g. multiline or maxLength, so a form
+         * picks the right input (decision 0348).
+         *
+         * @var array<string, mixed>
+         */
+        public array $settings = [],
     ) {}
 
     public static function of(Field $field): self
@@ -46,6 +53,7 @@ final readonly class FieldSummary
             [] === $field->fields ? null : $field->intSetting('min'),
             [] === $field->fields ? null : $field->intSetting('max'),
             'image' === $field->type && true === $field->setting('caption'),
+            $field->settings,
         );
     }
 

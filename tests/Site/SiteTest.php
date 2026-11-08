@@ -29,7 +29,9 @@ use Frootbox\Core\Page\PageHandler;
 use Frootbox\Core\Page\PageOutline;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Site\DiscardSite;
+use Frootbox\Core\Site\ListSiteVersions;
 use Frootbox\Core\Site\PublishSite;
+use Frootbox\Core\Site\RestoreSite;
 use Frootbox\Core\Site\ShowSite;
 use Frootbox\Core\Site\SiteEditor;
 use Frootbox\Core\Site\SiteFields;
@@ -52,6 +54,8 @@ use Psr\Http\Message\ResponseInterface;
 #[CoversClass(UpdateSiteField::class)]
 #[CoversClass(PublishSite::class)]
 #[CoversClass(DiscardSite::class)]
+#[CoversClass(ListSiteVersions::class)]
+#[CoversClass(RestoreSite::class)]
 #[CoversClass(EditMode::class)]
 #[CoversClass(EditMarkup::class)]
 final class SiteTest extends NotesTestCase
@@ -165,6 +169,44 @@ final class SiteTest extends NotesTestCase
         $site = $this->runner()->run(new DiscardSite());
         self::assertFalse($site->draft);
         self::assertSame('Bohnenglück', $site->values['de']['brand']);
+    }
+
+    public function testRestoresAnEarlierVersion(): void
+    {
+        $this->runner()->run(new UpdateSite('de', ['brand' => 'Bohnenglück', 'address' => 'Hafenstraße 12']));
+        $this->runner()->run(new PublishSite());
+        $this->runner()->run(new UpdateSite('de', ['brand' => 'Kaffeeglück', 'address' => null]));
+        $this->runner()->run(new PublishSite());
+
+        $versions = $this->runner()->ask(new ListSiteVersions());
+        self::assertSame([2, 1], array_map(static fn($version): int => $version->version, $versions), 'The newest first.');
+        self::assertSame([true, false], array_map(static fn($version): bool => $version->current, $versions));
+
+        // Decision 0348: an earlier version becomes a new draft; visitors keep the published one.
+        $site = $this->runner()->run(new RestoreSite(1));
+        self::assertTrue($site->draft);
+        self::assertSame(['brand' => 'Bohnenglück', 'address' => 'Hafenstraße 12'], $site->values['de']);
+        self::assertSame('Kaffeeglück', $this->get(SiteFields::class)->values('de', false)['brand']);
+
+        $this->runner()->run(new UndoAction($this->lastEntry()->id));
+        self::assertFalse($this->runner()->ask(new ShowSite())->draft, 'Restoring is undoable.');
+
+        self::assertFalse($this->runner()->run(new RestoreSite(2))->draft, 'The published version needs no draft.');
+        $this->assertInvalid(fn() => $this->runner()->run(new RestoreSite(9)), '/version');
+    }
+
+    public function testTellsTheOwnValuesOfALanguageAndTakesEmptyAsNone(): void
+    {
+        $this->runner()->run(new UpdateSite('de', ['brand' => 'Bohnenglück', 'address' => 'Hafenstraße 12']));
+        $site = $this->runner()->run(new UpdateSite('en', ['brand' => 'Bean luck', 'address' => '']));
+
+        self::assertSame(['brand' => 'Bean luck'], $site->own['en'], 'An empty value is none of its own (decision 0348).');
+        self::assertSame('Hafenstraße 12', $site->values['en']['address']);
+
+        $site = $this->runner()->run(new UpdateSite('en', ['brand' => '  ', 'logo' => [], 'address' => ['type' => 'doc', 'content' => [['type' => 'paragraph']]]]));
+        self::assertSame([], $site->own['en']);
+        self::assertSame('Bohnenglück', $site->values['en']['brand']);
+        self::assertSame(['maxLength' => 40], array_values(array_filter($site->fields, static fn(FieldSummary $field): bool => 'brand' === $field->name))[0]->settings ?? null, 'Forms see the settings of a field.');
     }
 
     public function testShowsAndMarksTheFieldsOnEveryPage(): void
