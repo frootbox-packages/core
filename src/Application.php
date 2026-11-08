@@ -23,6 +23,7 @@ use Frootbox\Core\Extension\ExtensionLoader;
 use Frootbox\Core\Extension\Source\ComposerSource;
 use Frootbox\Core\Extension\Source\ExtensionSource;
 use Frootbox\Core\Http\AfterResponse;
+use Frootbox\Core\Http\ForwardedMiddleware;
 use Frootbox\Core\Http\MiddlewareDispatcher;
 use Frootbox\Core\Http\ResponseEmitter;
 use Frootbox\Core\Install\InstallCommand;
@@ -63,6 +64,8 @@ final readonly class Application
      * @var list<class-string<MiddlewareInterface>>
      */
     public const array MIDDLEWARE = [
+        // The client and the scheme behind a trusted proxy (decision 0343).
+        ForwardedMiddleware::class,
         // Before anything reads the database (decision 0183).
         RestoreLock::class,
         ErrorMiddleware::class,

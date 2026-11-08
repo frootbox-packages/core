@@ -19,5 +19,7 @@ final readonly class UserProfile
     public function __construct(
         public User $user,
         public array $roles,
+        /** Whether the user has a password; null where it is not asked (decision 0342) */
+        public ?bool $hasPassword = null,
     ) {}
 }

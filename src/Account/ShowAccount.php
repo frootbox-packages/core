@@ -25,6 +25,6 @@ final readonly class ShowAccount implements Query
     {
         $id = $current->id();
 
-        return new UserProfile($users->getById($id), $assignments->rolesOf($id));
+        return new UserProfile($users->getById($id), $assignments->rolesOf($id), null !== $users->passwordHash($id));
     }
 }

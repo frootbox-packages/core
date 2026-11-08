@@ -35,6 +35,7 @@ final class UserException extends ActionException
         return new self(match ($what) {
             'has no password' => 'A service account has no password, it uses API tokens.',
             'own tokens' => 'A service account gets tokens only through user.create-token.',
+            'invite' => 'A service account gets no invitation, it uses API tokens.',
             default => new Message('A service account {what}.', ['what' => $what]),
         });
     }

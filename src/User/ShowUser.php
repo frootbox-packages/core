@@ -21,6 +21,6 @@ final readonly class ShowUser implements Query
 
     public function handle(Users $users, RoleAssignments $assignments): UserProfile
     {
-        return new UserProfile($users->getById($this->id), $assignments->rolesOf($this->id));
+        return new UserProfile($users->getById($this->id), $assignments->rolesOf($this->id), null !== $users->passwordHash($this->id));
     }
 }

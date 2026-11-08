@@ -45,6 +45,8 @@ final readonly class CreateUser implements Action
         public bool $active = true,
         #[Description('"service" for a service account: no email, no password, tokens only from user.create-token')]
         public UserKind $kind = UserKind::Person,
+        #[Description('Mails the person a link to choose a password, instead of one given here')]
+        public bool $invite = false,
     ) {}
 
     public function handle(Users $users, RoleAssignments $assignments, Passwords $passwords, Runner $runner): UserProfile
@@ -53,11 +55,14 @@ final readonly class CreateUser implements Action
             $errors = array_filter([
                 '/email' => null === $this->email ? null : 'must be empty for a service account.',
                 '/password' => null === $this->password ? null : 'must be empty for a service account.',
+                '/invite' => $this->invite ? 'must be off for a service account.' : null,
             ]);
 
             if ([] !== $errors) {
                 throw new InvalidInputException('user.create', $errors);
             }
+        } elseif ($this->invite && null !== $this->password) {
+            throw new InvalidInputException('user.create', ['/password' => 'must be empty for an invitation.']);
         } elseif (null === $this->email || '' === trim($this->email)) {
             throw new InvalidInputException('user.create', ['/email' => 'is required.']);
         } elseif (null !== $users->findByEmail($this->email)) {
@@ -76,6 +81,10 @@ final readonly class CreateUser implements Action
             $runner->run(new AssignRole($user->id, $role));
         }
 
-        return new UserProfile($user, $assignments->rolesOf($user->id));
+        if ($this->invite && UserKind::Person === $this->kind) {
+            $runner->run(new InviteUser($user->id));
+        }
+
+        return new UserProfile($user, $assignments->rolesOf($user->id), null !== $this->password);
     }
 }

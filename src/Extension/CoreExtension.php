@@ -8,17 +8,23 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Extension;
 
+use Frootbox\Core\Account\AcceptInvitation;
 use Frootbox\Core\Account\ChangePassword;
+use Frootbox\Core\Account\ConfirmEmailChange;
 use Frootbox\Core\Account\CreateToken;
 use Frootbox\Core\Account\ListLanguages;
 use Frootbox\Core\Account\ListTokens;
+use Frootbox\Core\Account\RequestEmailChange;
 use Frootbox\Core\Account\RequestPasswordReset;
 use Frootbox\Core\Account\ResetPassword;
 use Frootbox\Core\Account\RevokeToken;
 use Frootbox\Core\Account\ShowAccount;
+use Frootbox\Core\Account\ShowEmailChange;
+use Frootbox\Core\Account\ShowInvitation;
 use Frootbox\Core\Account\ShowPasswordReset;
 use Frootbox\Core\Account\SignIn;
 use Frootbox\Core\Account\SignOut;
+use Frootbox\Core\Account\UpdateAccount;
 use Frootbox\Core\Account\UpdateLanguage;
 use Frootbox\Core\Action\ActionExecuted;
 use Frootbox\Core\Action\ListActionLog;
@@ -288,6 +294,7 @@ use Frootbox\Core\User\CreateServiceToken;
 use Frootbox\Core\User\CreateUser;
 use Frootbox\Core\User\DeleteRole;
 use Frootbox\Core\User\DeleteUser;
+use Frootbox\Core\User\InviteUser;
 use Frootbox\Core\User\ListPermissions;
 use Frootbox\Core\User\ListRoles;
 use Frootbox\Core\User\ListUsers;
@@ -362,7 +369,7 @@ final class CoreExtension implements Extension
         $registry->action(UndoAction::class);
         $registry->query(ListActionLog::class);
 
-        foreach ([CreateUser::class, UpdateUser::class, SetPassword::class, CreateServiceToken::class, DeleteUser::class, AssignRole::class, RemoveRole::class, SetRoles::class, CreateRole::class, UpdateRole::class, DeleteRole::class] as $action) {
+        foreach ([CreateUser::class, UpdateUser::class, InviteUser::class, SetPassword::class, CreateServiceToken::class, DeleteUser::class, AssignRole::class, RemoveRole::class, SetRoles::class, CreateRole::class, UpdateRole::class, DeleteRole::class] as $action) {
             $registry->action($action);
         }
 
@@ -371,12 +378,14 @@ final class CoreExtension implements Extension
         $registry->query(ListRoles::class);
         $registry->query(ListPermissions::class);
 
-        foreach ([SignIn::class, SignOut::class, ChangePassword::class, UpdateLanguage::class, CreateToken::class, RevokeToken::class, RequestPasswordReset::class, ResetPassword::class] as $action) {
+        foreach ([SignIn::class, SignOut::class, ChangePassword::class, UpdateLanguage::class, CreateToken::class, RevokeToken::class, RequestPasswordReset::class, ResetPassword::class, UpdateAccount::class, RequestEmailChange::class, ConfirmEmailChange::class, AcceptInvitation::class] as $action) {
             $registry->action($action);
         }
 
-        // A forgotten password (decision 0326).
+        // A forgotten password, a new email, an invitation (decisions 0326, 0341, 0342).
         $registry->query(ShowPasswordReset::class);
+        $registry->query(ShowEmailChange::class);
+        $registry->query(ShowInvitation::class);
 
         foreach ([CreatePage::class, UpdatePage::class, UpdatePageField::class, AddBlock::class, MoveBlock::class, CopyBlock::class, RemoveBlock::class, UpdateBlock::class, AddListEntry::class, MoveListEntry::class, RemoveListEntry::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class] as $action) {
             $registry->action($action);

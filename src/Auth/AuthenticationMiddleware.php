@@ -11,6 +11,7 @@ namespace Frootbox\Core\Auth;
 use Frootbox\Core\Action\Channel;
 use Frootbox\Core\Action\Context;
 use Frootbox\Core\Action\CurrentContext;
+use Frootbox\Core\Http\ClientAddress;
 use Frootbox\Core\Http\Exception\HttpException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -42,8 +43,8 @@ final readonly class AuthenticationMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         [$authentication, $channel] = $this->authenticate($request);
-        $address = $request->getServerParams()['REMOTE_ADDR'] ?? null;
-        $address = \is_string($address) && '' !== $address ? $address : null;
+        // Behind a trusted proxy the client it names (decision 0343).
+        $address = ClientAddress::of($request);
 
         if (null === $authentication) {
             return $this->context->runAs(Context::guest($channel, $address), static fn(): ResponseInterface => $handler->handle($request));
