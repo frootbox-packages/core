@@ -34,7 +34,7 @@ final readonly class MoveListEntry implements Action, Scoped
         public string $id,
         #[Description('Language of the translation to change, e.g. "de"')]
         public string $language,
-        #[Description('Path of the entry, e.g. "slides/2"')]
+        #[Description('Path of the entry by position or id, e.g. "slides/2" or "slides/k3f9x2ab"')]
         #[Pattern(ListEntries::ENTRY_PATTERN)]
         public string $path,
         #[Description('The new position of the entry, counted from 0')]
@@ -55,9 +55,9 @@ final readonly class MoveListEntry implements Action, Scoped
 
     public function handle(PageEditor $editor, Components $components, Journal $journal): BlockChanged
     {
-        [$path, $index] = ListEntries::split($this->path);
+        [$path, $segment] = ListEntries::split($this->path);
         $list = ListEntries::of('page.move-list-entry', $components, $editor->current($this->id), $this->language, $this->block, $path);
-        $list->check($index);
+        $index = $list->index($segment);
         $list->check($this->to, '/to');
 
         $entries = $list->entries;

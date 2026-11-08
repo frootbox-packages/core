@@ -178,6 +178,8 @@ final readonly class ContentValidator
             }
         }
 
+        // Ids for the entries of lists, before the check (decision 0344).
+        $values = $this->types->normalize($component->fields, $values);
         $schema = $complete ? $this->types->schemaForPublishing($component->fields, $values) : self::withoutMinimums($this->types->schemaFor($component->fields));
         $found = $this->validator->messages($schema, $values)
             + $this->types->validate($component->fields, $values);
@@ -374,14 +376,25 @@ final readonly class ContentValidator
         }
 
         do {
-            $new = '';
-
-            for ($i = 0; $i < 8; ++$i) {
-                $new .= self::ID_CHARACTERS[random_int(0, 35)];
-            }
+            $new = self::newId();
         } while (isset($ids[$new]));
 
         return $this->claim($new, $ids);
+    }
+
+    /**
+     * A new id of 8 characters a-z and 0-9, for a block or an entry of a
+     * list (decision 0344).
+     */
+    public static function newId(): string
+    {
+        $new = '';
+
+        for ($i = 0; $i < 8; ++$i) {
+            $new .= self::ID_CHARACTERS[random_int(0, 35)];
+        }
+
+        return $new;
     }
 
     /**

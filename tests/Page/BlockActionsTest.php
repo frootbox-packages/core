@@ -32,6 +32,7 @@ use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\RemoveBlock;
 use Frootbox\Core\Page\RemoveListEntry;
 use Frootbox\Core\Page\UpdateBlock;
+use Frootbox\Core\Page\UpdatePageField;
 use Frootbox\Core\Tests\Support\FixtureSite;
 use Frootbox\Core\Tests\Support\NotesTestCase;
 use Frootbox\Core\User\AssignRole;
@@ -98,9 +99,10 @@ final class BlockActionsTest extends NotesTestCase
 
         // A new block begins with the start entries of its lists (decision 0142), values given win.
         $hero = $this->runner()->run(new AddBlock($this->page, 'de', 'acme/site/Hero', 'main'));
-        self::assertSameJson(['id' => $hero->block, 'block' => 'acme/site/Hero', 'fields' => ['slides' => [[], []]]], $this->valueAt('areas/main/0'));
+        self::assertSame($hero->block, $this->text('areas/main/0/id'));
+        self::assertSame([[], []], self::withoutIds($this->valueAt('areas/main/0/fields/slides')), 'Start entries get ids too (decision 0344).');
         $this->runner()->run(new AddBlock($this->page, 'de', 'acme/site/Hero', 'main', fields: ['slides' => [['title' => 'Eins']]]));
-        self::assertSameJson([['title' => 'Eins']], $this->valueAt('areas/main/0/fields/slides'));
+        self::assertSameJson([['title' => 'Eins']], self::withoutIds($this->valueAt('areas/main/0/fields/slides')));
 
         $this->assertInvalid(['/area' => '"Badge" is a widget and only goes into areas that allow it by name.'], new AddBlock($this->page, 'de', 'acme/base/Badge', 'main'));
         $this->assertInvalid(['/area' => 'The area "Left" does not take "Hero".'], new AddBlock($this->page, 'de', 'acme/site/Hero', 'left', $this->columns));
@@ -183,15 +185,15 @@ final class BlockActionsTest extends NotesTestCase
     {
         $this->runner()->run(new AddListEntry($this->page, 'de', 'slides', $this->hero, fields: ['title' => 'Drei']));
         $this->runner()->run(new AddListEntry($this->page, 'de', 'slides', $this->hero, 0));
-        self::assertEquals([[], ['title' => 'Eins'], ['title' => 'Zwei'], ['title' => 'Drei']], $this->valueAt('areas/main/1/fields/slides'));
+        self::assertEquals([[], ['title' => 'Eins'], ['title' => 'Zwei'], ['title' => 'Drei']], self::withoutIds($this->valueAt('areas/main/1/fields/slides')));
 
         // An empty entry can be changed later.
         $this->runner()->run(new MoveListEntry($this->page, 'de', 'slides/0', 3, $this->hero));
-        self::assertEquals([['title' => 'Eins'], ['title' => 'Zwei'], ['title' => 'Drei'], []], $this->valueAt('areas/main/1/fields/slides'));
+        self::assertEquals([['title' => 'Eins'], ['title' => 'Zwei'], ['title' => 'Drei'], []], self::withoutIds($this->valueAt('areas/main/1/fields/slides')));
 
         $this->runner()->run(new RemoveListEntry($this->page, 'de', 'slides/3', $this->hero));
         $this->runner()->run(new MoveListEntry($this->page, 'de', 'slides/2', 0, $this->hero));
-        self::assertSame([['title' => 'Drei'], ['title' => 'Eins'], ['title' => 'Zwei']], $this->valueAt('areas/main/1/fields/slides'));
+        self::assertSame([['title' => 'Drei'], ['title' => 'Eins'], ['title' => 'Zwei']], self::withoutIds($this->valueAt('areas/main/1/fields/slides')));
 
         $this->assertInvalid(['/path' => 'The list has no entry 9.'], new RemoveListEntry($this->page, 'de', 'slides/9', $this->hero));
         $this->assertInvalid(['/to' => 'The list has no entry 3.'], new MoveListEntry($this->page, 'de', 'slides/0', 3, $this->hero));
@@ -206,6 +208,34 @@ final class BlockActionsTest extends NotesTestCase
             self::fail('The list grew beyond its maximum.');
         } catch (InvalidInputException $error) {
             self::assertArrayHasKey('/translations/de/content/areas/main/1/fields/slides', $error->errors);
+        }
+    }
+
+    public function testNamesEntriesByTheirId(): void
+    {
+        // The first change of old content gives its entries ids (decision 0344).
+        $this->runner()->run(new AddListEntry($this->page, 'de', 'slides', $this->hero, fields: ['title' => 'Drei']));
+        $ids = $this->ids('areas/main/1/fields/slides');
+        self::assertCount(3, array_unique(array_filter($ids, static fn(string $id): bool => '' !== $id)));
+
+        $this->runner()->run(new MoveListEntry($this->page, 'de', 'slides/' . $ids[2], 0, $this->hero));
+        self::assertSame([$ids[2], $ids[0], $ids[1]], $this->ids('areas/main/1/fields/slides'), 'Ids stay with their entries.');
+
+        // A tab that still knows the old order meets the right entry.
+        $this->runner()->run(new UpdatePageField($this->page, 'de', 'slides/' . $ids[0] . '/title', 'Erste', 'Eins', $this->hero));
+        self::assertSame([['title' => 'Drei'], ['title' => 'Erste'], ['title' => 'Zwei']], self::withoutIds($this->valueAt('areas/main/1/fields/slides')));
+
+        $this->runner()->run(new RemoveListEntry($this->page, 'de', 'slides/' . $ids[1], $this->hero));
+        self::assertSame([$ids[2], $ids[0]], $this->ids('areas/main/1/fields/slides'));
+
+        $this->assertInvalid(['/path' => 'The list has no entry ' . $ids[1] . '.'], new RemoveListEntry($this->page, 'de', 'slides/' . $ids[1], $this->hero));
+        $this->assertInvalid(['/path' => 'The list has no entry ' . $ids[1] . '.'], new MoveListEntry($this->page, 'de', 'slides/' . $ids[1], 0, $this->hero));
+
+        try {
+            $this->runner()->run(new UpdatePageField($this->page, 'de', 'slides/' . $ids[1] . '/title', 'Weg', 'Zwei', $this->hero));
+            self::fail('A removed entry was changed.');
+        } catch (InvalidInputException $error) {
+            self::assertSame(['/path' => 'The list "slides" has no entry ' . $ids[1] . '.'], $error->errors, 'Instead of meeting another entry.');
         }
     }
 

@@ -25,4 +25,27 @@ final class Blank
             default => false,
         };
     }
+
+    /**
+     * Whether an entry of a list holds nothing an editor entered: its id
+     * (decision 0344) does not count, nor do ids in lists inside it.
+     *
+     * @param array<mixed> $entry
+     */
+    public static function entry(array $entry): bool
+    {
+        unset($entry['id']);
+
+        foreach ($entry as $value) {
+            $blank = \is_array($value) && array_is_list($value) && [] !== $value && array_filter($value, \is_array(...)) === $value
+                ? [] === array_filter($value, static fn(array $item): bool => !self::entry($item))
+                : self::is($value);
+
+            if (!$blank) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

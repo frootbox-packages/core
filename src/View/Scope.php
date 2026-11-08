@@ -183,7 +183,18 @@ final readonly class Scope
      */
     public function isBlank(): bool
     {
-        return Blank::is($this->values);
+        return Blank::entry($this->values);
+    }
+
+    /**
+     * The id of a list entry (decision 0344), e.g. for an anchor: entry.id.
+     * Null for a block and for entries saved before ids.
+     */
+    public function id(): ?string
+    {
+        $id = $this->values['id'] ?? null;
+
+        return \is_string($id) ? $id : null;
     }
 
     /**

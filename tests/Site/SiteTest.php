@@ -112,7 +112,23 @@ final class SiteTest extends NotesTestCase
 
         $updated = $this->runner()->run(new UpdateSiteField('de', 'links/1/text', 'Drei', 'Zwei'));
         self::assertSame('Drei', $updated->value);
-        self::assertSame([['text' => 'Eins'], ['text' => 'Drei']], $this->runner()->ask(new ShowSite())->values['de']['links']);
+        self::assertSame([['text' => 'Eins'], ['text' => 'Drei']], self::withoutIds($this->runner()->ask(new ShowSite())->values['de']['links']));
+
+        // An entry also by its id (decision 0344).
+        $links = $this->runner()->ask(new ShowSite())->values['de']['links'];
+        self::assertIsArray($links);
+        self::assertIsArray($links[0]);
+        $first = $links[0]['id'] ?? null;
+        self::assertIsString($first);
+        self::assertSame('Erste', $this->runner()->run(new UpdateSiteField('de', 'links/' . $first . '/text', 'Erste', 'Eins'))->value);
+        self::assertSame([['text' => 'Erste'], ['text' => 'Drei']], self::withoutIds($this->runner()->ask(new ShowSite())->values['de']['links']));
+
+        try {
+            $this->runner()->run(new UpdateSiteField('de', 'links/zzzzzzzz/text', 'Neu', null));
+            self::fail('A missing entry was changed.');
+        } catch (InvalidInputException $error) {
+            self::assertArrayHasKey('/path', $error->errors);
+        }
 
         try {
             $this->runner()->run(new UpdateSiteField('de', 'brand', 'Neu', 'Alt'));

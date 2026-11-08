@@ -18,6 +18,7 @@ use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ContentValidator;
+use Frootbox\Core\Field\EntryKey;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldType;
 use Frootbox\Core\Field\FieldTypes;
@@ -49,7 +50,7 @@ final readonly class WriteField implements Action, Scoped
         #[Description('Language of the translation, e.g. "de"')]
         public string $language,
         #[Description('Path of the field, e.g. "title" or "slides/0/title"')]
-        #[Pattern('^[a-zA-Z][a-zA-Z0-9]*(/(0|[1-9][0-9]*)/[a-zA-Z][a-zA-Z0-9]*)*$')]
+        #[Pattern('^[a-zA-Z][a-zA-Z0-9]*(/' . EntryKey::SEGMENT . '/[a-zA-Z][a-zA-Z0-9]*)*$')]
         public string $path,
         public WriteTask $task,
         #[Description('Id of the block; left out for a field of the layout')]
@@ -96,6 +97,8 @@ final readonly class WriteField implements Action, Scoped
             }
 
             $found = ContentField::find($components, $page->layout, $other->content, $this->block, $this->path);
+            // Entries of the other language may carry other ids (decision 0344).
+            $found = \is_array($found) ? ContentField::find($components, $page->layout, $other->content, $this->block, $field->positions()) : $found;
             $source = \is_array($found) ? null : $found->value($other->content);
         }
 

@@ -10,20 +10,21 @@ namespace Frootbox\Core\Page;
 
 use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Component\Components;
+use Frootbox\Core\Field\EntryKey;
 use Frootbox\Core\Support\Message;
 
 /**
  * The entries of a list field of a page, for the actions that add, move
- * and remove them (decision 0123). Entries have no ids, so they are
- * named by their position, e.g. "slides/2".
+ * and remove them (decision 0123). An entry is named by its position,
+ * e.g. "slides/2", or by its id, e.g. "slides/k3f9x2ab" (decision 0344).
  */
 final readonly class ListEntries
 {
     /** Path of a list, e.g. "slides" or "slides/0/items". */
-    public const string LIST_PATTERN = '^[a-zA-Z][a-zA-Z0-9]*(/(0|[1-9][0-9]*)/[a-zA-Z][a-zA-Z0-9]*)*$';
+    public const string LIST_PATTERN = '^[a-zA-Z][a-zA-Z0-9]*(/' . EntryKey::SEGMENT . '/[a-zA-Z][a-zA-Z0-9]*)*$';
 
-    /** Path of an entry, e.g. "slides/2". */
-    public const string ENTRY_PATTERN = '^[a-zA-Z][a-zA-Z0-9]*(/(0|[1-9][0-9]*)/[a-zA-Z][a-zA-Z0-9]*)*/(0|[1-9][0-9]*)$';
+    /** Path of an entry, e.g. "slides/2" or "slides/k3f9x2ab". */
+    public const string ENTRY_PATTERN = '^[a-zA-Z][a-zA-Z0-9]*(/' . EntryKey::SEGMENT . '/[a-zA-Z][a-zA-Z0-9]*)*/' . EntryKey::SEGMENT . '$';
 
     /**
      * @param list<mixed> $entries
@@ -55,15 +56,26 @@ final readonly class ListEntries
     }
 
     /**
-     * The path of the list and the position of an entry path.
+     * The path of the list and the last segment of an entry path: its
+     * position or its id.
      *
-     * @return array{string, int}
+     * @return array{string, string}
      */
     public static function split(string $path): array
     {
         $at = (int) strrpos($path, '/');
 
-        return [substr($path, 0, $at), (int) substr($path, $at + 1)];
+        return [substr($path, 0, $at), substr($path, $at + 1)];
+    }
+
+    /**
+     * The position of the entry a segment names; fails if there is none,
+     * e.g. because someone removed it meanwhile.
+     */
+    public function index(string $segment): int
+    {
+        return EntryKey::position($this->entries, $segment)
+            ?? throw new InvalidInputException($this->action, ['/path' => new Message('The list has no entry {index}.', ['index' => $segment])]);
     }
 
     /**

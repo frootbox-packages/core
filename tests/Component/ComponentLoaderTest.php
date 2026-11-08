@@ -192,6 +192,7 @@ final class ComponentLoaderTest extends TestCase
             'blocks/Shared/block.yaml' => "title: Shared\noptions: {}\n",
             'blocks/Shared/views/Default.twig' => "{# frootbox\nfields:\n  title: { type: headline }\n#}",
             'blocks/List/views/Default.twig' => "{# frootbox\ntitle: List\n#}",
+            'blocks/Ids/views/Default.twig' => "{# frootbox\ntitle: Ids\nfields:\n  items: { type: list, fields: { id: { type: text } } }\n#}",
         ]);
 
         $errors = $this->errors(new Extensions([ExtensionPackage::fromManifest('acme/broken', $root)]));
@@ -213,6 +214,7 @@ final class ComponentLoaderTest extends TestCase
             'acme/broken: blocks/Fields/views/Default.twig → options.Bad: names are camelCase, e.g. "imageHeight"',
             'acme/broken: blocks/Fields/views/Default.twig → options.size.choices: must list the values with their labels, e.g. { 400: Standard, 550: High }',
             'acme/broken: blocks/Fields/views/Default.twig → options.wide.default: does not fit the option',
+            'acme/broken: blocks/Ids/views/Default.twig → fields.items.fields.id: is the id of each entry; name the field differently',
             'acme/broken: blocks/NoDefault: views/Default.twig is missing. Every block has a variant Default.',
             'acme/broken: blocks/NoTitle/views/Default.twig → title: is required.',
             'acme/broken: blocks/Shared/block.yaml → options: unknown key. Allowed: title, description, group, keywords, widget, plugin, fields, areas, examples, query',

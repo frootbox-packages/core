@@ -142,7 +142,9 @@ final readonly class EditMarkup
      * Adds the block and its area to the outer element of a rendered block.
      *
      * The lists of the block without entries go along with their labels,
-     * so the bar can hold their place on the page (decision 0336).
+     * so the bar can hold their place on the page (decision 0336). The ids
+     * of the entries of every list go along in order, so the bar names
+     * entries by id even before the page shows a change (decision 0344).
      *
      * @param bool $fixed The view of a plugin: no moving, copying or deleting (decision 0232)
      */
@@ -156,17 +158,53 @@ final readonly class EditMarkup
             }
         }
 
+        $entries = $this->anchors ? [] : self::entries($component->fields, $block->fields);
         $attributes = \sprintf(
-            '%s data-fb-name="%s" data-fb-title="%s" data-fb-area="%s"%s%s',
+            '%s data-fb-name="%s" data-fb-title="%s" data-fb-area="%s"%s%s%s',
             null === $block->id ? '' : ' data-fb-block="' . Html::escape($block->id) . '"',
             Html::escape($component->name),
             Html::escape($component->title),
             Html::escape($area),
             $fixed ? ' data-fb-fixed' : '',
             [] === $empty || $this->anchors ? '' : ' data-fb-empty-lists="' . Html::escape(json_encode($empty, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE)) . '"',
+            [] === $entries ? '' : ' data-fb-entries="' . Html::escape(json_encode($entries, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)) . '"',
         );
 
         return (string) preg_replace('/^(\s*(?:<!--.*?-->\s*)*<[a-zA-Z][a-zA-Z0-9-]*)(?=[\s>\/])/s', '$1' . $attributes, $html, 1);
+    }
+
+    /**
+     * The ids of the entries of each list with entries, by the path of the
+     * list, lists in lists too: {"items": ["k3f9x2ab", …], "items/0/links":
+     * […]}. An entry saved before ids has null.
+     *
+     * @param array<string, Field> $fields
+     * @param array<mixed>         $values
+     *
+     * @return array<string, list<string|null>>
+     */
+    private static function entries(array $fields, array $values, string $prefix = ''): array
+    {
+        $found = [];
+
+        foreach ($fields as $name => $field) {
+            $list = $values[$name] ?? null;
+
+            if ('list' !== $field->type || !\is_array($list) || [] === $list || !array_is_list($list)) {
+                continue;
+            }
+
+            $found[$prefix . $name] = [];
+
+            foreach ($list as $index => $entry) {
+                $entry = $entry instanceof \stdClass ? (array) $entry : $entry;
+                $id = \is_array($entry) ? $entry['id'] ?? null : null;
+                $found[$prefix . $name][] = \is_string($id) ? $id : null;
+                $found += \is_array($entry) ? self::entries($field->fields, $entry, $prefix . $name . '/' . $index . '/') : [];
+            }
+        }
+
+        return $found;
     }
 
     /**

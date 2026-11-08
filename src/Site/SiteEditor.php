@@ -13,6 +13,7 @@ use Frootbox\Core\Action\InvalidInputException;
 use Frootbox\Core\Action\Schema\InputValidator;
 use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Component\FieldSummary;
+use Frootbox\Core\Field\EntryKey;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Field\Parts;
@@ -107,9 +108,9 @@ final readonly class SiteEditor
         $theme = $this->theme($action);
         $this->language($action, $language);
         $keys = [];
-        $field = $this->locate($action, $path, $keys);
         $languages = $this->current($theme);
         $merged = $this->site->merged($languages, $language);
+        $field = $this->locate($action, $path, $keys, $merged);
 
         if (!ContentField::same(self::at($merged, $keys), $previous)) {
             throw ConflictException::field();
@@ -214,6 +215,9 @@ final readonly class SiteEditor
     private function save(string $action, Theme $theme, array $languages, array $own, string $pointer): void
     {
         $fields = $this->site->fields();
+        // Ids for the entries of lists (decision 0344).
+        $languages = array_map(fn(array $values): array => $this->types->normalize($fields, $values), $languages);
+        $own = $this->types->normalize($fields, $own);
         $found = $this->validator->messages(ContentValidator::withoutMinimums($this->types->schemaFor($fields)), $own) + $this->types->validate($fields, $own);
 
         if ([] !== $found) {
@@ -239,16 +243,19 @@ final readonly class SiteEditor
     }
 
     /**
-     * Finds the field at a path such as "address" or "links/0/text".
+     * Finds the field at a path such as "address" or "links/0/text", an
+     * entry also by its id: "links/k3f9x2ab/text" (decision 0344).
      *
-     * @param list<string|int> $keys The way to its value
+     * @param list<string|int> $keys   The way to its value
+     * @param array<mixed>     $values The values to find entries in
      *
      * @throws InvalidInputException
      */
-    private function locate(string $action, string $path, array &$keys): Field
+    private function locate(string $action, string $path, array &$keys, array $values): Field
     {
         $segments = explode('/', $path);
         $fields = $this->site->fields();
+        $data = $values;
 
         while (true) {
             $name = array_shift($segments);
@@ -259,13 +266,26 @@ final readonly class SiteEditor
                 return $field;
             }
 
-            $index = array_shift($segments);
+            $segment = array_shift($segments);
 
-            if ([] === $field->fields || 1 !== preg_match('/^(0|[1-9][0-9]*)$/', $index) || [] === $segments) {
+            if ([] === $field->fields || 1 !== preg_match('/^' . EntryKey::SEGMENT . '$/D', $segment) || [] === $segments) {
                 throw new InvalidInputException($action, ['/path' => new Message('"{name}" is no list with entries to change; a path looks like "links/0/text".', ['name' => $name])]);
             }
 
-            $keys[] = (int) $index;
+            $entries = \is_array($data) ? $data[$name] ?? null : null;
+            $index = EntryKey::position($entries, $segment);
+
+            if (null === $index) {
+                // A position past the end stays as before; an id must name an entry.
+                if (EntryKey::isId($segment)) {
+                    throw new InvalidInputException($action, ['/path' => new Message('The list has no entry {index}.', ['index' => $segment])]);
+                }
+
+                $index = (int) $segment;
+            }
+
+            $keys[] = $index;
+            $data = \is_array($entries) ? $entries[$index] ?? null : null;
             $fields = $field->fields;
         }
     }

@@ -174,6 +174,28 @@ abstract class NotesTestCase extends TestCase
         self::assertSame(self::sortedKeys($expected), self::sortedKeys($actual), $message);
     }
 
+    /**
+     * The entries of a list without the ids the core gives them on saving
+     * (decision 0344); fails if an entry has none.
+     *
+     * @return list<mixed>
+     */
+    protected static function withoutIds(mixed $entries): array
+    {
+        self::assertIsArray($entries);
+        self::assertTrue(array_is_list($entries), 'A list has entries in order.');
+
+        return array_map(static function (mixed $entry): mixed {
+            self::assertIsArray($entry);
+            $id = $entry['id'] ?? null;
+            self::assertIsString($id, 'Each entry has an id.');
+            self::assertMatchesRegularExpression('/^[a-z0-9]{8}$/D', $id);
+            unset($entry['id']);
+
+            return $entry;
+        }, $entries);
+    }
+
     private static function sortedKeys(mixed $value): mixed
     {
         if (!\is_array($value)) {

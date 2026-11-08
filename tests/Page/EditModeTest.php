@@ -188,6 +188,17 @@ final class EditModeTest extends NotesTestCase
         self::assertStringNotContainsString('data-fb-empty-lists', $this->html('/', $this->admin), 'Not for a list with entries.');
     }
 
+    public function testGivesTheBarTheIdsOfTheEntries(): void
+    {
+        $this->createPage($this->start, 'Liste', ['fields' => ['heading' => 'Liste'], 'areas' => ['main' => [
+            ['block' => 'acme/site/Hero', 'fields' => ['slides' => [['id' => 'k3f9x2ab', 'title' => 'Eins'], ['title' => 'Zwei']]]],
+        ]]]);
+        $html = $this->html('/liste', $this->admin);
+
+        self::assertMatchesRegularExpression('/data-fb-entries="\\{&quot;slides&quot;:\\[&quot;k3f9x2ab&quot;,&quot;[a-z0-9]{8}&quot;\\]\\}"/', $html, 'In order, for the bar to name entries by id (decision 0344).');
+        self::assertStringContainsString('data-fb-field="slides/0/title"', $html, 'Fields keep their position.');
+    }
+
     public function testMarksLightlyInAPreview(): void
     {
         $this->get(Urls::class)->clear();

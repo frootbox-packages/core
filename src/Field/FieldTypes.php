@@ -114,6 +114,50 @@ final class FieldTypes
     }
 
     /**
+     * JSON schema of one entry of a list with these fields: the fields and
+     * the id of the entry (decision 0344).
+     *
+     * @param array<string, Field> $fields
+     *
+     * @return array<string, mixed>
+     */
+    public function entrySchema(array $fields): array
+    {
+        $schema = $this->schemaFor($fields);
+        $properties = \is_array($schema['properties'] ?? null) ? $schema['properties'] : [];
+
+        return [...$schema, 'properties' => ['id' => ['type' => 'string', 'pattern' => ContentValidator::ID_PATTERN], ...$properties]];
+    }
+
+    /**
+     * The values to store: field types that complete their value do so,
+     * e.g. ids for the entries of lists (decision 0344). Other keys stay.
+     *
+     * @template TKey of array-key
+     *
+     * @param array<string, Field> $fields
+     * @param array<TKey, mixed>   $values
+     *
+     * @return array<TKey, mixed>
+     */
+    public function normalize(array $fields, array $values): array
+    {
+        foreach ($fields as $name => $field) {
+            if (!\array_key_exists($name, $values) || null === $values[$name] || !$this->has($field->type)) {
+                continue;
+            }
+
+            $type = $this->get($field->type);
+
+            if ($type instanceof Normalizes) {
+                $values[$name] = $type->normalize($values[$name], $field);
+            }
+        }
+
+        return $values;
+    }
+
+    /**
      * The schema for publishing these values (decision 0144): entries of
      * lists that are still blank are left out of the check, unless the
      * list needs them to reach its "min". Then the first blank ones are
@@ -124,9 +168,9 @@ final class FieldTypes
      *
      * @return array<string, mixed>
      */
-    public function schemaForPublishing(array $fields, array $values): array
+    public function schemaForPublishing(array $fields, array $values, bool $entry = false): array
     {
-        $schema = $this->schemaFor($fields);
+        $schema = $entry ? $this->entrySchema($fields) : $this->schemaFor($fields);
         $properties = \is_array($schema['properties'] ?? null) ? $schema['properties'] : [];
 
         foreach ($fields as $name => $field) {
@@ -136,15 +180,16 @@ final class FieldTypes
                 continue;
             }
 
-            $items = $this->schemaFor($field->fields);
-            $missing = ($field->intSetting('min') ?? 0) - \count(array_filter($entries, static fn(mixed $entry): bool => !Blank::is($entry)));
+            $items = $this->entrySchema($field->fields);
+            $blank = static fn(mixed $entry): bool => \is_array($entry) ? Blank::entry($entry) : Blank::is($entry);
+            $missing = ($field->intSetting('min') ?? 0) - \count(array_filter($entries, static fn(mixed $entry): bool => !$blank($entry)));
             $prefix = [];
 
             foreach ($entries as $entry) {
-                if (Blank::is($entry) && $missing-- <= 0) {
+                if ($blank($entry) && $missing-- <= 0) {
                     $prefix[] = ContentValidator::withoutMinimums($items);
                 } else {
-                    $prefix[] = \is_array($entry) ? $this->schemaForPublishing($field->fields, $entry) : $items;
+                    $prefix[] = \is_array($entry) ? $this->schemaForPublishing($field->fields, $entry, true) : $items;
                 }
             }
 

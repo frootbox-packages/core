@@ -10,23 +10,27 @@ namespace Frootbox\Core\Page;
 
 use Frootbox\Core\Component\ComponentKind;
 use Frootbox\Core\Component\Components;
+use Frootbox\Core\Field\EntryKey;
 use Frootbox\Core\Field\Field;
 
 /**
  * One field in the content of a page: of the layout or of a block found
  * by its id, at a path such as "title" or "slides/0/title" (decision
- * 0122). Reads and replaces its value without touching anything else.
+ * 0122), an entry also by its id: "slides/k3f9x2ab/title" (decision
+ * 0344). Reads and replaces its value without touching anything else.
  */
 final readonly class ContentField
 {
     /**
      * @param string           $root "fields" for the layout, "areas" for a block
      * @param list<string|int> $path The way from there to the value
+     * @param list<string|int> $keys The way from the fields of the layout or block
      */
     private function __construct(
         public Field $field,
         private string $root,
         private array $path,
+        private array $keys,
     ) {}
 
     /**
@@ -75,25 +79,37 @@ final readonly class ContentField
             if ([] === $segments) {
                 $way = [...$where, 'fields', ...$keys];
 
-                return new self($field, (string) array_shift($way), $way);
+                return new self($field, (string) array_shift($way), $way, $keys);
             }
 
-            $index = array_shift($segments);
+            $segment = array_shift($segments);
 
-            if ([] === $field->fields || 1 !== preg_match('/^(0|[1-9][0-9]*)$/', $index) || [] === $segments) {
-                return ['/path' => \sprintf('"%s" is no list with entries to change; a path looks like "slides/0/title".', $name)];
+            if ([] === $field->fields || 1 !== preg_match('/^' . EntryKey::SEGMENT . '$/D', $segment) || [] === $segments) {
+                return ['/path' => \sprintf('"%s" is no list with entries to change; a path looks like "slides/0/title" or "slides/k3f9x2ab/title".', $name)];
             }
 
+            // By position or by id (decision 0344).
             $entries = \is_array($values) ? $values[$name] ?? null : null;
+            $index = EntryKey::position($entries, $segment);
 
-            if (!\is_array($entries) || !\array_key_exists((int) $index, $entries) || !\is_array($entries[(int) $index])) {
-                return ['/path' => \sprintf('The list "%s" has no entry %s.', $name, $index)];
+            if (null === $index || !\is_array($entries) || !\is_array($entries[$index])) {
+                return ['/path' => \sprintf('The list "%s" has no entry %s.', $name, $segment)];
             }
 
-            $keys[] = (int) $index;
-            $values = $entries[(int) $index];
+            $keys[] = $index;
+            $values = $entries[$index];
             $fields = $field->fields;
         }
+    }
+
+    /**
+     * The path with positions instead of ids, e.g. "slides/0/title", to
+     * find the same field in another language whose entries got other
+     * ids.
+     */
+    public function positions(): string
+    {
+        return implode('/', $this->keys);
     }
 
     /**

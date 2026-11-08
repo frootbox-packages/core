@@ -13,6 +13,7 @@ use Frootbox\Core\Action\AsAction;
 use Frootbox\Core\Action\Journal;
 use Frootbox\Core\Action\Schema\Description;
 use Frootbox\Core\Action\Schema\Pattern;
+use Frootbox\Core\Field\EntryKey;
 
 /**
  * Changes one field of the website in its draft, e.g. while editing on
@@ -26,8 +27,8 @@ final readonly class UpdateSiteField implements Action
     public function __construct(
         #[Description('Language of the value, e.g. "de"')]
         public string $language,
-        #[Description('Path of the field as site.show lists it, e.g. "address" or "links/0/text" for a field of the first entry of a list')]
-        #[Pattern('^[a-zA-Z][a-zA-Z0-9]*(/(0|[1-9][0-9]*)/[a-zA-Z][a-zA-Z0-9]*)*$')]
+        #[Description('Path of the field as site.show lists it, e.g. "address" or "links/0/text" for a field of the first entry of a list, the entry also by its id: "links/k3f9x2ab/text"')]
+        #[Pattern('^[a-zA-Z][a-zA-Z0-9]*(/' . EntryKey::SEGMENT . '/[a-zA-Z][a-zA-Z0-9]*)*$')]
         public string $path,
         #[Description('The new value as the type of the field stores it; null removes it, so the value of the first language shows')]
         public mixed $value = null,

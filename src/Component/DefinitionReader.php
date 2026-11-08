@@ -324,6 +324,13 @@ final readonly class DefinitionReader
                     continue;
                 }
 
+                // Every entry keeps its id there (decision 0344).
+                if (\is_array($definition['fields']) && \array_key_exists('id', $definition['fields'])) {
+                    $errors->add($where, $at . '.fields.id', 'is the id of each entry; name the field differently');
+
+                    continue;
+                }
+
                 $subfields = $this->fields($definition['fields'], $where, $at . '.fields', $errors, $object);
             }
 

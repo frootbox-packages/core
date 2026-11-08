@@ -8,10 +8,12 @@ declare(strict_types=1);
 
 namespace Frootbox\Core\Field\Types;
 
+use Frootbox\Core\Component\ContentValidator;
 use Frootbox\Core\Field\AsFieldType;
 use Frootbox\Core\Field\Field;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Field\HasSubfields;
+use Frootbox\Core\Field\Normalizes;
 use Frootbox\Core\Field\ReferencesMedia;
 use Frootbox\Core\Field\Searchable;
 use Frootbox\Core\View\ListValue;
@@ -27,9 +29,10 @@ use Frootbox\Core\View\Scope;
  *       fields:
  *         title: { type: headline }
  *
- * The value is a list of entries, each with the values of its fields:
+ * The value is a list of entries, each with the values of its fields and
+ * an id the core gives it on saving (decision 0344):
  *
- *     [{"title": "First slide"}, {"title": "Second slide"}]
+ *     [{"id": "k3f9x2ab", "title": "First slide"}, {"id": "p0q7m1zc", "title": "Second slide"}]
  *
  * In the view field('slides') gives the entries to loop over, each with
  * field(), value() and heading() of its own; visitors get only entries
@@ -40,7 +43,7 @@ use Frootbox\Core\View\Scope;
  *     {% endfor %}
  */
 #[AsFieldType('list', 'Repeated entries with their own fields')]
-final readonly class ListType implements HasSubfields, ReferencesMedia, Searchable
+final readonly class ListType implements HasSubfields, Normalizes, ReferencesMedia, Searchable
 {
     public function __construct(private FieldTypes $types) {}
 
@@ -56,7 +59,7 @@ final readonly class ListType implements HasSubfields, ReferencesMedia, Searchab
 
     public function valueSchema(Field $field): array
     {
-        $schema = ['type' => 'array', 'items' => $this->types->schemaFor($field->fields)];
+        $schema = ['type' => 'array', 'items' => $this->types->entrySchema($field->fields)];
         $min = $field->intSetting('min');
         $max = $field->intSetting('max');
 
@@ -78,6 +81,41 @@ final readonly class ListType implements HasSubfields, ReferencesMedia, Searchab
         }
 
         return $errors;
+    }
+
+    /**
+     * Gives each entry an id, keeps the ones it has, and replaces doubles
+     * (decision 0344); lists inside entries too.
+     */
+    public function normalize(mixed $value, Field $field): mixed
+    {
+        if (!\is_array($value) || !array_is_list($value)) {
+            return $value;
+        }
+
+        $seen = [];
+
+        foreach ($value as $index => $entry) {
+            // A new entry without values comes as an empty object.
+            $entry = $entry instanceof \stdClass ? (array) $entry : $entry;
+
+            if (!\is_array($entry)) {
+                continue;
+            }
+
+            $id = $entry['id'] ?? null;
+
+            while (!\is_string($id) || 1 !== preg_match('/' . ContentValidator::ID_PATTERN . '/', $id) || isset($seen[$id])) {
+                $id = ContentValidator::newId();
+            }
+
+            \assert(\is_string($id));
+            $seen[$id] = true;
+            unset($entry['id']);
+            $value[$index] = ['id' => $id, ...$this->types->normalize($field->fields, $entry)];
+        }
+
+        return $value;
     }
 
     public function media(mixed $value, Field $field): array

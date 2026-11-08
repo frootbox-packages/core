@@ -19,6 +19,7 @@ use Frootbox\Core\Auth\Scope;
 use Frootbox\Core\Auth\Scoped;
 use Frootbox\Core\Component\Components;
 use Frootbox\Core\Component\ContentValidator;
+use Frootbox\Core\Field\EntryKey;
 use Frootbox\Core\Field\FieldTypes;
 use Frootbox\Core\Field\Parts;
 use Frootbox\Database\Ulid;
@@ -40,8 +41,8 @@ final readonly class UpdatePageField implements Action, Scoped
         public string $id,
         #[Description('Language of the translation to change, e.g. "de"')]
         public string $language,
-        #[Description('Path of the field, e.g. "title" or "slides/0/title" for a field of the first entry of a list')]
-        #[Pattern('^[a-zA-Z][a-zA-Z0-9]*(/(0|[1-9][0-9]*)/[a-zA-Z][a-zA-Z0-9]*)*$')]
+        #[Description('Path of the field, e.g. "title" or "slides/0/title" for a field of the first entry of a list, the entry also by its id: "slides/k3f9x2ab/title"')]
+        #[Pattern('^[a-zA-Z][a-zA-Z0-9]*(/' . EntryKey::SEGMENT . '/[a-zA-Z][a-zA-Z0-9]*)*$')]
         public string $path,
         #[Description('The new value as the type of the field stores it; null empties the field')]
         public mixed $value = null,

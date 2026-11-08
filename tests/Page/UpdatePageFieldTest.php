@@ -74,7 +74,7 @@ final class UpdatePageFieldTest extends NotesTestCase
 
         self::assertSame('Hallo <Welt>', $this->valueAt('fields/heading'));
         self::assertSame('Geröstet', $this->valueAt('areas/main/0/areas/left/0/fields/title'));
-        self::assertSame([['title' => 'Eins'], ['title' => 'Drei']], $this->valueAt('areas/main/1/fields/slides'));
+        self::assertSame([['title' => 'Eins'], ['title' => 'Drei']], self::withoutIds($this->valueAt('areas/main/1/fields/slides')));
         self::assertNotNull($this->get(PageReader::class)->published($this->start), 'Only the draft changes.');
         self::assertSame('Willkommen', $this->valueAt('fields/heading', $this->get(PageReader::class)->published($this->start)->translations['de']->content));
 
@@ -106,7 +106,7 @@ final class UpdatePageFieldTest extends NotesTestCase
         $this->assertInvalid(['/block' => 'There is no block with this id in the content.'], new UpdatePageField($this->start, 'de', 'title', 'x', null, 'zzzzzzzz'));
         $this->assertInvalid(['/path' => 'There is no field "nope".'], new UpdatePageField($this->start, 'de', 'nope', 'x'));
         $this->assertInvalid(['/path' => 'The list "slides" has no entry 5.'], new UpdatePageField($this->start, 'de', 'slides/5/title', 'x', null, $this->hero));
-        $this->assertInvalid(['/path' => '"intro" is no list with entries to change; a path looks like "slides/0/title".'], new UpdatePageField($this->start, 'de', 'intro/0/title', 'x', null, $this->hero));
+        $this->assertInvalid(['/path' => '"intro" is no list with entries to change; a path looks like "slides/0/title" or "slides/k3f9x2ab/title".'], new UpdatePageField($this->start, 'de', 'intro/0/title', 'x', null, $this->hero));
 
         try {
             $this->runner()->run(new UpdatePageField($this->start, 'de', 'heading', ['no' => 'text'], 'Willkommen'));
