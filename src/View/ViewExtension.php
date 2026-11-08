@@ -17,6 +17,7 @@ use Frootbox\Core\I18n\VisitorFormality;
 use Frootbox\Core\Language\Language;
 use Frootbox\Core\Language\Languages;
 use Frootbox\Core\Media\Credits;
+use Frootbox\Core\Navigation\Definitions;
 use Frootbox\Core\Navigation\MenuItem;
 use Frootbox\Core\Navigation\Menus;
 use Frootbox\Core\ObjectField\ObjectOutput;
@@ -62,6 +63,7 @@ use Twig\TwigFunction;
  *     {{ site_field('address') }}     a field of the website, the same on every page
  *     <p{{ site_attributes('address')|attributes }}> lang and dir of a field of the website from the first language
  *     {{ site_value('brand') }}       its stored value
+ *     <nav{{ navigation_attributes('main')|attributes }}> marks a navigation for editing on the website (decision 0349)
  *     {% for item in alternates() %}  the page in all languages, for a language switcher
  *     {{ t('Skip to content') }}       a text of the theme in the language of the page
  *     <section{{ {id: jump_mark()}|attributes }}> the id of the block's jump mark, null without one
@@ -145,6 +147,7 @@ final class ViewExtension extends AbstractExtension
             new TwigFunction('content_attributes', $this->contentAttributes(...)),
             new TwigFunction('alternates', $this->alternates(...)),
             new TwigFunction('navigation', $this->navigation(...)),
+            new TwigFunction('navigation_attributes', $this->navigationAttributes(...)),
             new TwigFunction('site_field', fn(string $name, ?string $part = null): mixed => $this->site()->field($name, $part)),
             new TwigFunction('site_attributes', $this->siteAttributes(...)),
             new TwigFunction('site_value', fn(string $name): mixed => $this->site()->value($name)),
@@ -329,6 +332,21 @@ final class ViewExtension extends AbstractExtension
     public function navigation(string $name): array
     {
         return $this->service(Menus::class)->navigation($name);
+    }
+
+    /**
+     * The attributes that mark a navigation of the theme for editing on
+     * the website (decision 0349), empty for visitors.
+     *
+     * @return array<string, string>
+     */
+    public function navigationAttributes(string $name): array
+    {
+        if (!$this->service(EditMode::class)->marking() || null === $this->service(Definitions::class)->get($name)) {
+            return [];
+        }
+
+        return ['data-fb-navigation' => $name];
     }
 
     /**

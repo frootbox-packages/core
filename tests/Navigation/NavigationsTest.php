@@ -29,6 +29,7 @@ use Frootbox\Core\Navigation\PublishNavigations;
 use Frootbox\Core\Navigation\ShowNavigation;
 use Frootbox\Core\Navigation\UpdateNavigation;
 use Frootbox\Core\Page\CreatePage;
+use Frootbox\Core\Page\EditMode;
 use Frootbox\Core\Page\PageOutline;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Tests\Support\FixtureSite;
@@ -236,6 +237,18 @@ final class NavigationsTest extends NotesTestCase
         );
 
         self::assertSame('<a href="/ueber-uns" class="active">Über uns</a><a href="/laden">Laden</a>|Start/Über uns/Team!/', $twig->render());
+    }
+
+    public function testMarksANavigationForEditing(): void
+    {
+        $twig = $this->get(Environment::class)->createTemplate('<nav{{ navigation_attributes("main")|attributes }}></nav><nav{{ navigation_attributes("side")|attributes }}></nav>');
+        self::assertSame('<nav></nav><nav></nav>', $twig->render(), 'Visitors get nothing.');
+
+        $this->get(EditMode::class)->set(true, marking: true);
+        self::assertSame('<nav data-fb-navigation="main"></nav><nav></nav>', $twig->render(), 'Only a navigation of the theme.');
+
+        $this->get(EditMode::class)->set(true);
+        self::assertSame('<nav></nav><nav></nav>', $twig->render(), 'Not in a preview.');
     }
 
     public function testUndoKeepsOneDraft(): void
