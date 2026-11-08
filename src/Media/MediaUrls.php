@@ -134,7 +134,9 @@ final readonly class MediaUrls
 
     /**
      * The widths of the ladder up to the given one, never wider than the
-     * original; the original width itself if it is smaller.
+     * original; the original width itself if it lies below the given one
+     * and clearly above the last step, e.g. 1200 after 960, so a wide image
+     * is not enlarged from a much smaller one.
      *
      * @return list<int>
      */
@@ -143,7 +145,11 @@ final readonly class MediaUrls
         $limit = min($max, $medium->width);
         $widths = array_values(array_filter(self::WIDTHS, static fn(int $width): bool => $width <= $limit));
 
-        return [] === $widths ? [$medium->width] : $widths;
+        if ($medium->width <= $max && $medium->width > 1.1 * ($widths[\count($widths) - 1] ?? 0)) {
+            $widths[] = $medium->width;
+        }
+
+        return $widths;
     }
 
     /**

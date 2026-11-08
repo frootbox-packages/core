@@ -412,6 +412,16 @@ final class MediaTest extends NotesTestCase
         self::assertSame([1200, 675, 0, 125], Images::crop(1200, 800, 16 / 9, 500, 1000));
     }
 
+    public function testTheSizesGoUpToTheOriginalWhenItIsClearlyWiderThanTheLastStep(): void
+    {
+        $media = $this->get(Media::class);
+
+        self::assertSame([160, 320, 480, 640, 960, 1200], MediaUrls::widths($media->getById($this->medium('banner.jpg', 1200, 250)->id)));
+        self::assertSame([160, 320, 480, 640, 960, 1280, 1600, 1920], MediaUrls::widths($media->getById($this->medium('wide.jpg', 2000, 1000)->id)), '2000 is close to 1920.');
+        self::assertSame([100], MediaUrls::widths($media->getById($this->medium('small.jpg', 100, 100)->id)));
+        self::assertSame([160, 320, 480], MediaUrls::widths($media->getById($this->medium('poster.jpg', 1200, 250)->id), 600), 'Not above the given width.');
+    }
+
     public function testMediaBecomePublicWithThePageAndRenderAsPicture(): void
     {
         $cover = $this->medium('cover.jpg', 2000, 1000, texts: ['de' => ['alt' => 'Aus der Bibliothek']]);
@@ -446,7 +456,7 @@ final class MediaTest extends NotesTestCase
         self::assertMatchesRegularExpression('#<picture>' . implode('', $sources) . '<img #', $html);
         self::assertStringContainsString(' 1920w" sizes="50vw">', $html);
         self::assertMatchesRegularExpression('#<img src="/media/' . $cover->id . '/1/cover-960x540-[0-9a-f]{16}\.jpg" srcset="[^"]+" sizes="50vw" width="960" height="540" alt="Aus der Bibliothek" loading="lazy" decoding="async">#', $html);
-        self::assertMatchesRegularExpression('#<img src="/media/' . $inList->id . '/2/liste-320x0-[0-9a-f]{16}\.png" srcset="[^"]+" sizes="100vw" width="320" height="240" alt="Eigener Text" loading="lazy" decoding="async" style="object-position: 25% 80%">#', $html, 'Without a ratio the focus point keeps its place under object-fit: cover.');
+        self::assertMatchesRegularExpression('#<img src="/media/' . $inList->id . '/2/liste-400x0-[0-9a-f]{16}\.png" srcset="[^"]+" sizes="100vw" width="400" height="300" alt="Eigener Text" loading="lazy" decoding="async" style="object-position: 25% 80%">#', $html, 'Without a ratio the focus point keeps its place under object-fit: cover.');
         self::assertMatchesRegularExpression('#<img src="/media/' . $hero->id . '/1/hero-[^>]+ loading="eager" fetchpriority="high" decoding="async">#', $html, 'The first image of a page loads at once.');
 
         // A published page keeps its media (decision 0147); one gone anyway shows nothing.
