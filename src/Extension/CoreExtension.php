@@ -254,6 +254,7 @@ use Frootbox\Core\Settings\ListSettings;
 use Frootbox\Core\Settings\SetSecret;
 use Frootbox\Core\Settings\ShowSettings;
 use Frootbox\Core\Settings\StoredSettings;
+use Frootbox\Core\Settings\TestConnection;
 use Frootbox\Core\Settings\UpdateSettings;
 use Frootbox\Core\Site\DiscardSite;
 use Frootbox\Core\Site\EnterSite;
@@ -518,6 +519,7 @@ final class CoreExtension implements Extension
         // Settings of extensions and the queue (decision 0221).
         $registry->action(UpdateSettings::class);
         $registry->action(SetSecret::class);
+        $registry->action(TestConnection::class);
         $registry->query(ListSettings::class);
         $registry->query(ShowSettings::class);
         $registry->sensitive(StoredSettings::TABLE, 'secret');

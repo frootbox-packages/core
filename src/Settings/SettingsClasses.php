@@ -70,6 +70,10 @@ final readonly class SettingsClasses
             throw new DefinitionException(\sprintf('The section "%s" of the settings %s may only have lowercase letters, digits and dashes.', $settings->section, $class));
         }
 
+        if (null !== $settings->test && !is_subclass_of($settings->test, ConnectionTest::class)) {
+            throw new DefinitionException(\sprintf('The test %s of the settings %s must implement %s.', $settings->test, $class, ConnectionTest::class));
+        }
+
         if (!$reflection->isFinal() || !$reflection->isReadOnly()) {
             throw new DefinitionException(\sprintf('The settings %s must be a final readonly class.', $class));
         }

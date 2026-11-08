@@ -15,7 +15,7 @@ use Frootbox\Core\Action\Schema\Sensitive;
 use Frootbox\Core\Action\Schema\Title;
 use Frootbox\Core\Settings\AsSettings;
 
-#[AsSettings('Notes', 'How notes are sent')]
+#[AsSettings('Notes', 'How notes are sent', test: NotesConnection::class)]
 final readonly class NotesSettings
 {
     public function __construct(

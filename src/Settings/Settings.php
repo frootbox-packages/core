@@ -107,7 +107,7 @@ final class Settings
             );
         }
 
-        return new SettingsDetails($package, $attribute->title, $attribute->description, $fields);
+        return new SettingsDetails($package, $attribute->title, $attribute->description, $fields, null !== $attribute->test);
     }
 
     /**

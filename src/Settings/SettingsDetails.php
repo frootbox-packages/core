@@ -21,5 +21,7 @@ final readonly class SettingsDetails
         public string $title,
         public string $description,
         public array $fields,
+        /** Whether settings.test can check them against their service (decision 0353) */
+        public bool $testable = false,
     ) {}
 }

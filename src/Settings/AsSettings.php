@@ -29,6 +29,10 @@ use Attribute;
  * e.g. section: "mail": it counts as "acme/shop.mail" in the table, the
  * actions, the backend and config/extensions/acme/shop.mail.yaml
  * (decision 0269).
+ *
+ * test: names a ConnectionTest that checks the settings against the
+ * service they reach; the backend then offers "Test the connection"
+ * (decision 0353).
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 final readonly class AsSettings
@@ -38,5 +42,7 @@ final readonly class AsSettings
         public string $description = '',
         /** Lowercase letters, digits and dashes, e.g. "mail" */
         public ?string $section = null,
+        /** @var class-string<ConnectionTest>|null */
+        public ?string $test = null,
     ) {}
 }
