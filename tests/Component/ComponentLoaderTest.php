@@ -158,6 +158,54 @@ final class ComponentLoaderTest extends TestCase
         self::assertSame('Image height', $option->label);
     }
 
+    public function testMultipleChoicesAreAListWithAnEmptyDefault(): void
+    {
+        $root = $this->project->root . '/multiple';
+        $this->write($root, [
+            'frootbox.yaml' => 'title: Multiple',
+            'blocks/Dates/views/Default.twig' => <<<'TWIG'
+                {# frootbox
+                title: Dates
+                options:
+                  days: { type: choice, multiple: true, choices: { '': Every day, 1: Monday, 2: Tuesday, 3: Wednesday } }
+                  courses: { type: choice, multiple: true, source: acme/courses/course.choices }
+                #}
+                TWIG,
+        ]);
+        $components = $this->container(null, new Extensions([ExtensionPackage::fromManifest('acme/multiple', $root)]))->get(Components::class);
+        self::assertInstanceOf(Components::class, $components);
+        $variant = $this->block($components, 'acme/multiple/Dates')->variants['Default'];
+        $days = $variant->options['days'];
+
+        self::assertTrue($days->multiple);
+        self::assertSame([], $days->default);
+        self::assertSame(['days' => [1, 3], 'courses' => ['k-2', 'k-4']], $variant->options(['days' => ['1', 3], 'courses' => ['k-2', 'k-4']]));
+        // A repeated value, the empty value, an unknown one or a single value keep the default
+        self::assertSame(['days' => [], 'courses' => []], $variant->options(['days' => [1, 1], 'courses' => ['']]));
+        self::assertSame([], $variant->options(['days' => [9]])['days']);
+        self::assertSame([], $variant->options(['days' => '1'])['days']);
+        self::assertSame(['type' => 'array', 'maxItems' => 100, 'uniqueItems' => true, 'items' => ['enum' => [1, 2, 3]]], $days->valueSchema());
+        self::assertSame(['type' => 'array', 'maxItems' => 100, 'uniqueItems' => true, 'items' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 100]], $variant->options['courses']->valueSchema());
+
+        $broken = $this->project->root . '/multiple-broken';
+        $this->write($broken, [
+            'frootbox.yaml' => 'title: Broken',
+            'blocks/Dates/views/Default.twig' => <<<'TWIG'
+                {# frootbox
+                title: Dates
+                options:
+                  wide: { type: boolean, multiple: true }
+                  weekend: { type: choice, multiple: true, choices: { 6: Saturday, 7: Sunday }, default: 6 }
+                #}
+                TWIG,
+        ]);
+
+        self::assertSame([
+            'acme/broken: blocks/Dates/views/Default.twig → options.weekend.default: does not fit the option',
+            'acme/broken: blocks/Dates/views/Default.twig → options.wide.multiple: is only for options of type choice',
+        ], $this->errors(new Extensions([ExtensionPackage::fromManifest('acme/broken', $broken)])));
+    }
+
     public function testCollectsAllErrors(): void
     {
         $root = $this->project->root . '/broken';

@@ -140,9 +140,12 @@ final readonly class ContentValidator
                     ? new Message('is not an option, this variant has none.')
                     : new Message('is not an option of this variant. Options: {options}.', ['options' => implode(', ', array_keys($variant->options))]);
             } elseif (!$option->accepts($value)) {
-                $errors[$pointer . '/' . $name] = 'choice' === $option->type
-                    ? new Message('must be one of {choices}.', ['choices' => implode(', ', array_keys($option->choices))])
-                    : new Message('must be a valid {type}.', ['type' => $option->type]);
+                $errors[$pointer . '/' . $name] = match (true) {
+                    $option->multiple && null !== $option->source => new Message('must be a list of different values.'),
+                    $option->multiple => new Message('must be a list of different values from {choices}.', ['choices' => implode(', ', array_filter(array_keys($option->choices), static fn(int|string $key): bool => '' !== $key))]),
+                    'choice' === $option->type => new Message('must be one of {choices}.', ['choices' => implode(', ', array_keys($option->choices))]),
+                    default => new Message('must be a valid {type}.', ['type' => $option->type]),
+                };
             } else {
                 $checked[$name] = $value;
             }

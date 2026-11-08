@@ -23,10 +23,13 @@ final readonly class OptionSummary
         public string $type,
         public string $label,
         public string $description,
-        public string|int|float|bool $default,
+        /** @var string|int|float|bool|list<int|string> */
+        public string|int|float|bool|array $default,
         public array $choices,
         public int|float|null $min,
         public int|float|null $max,
+        /** Any number of choices, the value is a list */
+        public bool $multiple = false,
     ) {}
 
     public static function of(Option $option): self
@@ -37,6 +40,6 @@ final readonly class OptionSummary
             $choices[] = ['value' => $value, 'label' => $label];
         }
 
-        return new self($option->name, $option->type, $option->label, $option->description, $option->default, $choices, $option->min, $option->max);
+        return new self($option->name, $option->type, $option->label, $option->description, $option->default, $choices, $option->min, $option->max, $option->multiple);
     }
 }

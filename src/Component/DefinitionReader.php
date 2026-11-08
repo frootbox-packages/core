@@ -65,8 +65,9 @@ final readonly class DefinitionReader
         'type' => ['enum' => Option::TYPES],
         'label' => ['type' => 'string'],
         'description' => ['type' => 'string'],
-        'default' => ['type' => ['string', 'number', 'boolean']],
+        'default' => ['type' => ['string', 'number', 'boolean', 'array']],
         'choices' => self::ANY_MAP,
+        'multiple' => ['type' => 'boolean'],
         'source' => ['type' => 'string', 'pattern' => '^(?:[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*/)?[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$'],
         'min' => ['type' => 'number'],
         'max' => ['type' => 'number'],
@@ -240,6 +241,13 @@ final readonly class DefinitionReader
             $type = self::string($definition['type']) ?? 'text';
             $choices = $definition['choices'] ?? [];
             $source = self::string($definition['source'] ?? null);
+            $multiple = true === ($definition['multiple'] ?? false);
+
+            if ($multiple && 'choice' !== $type) {
+                $errors->add($where, $path . '.multiple', 'is only for options of type choice');
+
+                continue;
+            }
 
             if (null !== $source && 'choice' !== $type) {
                 $errors->add($where, $path . '.source', 'is only for options of type choice');
@@ -257,12 +265,13 @@ final readonly class DefinitionReader
                 $name,
                 $type,
                 self::string($definition['label'] ?? null) ?? self::label($name),
-                self::defaultFor($type, $definition),
+                $multiple ? self::defaultList($definition) : self::defaultFor($type, $definition),
                 self::string($definition['description'] ?? null) ?? '',
                 'choice' === $type ? self::labels($choices) : [],
                 self::number($definition['min'] ?? null),
                 self::number($definition['max'] ?? null),
                 $source,
+                $multiple,
             );
 
             if (!$option->accepts($option->default)) {
@@ -493,6 +502,35 @@ final readonly class DefinitionReader
             'number' => self::number($definition['min'] ?? null) ?? 0,
             default => '',
         };
+    }
+
+    /**
+     * The default of a multiple choice: a list, empty without one.
+     *
+     * @param array<mixed> $definition
+     *
+     * @return list<int|string>|string
+     */
+    private static function defaultList(array $definition): array|string
+    {
+        $default = $definition['default'] ?? [];
+
+        // Anything but a list fails the check of the default
+        if (!\is_array($default) || !array_is_list($default)) {
+            return '';
+        }
+
+        $list = [];
+
+        foreach ($default as $item) {
+            if (!\is_string($item) && !\is_int($item)) {
+                return '';
+            }
+
+            $list[] = $item;
+        }
+
+        return $list;
     }
 
     /**

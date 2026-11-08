@@ -117,6 +117,7 @@ final class Labels
             $option->min,
             $option->max,
             $option->source,
+            $option->multiple,
         ), $variant->options);
 
         return new Variant($variant->name, $this->text($variant->title, $package), $this->text($variant->description, $package), $options, $variant->template, $variant->from);

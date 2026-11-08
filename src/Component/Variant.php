@@ -36,7 +36,7 @@ final readonly class Variant
      *
      * @param array<mixed> $chosen
      *
-     * @return array<string, string|int|float|bool>
+     * @return array<string, string|int|float|bool|list<int|string>>
      */
     public function options(array $chosen): array
     {
