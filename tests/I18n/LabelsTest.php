@@ -12,6 +12,7 @@ use Frootbox\Core\Action\CurrentContext;
 use Frootbox\Core\Component\Area;
 use Frootbox\Core\Component\Component;
 use Frootbox\Core\Component\ComponentKind;
+use Frootbox\Core\Component\ObjectDefinition;
 use Frootbox\Core\Component\Option;
 use Frootbox\Core\Component\Variant;
 use Frootbox\Core\Config\Config;
@@ -83,5 +84,49 @@ final class LabelsTest extends TestCase
         self::assertSame('Breite', $component->variants['Default']->options['width']->label);
         self::assertSame(['wide' => 'Breit', 'narrow' => 'Schmal'], $component->variants['Default']->options['width']->choices);
         self::assertSame(['Kurz'], $component->keywords);
+    }
+
+    public function testAViewOfAThemeTranslatesItsOwnTexts(): void
+    {
+        $project = TemporaryProject::create();
+
+        try {
+            foreach (['courses' => ['Courses' => 'Kurse', 'Rows' => 'Zeilen (Modul)'], 'site' => ['Rows' => 'Zeilen', 'Count' => 'Anzahl']] as $folder => $texts) {
+                mkdir($project->root . '/' . $folder . '/translations', 0o777, true);
+                file_put_contents($project->root . '/' . $folder . '/translations/de.yaml', Yaml::dump($texts));
+            }
+
+            $config = new Config(Environment::Development, ['backend' => ['language' => 'de']]);
+            $users = new class implements UserLanguages {
+                public function of(int $userId): ?string
+                {
+                    return null;
+                }
+            };
+            $extensions = new Extensions([
+                new ExtensionPackage('acme/courses', $project->root . '/courses', 'Courses'),
+                new ExtensionPackage('acme/site', $project->root . '/site', 'Site', theme: ['parent' => null]),
+            ]);
+            $object = new ObjectDefinition('course', []);
+            $component = new Labels(new Translator($config, Languages::fromConfig($config), $extensions, new ProjectPaths($project->root), new CurrentContext(), $users))->component(new Component(
+                ComponentKind::Block,
+                'acme/courses/Dates',
+                '/tmp',
+                'Courses',
+                '',
+                [],
+                [],
+                [
+                    'Default' => new Variant('Default', 'Courses', '', [], '/tmp/Default.twig', 'acme/courses'),
+                    'Rows' => new Variant('Rows', 'Rows', '', ['count' => new Option('count', 'number', 'Count', 4)], '/tmp/Rows.twig', 'acme/site', $object),
+                ],
+            ));
+        } finally {
+            $project->remove();
+        }
+
+        self::assertSame('Kurse', $component->variants['Default']->title);
+        self::assertSame(['Zeilen', 'Anzahl'], [$component->variants['Rows']->title, $component->variants['Rows']->options['count']->label]);
+        self::assertSame($object, $component->variants['Rows']->object, 'The translation keeps the further fields of the objects.');
     }
 }

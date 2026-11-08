@@ -105,21 +105,26 @@ final class Labels
         return \count($parts) >= 3 ? $parts[0] . '/' . $parts[1] : self::CORE;
     }
 
+    /**
+     * A view from a theme or another module ("from") translates its own
+     * texts first, e.g. a variant that a child theme adds to a block.
+     */
     private function variant(Variant $variant, string $package): Variant
     {
+        $packages = $variant->from === $package || '' === $variant->from ? $package : [$variant->from, $package];
         $options = array_map(fn(Option $option): Option => new Option(
             $option->name,
             $option->type,
-            $this->text($option->label, $package),
+            $this->text($option->label, $packages),
             $option->default,
-            $this->text($option->description, $package),
-            array_map(fn(string $label): string => $this->text($label, $package), $option->choices),
+            $this->text($option->description, $packages),
+            array_map(fn(string $label): string => $this->text($label, $packages), $option->choices),
             $option->min,
             $option->max,
             $option->source,
             $option->multiple,
         ), $variant->options);
 
-        return new Variant($variant->name, $this->text($variant->title, $package), $this->text($variant->description, $package), $options, $variant->template, $variant->from);
+        return new Variant($variant->name, $this->text($variant->title, $packages), $this->text($variant->description, $packages), $options, $variant->template, $variant->from, $variant->object);
     }
 }
