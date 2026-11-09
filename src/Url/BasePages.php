@@ -23,11 +23,12 @@ final readonly class BasePages
     ) {}
 
     /**
-     * @param list<string> $blocks
+     * @param list<string>                       $blocks
+     * @param (callable(array<mixed>): bool)|null $match  only blocks it accepts, e.g. by their options (decision 0360)
      *
      * @return array<string, string> Page id by language
      */
-    public function of(array $blocks): array
+    public function of(array $blocks, ?callable $match = null): array
     {
         $bases = [];
 
@@ -37,13 +38,40 @@ final readonly class BasePages
             }
 
             $content = $this->reader->published($path->pageId)?->translations[$path->contentLanguage]->content ?? [];
+            $found = array_filter(self::nodes($content), static fn(array $block): bool => \in_array($block['block'] ?? null, $blocks, true) && (null === $match || $match($block)));
 
-            if ([] !== array_intersect($blocks, self::blocks($content))) {
+            if ([] !== $found) {
                 $bases[$path->language] = $path->pageId;
             }
         }
 
         return $bases;
+    }
+
+    /**
+     * All blocks in a content, nested ones included, with options and fields.
+     *
+     * @param array<mixed> $node
+     *
+     * @return list<array<mixed>> each with the name in "block"
+     */
+    public static function nodes(array $node): array
+    {
+        $nodes = [];
+
+        foreach (\is_array($node['areas'] ?? null) ? $node['areas'] : [] as $list) {
+            foreach (\is_array($list) ? $list : [] as $block) {
+                if (\is_array($block)) {
+                    if (\is_string($block['block'] ?? null)) {
+                        $nodes[] = $block;
+                    }
+
+                    $nodes = [...$nodes, ...self::nodes($block)];
+                }
+            }
+        }
+
+        return $nodes;
     }
 
     /**
