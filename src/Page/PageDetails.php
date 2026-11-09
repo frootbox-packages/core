@@ -37,6 +37,10 @@ final readonly class PageDetails
         public Reach $locked = Reach::None,
         /** What applies, maybe from a page above (decision 0117) */
         public PageVisibility $visibility = new PageVisibility(),
+        /** The page's own password, see page.protect (decision 0358); the password itself never */
+        public Reach $protected = Reach::None,
+        /** Since when the current password applies */
+        public ?DateTimeImmutable $protectedSince = null,
     ) {}
 
     /**
@@ -44,6 +48,6 @@ final readonly class PageDetails
      */
     public function withUrls(array $urls): self
     {
-        return new self($this->id, $this->status, $this->version, $this->draft, $this->published, $this->publishAt, $this->unpublishAt, $urls, $this->locked, $this->visibility);
+        return new self($this->id, $this->status, $this->version, $this->draft, $this->published, $this->publishAt, $this->unpublishAt, $urls, $this->locked, $this->visibility, $this->protected, $this->protectedSince);
     }
 }

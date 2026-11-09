@@ -9,7 +9,9 @@ declare(strict_types=1);
 namespace Frootbox\Core\Page;
 
 use Doctrine\DBAL\Exception\TableNotFoundException;
+use Frootbox\Core\Action\ActionException;
 use Frootbox\Core\Action\Catalog;
+use Frootbox\Core\Action\Runner;
 use Frootbox\Core\Asset\AssetList;
 use Frootbox\Core\Auth\ActorType;
 use Frootbox\Core\Auth\Authentication;
@@ -67,7 +69,10 @@ final readonly class PageHandler implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        if (!\in_array($request->getMethod(), self::METHODS, true)) {
+        // POST only for the password of a protected page (decision 0358).
+        $password = 'POST' === $request->getMethod() ? (((array) $request->getParsedBody())[PagePasswords::FIELD] ?? null) : null;
+
+        if (!\in_array($request->getMethod(), self::METHODS, true) && !\is_string($password)) {
             throw HttpException::methodNotAllowed($request->getMethod(), self::METHODS);
         }
 
@@ -109,6 +114,25 @@ final readonly class PageHandler implements RequestHandlerInterface
                 throw HttpException::locked($path);
             }
 
+            // A page with a password: never in the page cache (decision 0358).
+            $protectedBy = $this->service(PageOutline::class)->protectedBy($resolution->page->id);
+
+            if (null !== $protectedBy) {
+                $inside = $preview
+                    || $request->getAttribute(Authentication::class) instanceof Authentication
+                    || $this->service(PagePasswords::class)->grants($protectedBy, $request->getCookieParams());
+
+                if (!$inside) {
+                    return \is_string($password) ? $this->enter($request, $protectedBy, $password) : throw HttpException::pageProtected($path);
+                }
+
+                if (\is_string($password)) {
+                    return $this->redirect($request);
+                }
+            } elseif (\is_string($password)) {
+                throw HttpException::methodNotAllowed($request->getMethod(), self::METHODS);
+            }
+
             if ($editing && !$preview) {
                 // A page in a fallback language has no content of its own to change (decision 0122).
                 $marking = !$resolution->page->isFallback() && $this->mayChange($request, $resolution->page->id);
@@ -119,6 +143,11 @@ final readonly class PageHandler implements RequestHandlerInterface
             }
 
             $html = $this->render($resolution->page, $request);
+
+            if (null !== $protectedBy) {
+                return self::protected($this->page($html, null));
+            }
+
             $cache = $this->service(PageCache::class);
 
             if (!$cache->accepts($request) || !$this->service(Delivery::class)->cacheable() || $this->service(VisitorSession::class)->active()) {
@@ -128,6 +157,10 @@ final readonly class PageHandler implements RequestHandlerInterface
             $cache->put($request, $html, $this->service(Delivery::class)->parameters(), $this->service(Delivery::class)->cacheLifetime());
 
             return $this->page($html, 'miss');
+        }
+
+        if (\is_string($password)) {
+            throw HttpException::methodNotAllowed($request->getMethod(), self::METHODS);
         }
 
         if (null !== $resolution->location) {
@@ -195,6 +228,47 @@ final readonly class PageHandler implements RequestHandlerInterface
             && $this->service(Gate::class)->allows($authentication->actor, $catalog->get('site.update-field'));
     }
 
+    /**
+     * Checks the password a visitor entered for the protected page and
+     * leads back to the same address with the cookie (decision 0358).
+     */
+    private function enter(ServerRequestInterface $request, string $pageId, string $password): ResponseInterface
+    {
+        try {
+            $access = $this->service(Runner::class)->run(new EnterPage($pageId, $password));
+        } catch (ActionException $exception) {
+            throw HttpException::pageProtected($request->getUri()->getPath(), $exception);
+        }
+
+        $parts = [$access->cookie . '=' . rawurlencode($access->value), 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=' . ($access->days * 86400)];
+
+        if ('https' === $request->getUri()->getScheme()) {
+            $parts[] = 'Secure';
+        }
+
+        return $this->redirect($request)->withAddedHeader('Set-Cookie', implode('; ', $parts));
+    }
+
+    private function redirect(ServerRequestInterface $request): ResponseInterface
+    {
+        $query = $request->getUri()->getQuery();
+
+        return $this->responses->createResponse(303)
+            ->withHeader('Location', $request->getUri()->getPath() . ('' === $query ? '' : '?' . $query))
+            ->withHeader('Cache-Control', 'no-store');
+    }
+
+    /**
+     * A protected page is for this visitor only, never for caches or
+     * search engines.
+     */
+    private static function protected(ResponseInterface $response): ResponseInterface
+    {
+        return $response
+            ->withHeader('Cache-Control', 'private, no-store')
+            ->withHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
+
     private function isInstalled(): bool
     {
         $database = $this->config->get('database.url');
@@ -259,7 +333,7 @@ final readonly class PageHandler implements RequestHandlerInterface
         $head->description = null === $page->subpage ? $page->translation->description : $page->subpage->description;
         $head->image = null === $page->subpage ? self::firstImage($page->translation->content) : $page->subpage->image;
 
-        if (null !== $this->service(PageOutline::class)->excludedFromSearchEnginesBy($page->id)) {
+        if (null !== $this->service(PageOutline::class)->excludedFromSearchEnginesBy($page->id) || null !== $this->service(PageOutline::class)->protectedBy($page->id)) {
             $head->add('<meta name="robots" content="noindex">');
         }
 

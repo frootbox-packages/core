@@ -67,6 +67,15 @@ final class HttpException extends RuntimeException
             : new self(401, \sprintf('The website is protected, "%s" is only for signed-in users.', $path), ['X-Robots-Tag' => 'noindex, nofollow'], reason: 'site-protected-closed');
     }
 
+    /**
+     * A page needs its password (decision 0358); the previous exception
+     * says why one entered did not let the visitor in.
+     */
+    public static function pageProtected(string $path, ?Throwable $previous = null): self
+    {
+        return new self(401, \sprintf('The page at "%s" is protected and needs its password.', $path), ['X-Robots-Tag' => 'noindex, nofollow', 'Cache-Control' => 'private, no-store'], $previous, 'page-protected');
+    }
+
     public static function locked(string $path): self
     {
         return new self(503, \sprintf('The page at "%s" is locked for visitors.', $path), ['X-Robots-Tag' => 'noindex']);

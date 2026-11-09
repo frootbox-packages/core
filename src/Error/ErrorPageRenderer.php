@@ -11,6 +11,7 @@ namespace Frootbox\Core\Error;
 use Frootbox\Core\Auth\AuthenticationException;
 use Frootbox\Core\Auth\TooManyAttemptsException;
 use Frootbox\Core\Http\Exception\HttpException;
+use Frootbox\Core\Page\PagePasswords;
 use Frootbox\Core\Site\SiteAccessMiddleware;
 use Throwable;
 
@@ -44,6 +45,10 @@ final class ErrorPageRenderer
             $body = '<p>Dieser Vorschaulink ist abgelaufen oder wurde zurückgezogen. Frag nach einem neuen Link.</p><p><a href="/">Zur Website</a></p>';
         } elseif ('site-protected' === $reason || 'site-protected-closed' === $reason) {
             $body = $this->passwordForm($throwable, 'site-protected' === $reason);
+        } elseif ('page-protected' === $reason) {
+            // The password of a page (decision 0358).
+            $title = 'Geschützte Seite';
+            $body = '<p>Diese Seite ist nur mit Passwort zugänglich.</p>' . $this->passwordForm($throwable, true, PagePasswords::FIELD);
         }
 
         if ($showDetails) {
@@ -93,7 +98,7 @@ final class ErrorPageRenderer
             HTML;
     }
 
-    private function passwordForm(Throwable $throwable, bool $password): string
+    private function passwordForm(Throwable $throwable, bool $password, string $field = SiteAccessMiddleware::FIELD): string
     {
         if (!$password) {
             return '<p>Nur angemeldete Benutzer und Inhaber eines Vorschaulinks sehen sie.</p>';
@@ -104,7 +109,6 @@ final class ErrorPageRenderer
             $throwable->getPrevious() instanceof AuthenticationException => '<p class="error" role="alert">Das Passwort stimmt nicht.</p>',
             default => '',
         };
-        $field = SiteAccessMiddleware::FIELD;
 
         return <<<HTML
             <form method="post">

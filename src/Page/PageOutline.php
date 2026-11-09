@@ -18,17 +18,18 @@ use Doctrine\DBAL\Connection;
  */
 final class PageOutline
 {
-    /** @var array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}>|null */
+    /** @var array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, protected: Reach, titles: array<string, string>}>|null */
     private ?array $pages = null;
 
     public function __construct(
         private readonly Connection $connection,
         private readonly EditMode $editMode,
         private readonly PageReader $reader,
+        private readonly PagePasswords $passwords,
     ) {}
 
     /**
-     * @return array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}|null
+     * @return array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, protected: Reach, titles: array<string, string>}|null
      */
     public function get(string $id): ?array
     {
@@ -102,15 +103,25 @@ final class PageOutline
     }
 
     /**
+     * The page whose password applies (decision 0358), the page itself
+     * or one above it; null if visitors need none.
+     */
+    public function protectedBy(string $id): ?string
+    {
+        return $this->source($id, 'protected');
+    }
+
+    /**
      * Forgets what was read, e.g. after publishing.
      */
     public function clear(): void
     {
         $this->pages = null;
+        $this->passwords->clear();
     }
 
     /**
-     * @return array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}>
+     * @return array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, protected: Reach, titles: array<string, string>}>
      */
     private function pages(): array
     {
@@ -128,6 +139,7 @@ final class PageOutline
         $columns = ['id', 'parent_id', 'position', 'locked', 'exclude_from_search_engines', 'exclude_from_site_search'];
         $sql = \sprintf('SELECT %s FROM %s', implode(', ', array_map($quote, $columns)), $quote(Pages::TABLE));
         $reach = static fn(mixed $value): Reach => \is_string($value) ? Reach::tryFrom($value) ?? Reach::None : Reach::None;
+        $protections = $this->passwords->all();
 
         foreach ($this->connection->fetchAllAssociative($sql) as $row) {
             if (\is_string($row['id']) && \is_string($row['position'])) {
@@ -137,6 +149,7 @@ final class PageOutline
                     'locked' => $reach($row['locked']),
                     'excludeFromSearchEngines' => $reach($row['exclude_from_search_engines']),
                     'excludeFromSiteSearch' => $reach($row['exclude_from_site_search']),
+                    'protected' => $protections[$row['id']]->reach ?? Reach::None,
                     'titles' => [],
                 ];
             }
@@ -157,7 +170,7 @@ final class PageOutline
      * The tree with drafts for the editing mode (decision 0119); the lock
      * is the one of the published page.
      *
-     * @return array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, titles: array<string, string>}>
+     * @return array<string, array{parentId: string|null, position: string, locked: Reach, excludeFromSearchEngines: Reach, excludeFromSiteSearch: Reach, protected: Reach, titles: array<string, string>}>
      */
     private function drafts(): array
     {
@@ -170,6 +183,7 @@ final class PageOutline
                 'locked' => $node->locked,
                 'excludeFromSearchEngines' => $node->data->excludeFromSearchEngines,
                 'excludeFromSiteSearch' => $node->data->excludeFromSiteSearch,
+                'protected' => $node->protected,
                 'titles' => array_map(static fn(TranslationData $translation): string => $translation->title, $node->data->translations),
             ];
         }
@@ -178,7 +192,7 @@ final class PageOutline
     }
 
     /**
-     * @param 'locked'|'excludeFromSearchEngines'|'excludeFromSiteSearch' $setting
+     * @param 'locked'|'excludeFromSearchEngines'|'excludeFromSiteSearch'|'protected' $setting
      */
     private function source(string $id, string $setting): ?string
     {

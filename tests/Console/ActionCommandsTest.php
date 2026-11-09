@@ -57,7 +57,7 @@ final class ActionCommandsTest extends TestCase
 
     public function testCallRunsActionsAsTheSystem(): void
     {
-        [$exitCode, $output] = $this->console(['command' => 'call', 'name' => 'action.undo', 'input' => '{"id": 42}']);
+        [$exitCode, $output] = $this->console(['command' => 'call', 'name' => 'action.undo', 'input' => '{"id": 999999}']);
         self::assertSame(1, $exitCode);
         self::assertStringContainsString('no such entry', $output);
 

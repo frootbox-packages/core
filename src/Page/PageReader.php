@@ -24,6 +24,7 @@ final readonly class PageReader
         private Pages $pages,
         private PageTranslations $translations,
         private Revisions $revisions,
+        private PageProtections $protections,
     ) {}
 
     public function published(string $id): ?PageData
@@ -54,6 +55,7 @@ final readonly class PageReader
 
         $version = $this->revisions->published(self::TYPE, $id);
         $nodes = $this->nodes();
+        $protection = $this->protections->all()[$id] ?? null;
 
         return new PageDetails(
             $id,
@@ -65,6 +67,8 @@ final readonly class PageReader
             $version?->unpublishAt,
             locked: $nodes[$id]->locked ?? Reach::None,
             visibility: $this->visibility($nodes)[$id] ?? new PageVisibility(),
+            protected: $protection->reach ?? Reach::None,
+            protectedSince: $protection->updatedAt ?? $protection?->createdAt,
         );
     }
 
@@ -82,6 +86,7 @@ final readonly class PageReader
             array_map(static fn(Revision $draft): PageData => PageData::fromArray($draft->data), $drafts),
             array_map(static fn(Revision $draft): ?DateTimeImmutable => $draft->publishAt, $drafts),
             $this->locks(),
+            $this->passwords(),
         );
     }
 
@@ -107,7 +112,7 @@ final readonly class PageReader
      */
     public function nodesAfterPublishing(array $ids): array
     {
-        return $this->merge($this->publishedPages(), array_intersect_key($this->drafts(), array_flip($ids)), [], $this->locks());
+        return $this->merge($this->publishedPages(), array_intersect_key($this->drafts(), array_flip($ids)), [], $this->locks(), $this->passwords());
     }
 
     /**
@@ -130,16 +135,17 @@ final readonly class PageReader
      * @param array<string, PageData>                $drafts
      * @param array<string, DateTimeImmutable|null> $publishAt of the drafts
      * @param array<string, Reach>                   $locks     of the published pages
+     * @param array<string, Reach>                   $passwords of the pages with one
      *
      * @return array<string, PageNode>
      */
-    private function merge(array $published, array $drafts, array $publishAt = [], array $locks = []): array
+    private function merge(array $published, array $drafts, array $publishAt = [], array $locks = [], array $passwords = []): array
     {
         $nodes = [];
 
         foreach ($published + $drafts as $id => $data) {
             $draft = $drafts[$id] ?? null;
-            $nodes[$id] = new PageNode($id, $draft ?? $data, self::status($draft, $published[$id] ?? null), $publishAt[$id] ?? null, $locks[$id] ?? Reach::None);
+            $nodes[$id] = new PageNode($id, $draft ?? $data, self::status($draft, $published[$id] ?? null), $publishAt[$id] ?? null, $locks[$id] ?? Reach::None, $passwords[$id] ?? Reach::None);
         }
 
         return $nodes;
@@ -179,6 +185,16 @@ final readonly class PageReader
         }
 
         return $locks;
+    }
+
+    /**
+     * The reach of the pages with a password (decision 0358).
+     *
+     * @return array<string, Reach>
+     */
+    private function passwords(): array
+    {
+        return array_map(static fn(PageProtection $protection): Reach => $protection->reach, $this->protections->all());
     }
 
     /**

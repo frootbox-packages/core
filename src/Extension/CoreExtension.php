@@ -197,13 +197,16 @@ use Frootbox\Core\Page\CopyBlock;
 use Frootbox\Core\Page\CreatePage;
 use Frootbox\Core\Page\DeletePage;
 use Frootbox\Core\Page\DiscardPage;
+use Frootbox\Core\Page\EnterPage;
 use Frootbox\Core\Page\ListPageVersions;
 use Frootbox\Core\Page\LockPage;
 use Frootbox\Core\Page\MoveBlock;
 use Frootbox\Core\Page\MoveListEntry;
 use Frootbox\Core\Page\MovePage;
+use Frootbox\Core\Page\PageProtections;
 use Frootbox\Core\Page\PageScopes;
 use Frootbox\Core\Page\PageUndoCheck;
+use Frootbox\Core\Page\ProtectPage;
 use Frootbox\Core\Page\PublishPages;
 use Frootbox\Core\Page\RemoveBlock;
 use Frootbox\Core\Page\RemoveListEntry;
@@ -214,6 +217,7 @@ use Frootbox\Core\Page\ShowPageHistory;
 use Frootbox\Core\Page\ShowPageTree;
 use Frootbox\Core\Page\SuggestSlug;
 use Frootbox\Core\Page\UnlockPage;
+use Frootbox\Core\Page\UnprotectPage;
 use Frootbox\Core\Page\UnpublishPage;
 use Frootbox\Core\Page\UpdateBlock;
 use Frootbox\Core\Page\UpdatePage;
@@ -390,7 +394,7 @@ final class CoreExtension implements Extension
         $registry->query(ShowEmailChange::class);
         $registry->query(ShowInvitation::class);
 
-        foreach ([CreatePage::class, UpdatePage::class, UpdatePageField::class, AddBlock::class, MoveBlock::class, CopyBlock::class, RemoveBlock::class, UpdateBlock::class, AddListEntry::class, MoveListEntry::class, RemoveListEntry::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class] as $action) {
+        foreach ([CreatePage::class, UpdatePage::class, UpdatePageField::class, AddBlock::class, MoveBlock::class, CopyBlock::class, RemoveBlock::class, UpdateBlock::class, AddListEntry::class, MoveListEntry::class, RemoveListEntry::class, MovePage::class, PublishPages::class, DiscardPage::class, DeletePage::class, RestorePage::class, UnpublishPage::class, SchedulePage::class, LockPage::class, UnlockPage::class, ProtectPage::class, UnprotectPage::class, EnterPage::class] as $action) {
             $registry->action($action);
         }
 
@@ -488,6 +492,7 @@ final class CoreExtension implements Extension
         $registry->query(ListSiteVersions::class);
         $registry->query(ShowProtection::class);
         $registry->sensitive(Protections::TABLE, 'password_hash');
+        $registry->sensitive(PageProtections::TABLE, 'password_hash');
 
         // Preview links for customers without an account (decisions 0152, 0154).
         foreach ([CreatePreview::class, UpdatePreview::class, RevokePreview::class, OpenPreview::class, PrunePreviews::class] as $action) {

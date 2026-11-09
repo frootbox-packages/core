@@ -51,6 +51,7 @@ final readonly class PageEditor
         private MediaReferences $references,
         private MediaEditor $media,
         private UsageIndex $usages,
+        private PageProtections $protections,
     ) {}
 
     /**
@@ -323,6 +324,14 @@ final readonly class PageEditor
         }
 
         $this->pages->delete($id);
+
+        // The password goes with the page (decision 0358).
+        $protection = $this->protections->of($id);
+
+        if (null !== $protection) {
+            $this->protections->delete($protection->id);
+        }
+
         $this->store->discard(PageReader::TYPE, $id);
         $this->store->archive(PageReader::TYPE, $id);
         $this->usages->page($id);

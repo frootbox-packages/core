@@ -22,12 +22,15 @@ final readonly class PageVisibility
         public ?string $excludedFromSearchEnginesBy = null,
         /** The site search leaves the page out */
         public ?string $excludedFromSiteSearchBy = null,
+        /** Visitors need the password of this page (decision 0358) */
+        public ?string $protectedBy = null,
     ) {}
 
     /**
      * What applies to every page, from its own settings and those above.
      * The lock applies right away, so it follows the published tree; the
-     * exclusions follow the tree as editors see it, drafts included.
+     * exclusions and the password follow the tree as editors see it,
+     * drafts included, so a page that is not published yet shows it too.
      *
      * @param array<string, PageNode> $nodes     drafts over published state
      * @param array<string, PageNode> $published the published pages
@@ -46,6 +49,7 @@ final readonly class PageVisibility
                 Reach::source(array_map(static fn(PageNode $node): Reach => $node->locked, $live)),
                 Reach::source(array_map(static fn(PageNode $node): Reach => $node->data->excludeFromSearchEngines, $trail)),
                 Reach::source(array_map(static fn(PageNode $node): Reach => $node->data->excludeFromSiteSearch, $trail)),
+                Reach::source(array_map(static fn(PageNode $node): Reach => $node->protected, $trail)),
             );
         }
 

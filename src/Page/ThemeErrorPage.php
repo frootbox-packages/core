@@ -45,7 +45,7 @@ final readonly class ThemeErrorPage implements ErrorPage
     public const string TEMPLATE = '@theme/error.twig';
 
     /** Cases of the access to the website, see HttpException. */
-    private const array ACCESS = ['site-protected', 'site-protected-closed', 'preview-expired'];
+    private const array ACCESS = ['site-protected', 'site-protected-closed', 'preview-expired', 'page-protected'];
 
     /** Title and text by status, in English; the themes translate them. */
     private const array TEXTS = [
